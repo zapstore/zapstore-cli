@@ -1,6 +1,6 @@
 import { install } from './src/install';
 import { list } from './src/list';
-import { disable, enable } from './src/enable';
+import { unlink, link } from './src/link';
 import { remove } from './src/remove';
 import { Command } from "commander";
 import figlet from "figlet";
@@ -24,17 +24,15 @@ program.command('remove')
   .argument('<package>', 'Package name')
   .action(async (value) => await remove(value));
 
-program.command('enable')
-  .alias('e')
+program.command('link')
   .description('Enable a package')
   .argument('<package>', 'Package name')
-  .action(async (value) => await enable(value));
+  .action(async (value) => await link(value));
 
-program.command('disable')
-  .alias('d')
-  .description('Disable a package')
+program.command('unlink')
+  .description('Unlink a package')
   .argument('<package>', 'Package name')
-  .action(async (value) => await disable(value));
+  .action(async (value) => await unlink(value));
 
 program.command('list')
   .alias('l')

@@ -1,14 +1,23 @@
 import { $ } from "bun";
 import { homedir } from "os";
-import { join } from 'path';
+import { join, basename } from 'path';
 import chalk from 'chalk';
 
 export const BASE_DIR = join(homedir(), '.zapstore');
-$.cwd(BASE_DIR);
 
 export async function loadPackages() {
   // Ensure presence of zapstore directory
   await $`mkdir -p $DIR`.env({ DIR: BASE_DIR }).quiet();
+  $.cwd(BASE_DIR);
+
+  // Ensure zapstore is copied over to base dir
+  const thisExecutable = Bun.env._;
+  const file = Bun.file(join(BASE_DIR, 'zapstore'));
+  if (!await file.exists()) {
+    const newPath = join(BASE_DIR, '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d-zapstore@-0.0.1');
+    await $`cp $SRC $DEST`.env({ SRC: thisExecutable, DEST: newPath }).quiet();
+    await $`ln -sf $PATH $NAME`.env({ PATH: newPath, NAME: 'zapstore' }).quiet();
+  }
 
   const _links = await $`find . -type l`.text();
   const links = _links.trim() && _links.trim().split('\n').map(e => e.slice(2));

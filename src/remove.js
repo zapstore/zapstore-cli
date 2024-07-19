@@ -4,9 +4,9 @@ import { loadPackages } from '../utils';
 
 export const remove = async (value) => {
   const db = await loadPackages();
-  if (db[value]) {
+  if (db[value] && value !== 'zapstore') {
     const ok = await confirm({
-      message: `Are you sure you want to remove all versions of package ${value}? (You can choose to disable it instead)`,
+      message: `Are you sure you want to remove all versions of package ${value}? (You can choose to unlink it instead)`,
       default: false
     });
     if (ok) {

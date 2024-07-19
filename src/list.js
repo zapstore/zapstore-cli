@@ -3,6 +3,7 @@ import { loadPackages } from "../utils";
 
 export const list = async () => {
   const db = await loadPackages();
+
   if (Object.keys(db).length === 0) {
     console.log('No packages installed');
   }

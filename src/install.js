@@ -13,7 +13,6 @@ export const install = async (value) => {
   const db = await loadPackages();
   const user = await ensureUser();
 
-
   const pool = new SimplePool();
   const PROFILE_RELAYS = ['wss://relay.damus.io', 'wss://relay.nostr.band', 'wss://relay.primal.net'];
   const ZAPSTORE_HTTP_RELAY = 'https://relay.zap.store';
@@ -21,7 +20,7 @@ export const install = async (value) => {
   const _hostPlatform = await $`uname -sm`.text();
   const hostPlatform = _hostPlatform.trim().toLowerCase().replace(' ', '-');
 
-  const spinner = ora(`Searching for ${value}...`).start();
+  const spinner = ora({ text: `Searching for ${value}...`, spinner: 'balloon' }).start();
   const r = await fetch(ZAPSTORE_HTTP_RELAY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -133,7 +132,7 @@ export const install = async (value) => {
   const signerNpub = npubEncode(packageSigner);
 
   if (!isAuthorTrusted) {
-    const wotSpinner = ora(`Checking web of trust...`).start();
+    const wotSpinner = ora({ text: `Checking web of trust...`, spinner: 'balloon' }).start();
     const trust = await (await fetch(`https://trustgraph.live/api/fwf/${user.npub}/${signerNpub}`)).json();
     // Separate querying user from result
     const userFollows = delete trust[user.npub];
@@ -180,7 +179,7 @@ export const install = async (value) => {
     console.log(`Package signed by ${formatProfile(signerInfo, signerNpub)} who was previously trusted for this app`);
   }
 
-  const installSpinner = ora(`Downloading package...`).start();
+  const installSpinner = ora({ text: `Downloading package...`, spinner: 'balloon' }).start();
   const appFileName = `${meta.pubkey}-${appName}@-${appVersion}`;
   const downloadPath = join(BASE_DIR, basename(packageUrl));
   await Bun.write(downloadPath, await fetchWithProgress(packageUrl, installSpinner));
