@@ -1,0 +1,9 @@
+zapstore:
+  cli:
+    name: zapstore
+    summary: The permissionless app store powered by your social network
+    repository: https://github.com/zapstore/zapstore-cli
+    npub: npub10r8xl2njyepcw2zwv3a6dyufj4e4ajx86hz6v4ehu4gnpupxxp7stjt2p8
+    artifacts:
+      zapstore-v\d+.\d+.\d+-darwin-arm64:
+        platform: darwin-arm64
