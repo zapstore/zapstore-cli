@@ -3,11 +3,17 @@
 To install dependencies:
 
 ```bash
-bun install
+dart pub get
 ```
 
 To run:
 
 ```bash
-bun run index.js
+dart lib/main.dart
+```
+
+To build:
+
+```bash
+dart compile exe lib/main.dart -o zapstore
 ```
