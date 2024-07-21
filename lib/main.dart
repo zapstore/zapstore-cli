@@ -24,7 +24,14 @@ void main(List<String> args) async {
       ..addCommand(ListCommand())
       ..addCommand(RemoveCommand())
       ..addCommand(PublishCommand());
+    runner.argParser.addFlag('version', abbr: 'v', negatable: false);
+    final argResults = runner.argParser.parse(args);
 
+    final version = argResults['version'];
+    if (version) {
+      print('zap.store CLI $kVersion');
+      return;
+    }
     await runner.run(args);
   } catch (e) {
     print('${logger.ansi.error('ERROR')} $e');
