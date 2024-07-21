@@ -40,7 +40,8 @@ Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
     final file = File(path.join(kBaseDir, 'zapstore'));
     if (!await file.exists()) {
       final newName = buildAppName(kZapstorePubkey, 'zapstore', kVersion);
-      await shell.run('cp $thisExecutable $newName');
+      await run('cp $thisExecutable ${path.join(kBaseDir, newName)}',
+          verbose: false);
       await shell.run('ln -sf $newName zapstore');
     }
   }
