@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cli_dialog/cli_dialog.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
+import 'package:interact_cli/interact_cli.dart';
 import 'package:path/path.dart' as path;
 import 'package:process_run/process_run.dart';
 import 'package:purplebase/purplebase.dart';
@@ -40,25 +40,19 @@ Future<void> install(String value) async {
   var app = apps.first;
 
   if (apps.length > 1) {
-    final listQuestions = [
-      [
-        {
-          'question': 'Which package?',
-          'options': [
-            for (final app in apps)
-              '${getTag(app, 'name')} [${getTag(app, 'd')}]'
-          ]
-        },
-        'package'
-      ]
+    final packages = [
+      for (final app in apps) '${getTag(app, 'name')} [${getTag(app, 'd')}]'
     ];
 
-    final dialog = CLI_Dialog(listQuestions: listQuestions);
-    final answer = dialog.ask();
-    app = apps.firstWhere(
-        (e) => '${getTag(e, 'name')} [${getTag(e, 'd')}]' == answer['package']);
+    final selection = Select(
+      prompt: 'Which package?',
+      options: packages,
+    ).interact();
+
+    app = apps[selection];
   }
 
+  // TODO make this an App and use getLink()
   final aTag = '32267:${app['pubkey']}:${getTag(app, 'd')}';
 
   final r2 = RelayRequest(
@@ -134,13 +128,13 @@ Future<void> install(String value) async {
       // Then there must be a -1 (downgrade)
       final higherVersion = appVersions.firstWhereOrNull(
           (a) => compareVersions(appVersion, a['version']) == -1);
-      final dialog = CLI_Dialog(booleanQuestions: [
-        [
-          'Are you sure you want to downgrade $appName from ${higherVersion.version} to $appVersion?',
-          '_'
-        ],
-      ], trueByDefault: false);
-      final installAnyway = dialog.ask()['_'];
+
+      final installAnyway = Confirm(
+        prompt:
+            'Are you sure you want to downgrade $appName from ${higherVersion.version} to $appVersion?',
+        defaultValue: false,
+      ).interact();
+
       if (!installAnyway) {
         exit(0);
       }
@@ -153,20 +147,22 @@ Future<void> install(String value) async {
   final signerNpub = packageSigner.npub;
 
   final container = ProviderContainer();
-  final notifier = container.read(relayMessageNotifierProvider.notifier);
-  notifier.initialize(['wss://relay.nostr.band', 'wss://relay.primal.net']);
+  final authorRelays = container.read(relayMessageNotifierProvider(
+      ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
+  authorRelays.initialize();
 
   if (!isAuthorTrusted) {
+    final user = await ensureUser();
+
     final wotSpinner = CliSpin(
       text: 'Checking web of trust...',
       spinner: CliSpinners.dots,
     ).start();
 
-    final user = await ensureUser();
-
-    final tr = await http.get(Uri.parse(
-        'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'));
-    final trust = Map<String, dynamic>.from(jsonDecode(tr.body));
+    final trust = await http
+        .get(Uri.parse(
+            'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
+        .getJson();
 
     // Separate querying user from result
     final userFollows = trust.remove(user['npub']);
@@ -181,7 +177,7 @@ Future<void> install(String value) async {
       kinds: {0},
       authors: authors.toSet(),
     );
-    final profileResponse = await notifier.query(r4);
+    final profileResponse = await authorRelays.query(r4);
 
     final profiles = {
       for (final profile in profileResponse)
@@ -209,26 +205,24 @@ Future<void> install(String value) async {
     }
     print('\n');
 
-    final dialog = CLI_Dialog(booleanQuestions: [
-      [
-        'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} $appName${isUpdatable ? ' to $appVersion' : ''}?',
-        '_'
-      ],
-    ], trueByDefault: false);
-    final installPackage = dialog.ask()['_'];
+    final installPackage = Confirm(
+      prompt:
+          'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} $appName${isUpdatable ? ' to $appVersion' : ''}?',
+      defaultValue: false,
+    ).interact();
 
     if (!installPackage) {
       exit(0);
     }
   } else {
-    final r4 = await notifier
+    final r4 = await authorRelays
         .query(RelayRequest(kinds: {0}, authors: {packageSigner}));
     final signerInfo = r4.first;
     print(
         'Package signed by ${formatProfile(signerInfo, signerNpub)} who was previously trusted for this app');
   }
 
-  await notifier.dispose();
+  await authorRelays.dispose();
 
   final installSpinner = CliSpin(
     text: 'Downloading package...',
@@ -238,13 +232,11 @@ Future<void> install(String value) async {
   final appFileName = buildAppName(meta['pubkey'], appName, appVersion);
   final downloadPath =
       path.join(Directory.systemTemp.path, path.basename(packageUrl));
-  await fetchWithProgress(packageUrl, File(downloadPath), installSpinner);
+  await fetchFile(packageUrl, File(downloadPath), spinner: installSpinner);
   final appPath = path.join(kBaseDir, appFileName);
 
-  final hash = (await run(
-          'sh -c "cat $downloadPath | shasum -a 256 | head -c 64"',
-          verbose: false))
-      .outText;
+  final hash =
+      await runInShell('cat $downloadPath | shasum -a 256 | head -c 64');
 
   if (hash != getTag(meta, 'x')) {
     await shell.run('rm -f $downloadPath');

@@ -4,8 +4,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:cli_dialog/cli_dialog.dart';
 import 'package:cli_spin/cli_spin.dart';
+import 'package:interact_cli/interact_cli.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
 import 'package:collection/collection.dart';
@@ -15,19 +15,17 @@ import 'package:http/http.dart' as http;
 
 final kBaseDir = path.join(Platform.environment['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
-final dialog = CLI_Dialog(questions: [
-  ['npub:', 'npub']
-]);
+final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
 Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
   final dir = Directory(kBaseDir);
 
   if (!await dir.exists()) {
     print(logger.ansi.emphasized('Welcome to zap.store!\n'));
-    final dialog = CLI_Dialog(booleanQuestions: [
-      ['This package requires creating the $kBaseDir directory. Proceed?', '_']
-    ], trueByDefault: true);
-    final setUp = dialog.ask()['_'];
+    final setUp = Confirm(
+      prompt:
+          'This package requires creating the $kBaseDir directory. Proceed?',
+    ).interact();
 
     if (!setUp) {
       print('Okay, fine');
@@ -60,7 +58,7 @@ Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
   final programs = (await shell.run('find . -type f'))
       .outLines
       .map((e) => e.substring(2))
-      .where((e) => e != '_.json');
+      .where((e) => hexRegexp.hasMatch(e));
 
   final db = <String, List<Map<String, dynamic>>>{};
   for (final p in programs) {
@@ -92,10 +90,9 @@ Future<Map<String, dynamic>> ensureUser() async {
       : <String, dynamic>{};
 
   if (user['npub'] == null) {
-    print(
-        'Please input your npub, we will use it to check your web of trust before installing any new packages');
-
-    user['npub'] = await dialog.ask()['npub'];
+    print(logger.ansi.emphasized(
+        'Your npub will be used it to check your web of trust before installing any new packages'));
+    user['npub'] = Input(prompt: 'npub').interact();
     file.writeAsString(jsonEncode(user));
   }
 
@@ -138,22 +135,28 @@ String formatProfile(Map<String, dynamic> p, String k) {
   return '${logger.ansi.emphasized(name)} $nip05- https://nostr.com/$k';
 }
 
-Future<void> fetchWithProgress(String url, File file, CliSpin spinner) async {
-  final initialText = spinner.text;
+Future<void> fetchFile(String url, File file,
+    {Map<String, String>? headers, CliSpin? spinner}) async {
+  final initialText = spinner?.text;
   final completer = Completer();
   StreamSubscription? sub;
   final client = http.Client();
   final sink = file.openWrite();
   var downloadedBytes = 0;
 
-  var response = await client.send(http.Request('GET', Uri.parse(url)));
+  final req = http.Request('GET', Uri.parse(url));
+  if (headers != null) {
+    req.headers.addAll(headers);
+  }
+  var response = await client.send(req);
+
   final totalBytes = response.contentLength!;
 
   sub = response.stream.listen((chunk) {
     final data = Uint8List.fromList(chunk);
     sink.add(data);
     downloadedBytes += data.length;
-    spinner.text =
+    spinner?.text =
         '$initialText ${(downloadedBytes / totalBytes * 100).floor()}%';
   }, onError: (e) {
     throw e;
@@ -184,4 +187,39 @@ String buildAppName(String pubkey, String name, String version) {
 (String, String, String) splitAppName(String str) {
   final [name, version] = str.substring(65).split('@-');
   return (str.substring(0, 64), name, version);
+}
+
+extension R2 on Future<http.Response> {
+  Future<Map<String, dynamic>> getJson() async {
+    return Map<String, dynamic>.from(jsonDecode((await this).body));
+  }
+}
+
+Future<(String, String)> renameToHash(String filePath) async {
+  final ext = path.extension(filePath);
+  final hash = await runInShell('cat $filePath | shasum -a 256 | head -c 64');
+  var hashName = '$hash$ext';
+  if (hash == hashName) {
+    final mimeType =
+        (await run('file -b --mime-type $filePath', verbose: false))
+            .outText
+            .split('\n')
+            .first;
+    final [t1, t2] = mimeType.split('/');
+    if (t1.trim() == 'image') {
+      hashName = '$hash.$t2';
+    }
+  }
+
+  final destFilePath = Platform.environment['BLOSSOM_DIR'] != null
+      ? path.join(Platform.environment['BLOSSOM_DIR']!, hashName)
+      : path.join(Directory.systemTemp.path, hashName);
+  await run('mv $filePath $destFilePath', verbose: false);
+  return (hash, destFilePath);
+}
+
+Future<String> runInShell(String cmd, {String? workingDirectory}) async {
+  return (await run('sh -c "$cmd"',
+          workingDirectory: workingDirectory, verbose: false))
+      .outText;
 }

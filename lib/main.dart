@@ -7,6 +7,7 @@ import 'package:args/command_runner.dart';
 import 'package:cli_util/cli_logging.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
+import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 
 const kZapstorePubkey =
@@ -33,8 +34,9 @@ void main(List<String> args) async {
       return;
     }
     await runner.run(args);
-  } catch (e) {
+  } catch (e, stack) {
     print('${logger.ansi.error('ERROR')} $e');
+    print(stack);
     wasError = true;
   } finally {
     exit(wasError ? 127 : 0);
@@ -106,7 +108,10 @@ class PublishCommand extends Command {
   List<String> get aliases => ['p'];
 
   @override
-  Future<void> run() async => throw UnimplementedError('Coming soon');
+  Future<void> run() async {
+    final value = argResults!.rest.firstOrNull;
+    await publish(value);
+  }
 }
 
 const figure = r'''
