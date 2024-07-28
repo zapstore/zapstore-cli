@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:cli_util/cli_logging.dart';
+import 'package:interact_cli/interact_cli.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
@@ -38,12 +39,18 @@ void main(List<String> args) async {
     print('${logger.ansi.error('ERROR')} $e');
     print(stack);
     wasError = true;
+    reset();
   } finally {
     exit(wasError ? 127 : 0);
   }
 }
 
 class InstallCommand extends Command {
+  InstallCommand() {
+    argParser.addFlag('trust',
+        abbr: 't', help: 'Trust the signer, do not prompt for a WoT check.');
+  }
+
   @override
   String get name => 'install';
 
@@ -59,7 +66,7 @@ class InstallCommand extends Command {
       usageException('Please provide a package to install');
     }
     final [value] = argResults!.rest;
-    await install(value);
+    await install(value, skipWot: argResults!.flag('trust'));
   }
 }
 

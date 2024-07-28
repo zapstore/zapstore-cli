@@ -12,7 +12,7 @@ import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:http/http.dart' as http;
 
-Future<void> install(String value) async {
+Future<void> install(String value, {bool skipWot = false}) async {
   final db = await loadPackages();
 
   final hostPlatform =
@@ -32,10 +32,9 @@ Future<void> install(String value) async {
   final apps = await queryZapstore(r1);
 
   if (apps.isEmpty) {
-    spinner.fail('No apps found for $value');
+    spinner.fail('No packages found for $value');
     exit(0);
   }
-  spinner.success();
 
   var app = apps.first;
 
@@ -146,86 +145,86 @@ Future<void> install(String value) async {
   final packageSigner = app['pubkey'].toString();
   final signerNpub = packageSigner.npub;
 
-  final container = ProviderContainer();
-  final authorRelays = container.read(relayMessageNotifierProvider(
-      ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
-  authorRelays.initialize();
+  if (!skipWot) {
+    final container = ProviderContainer();
+    final authorRelays = container.read(relayMessageNotifierProvider(
+        ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
+    authorRelays.initialize();
+    if (!isAuthorTrusted) {
+      final user = await ensureUser();
 
-  if (!isAuthorTrusted) {
-    final user = await ensureUser();
+      final wotSpinner = CliSpin(
+        text: 'Checking web of trust...',
+        spinner: CliSpinners.dots,
+      ).start();
 
-    final wotSpinner = CliSpin(
-      text: 'Checking web of trust...',
-      spinner: CliSpinners.dots,
-    ).start();
+      final trust = await http
+          .get(Uri.parse(
+              'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
+          .getJson();
 
-    final trust = await http
-        .get(Uri.parse(
-            'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
-        .getJson();
+      // Separate querying user from result
+      final userFollows = trust.remove(user['npub']);
 
-    // Separate querying user from result
-    final userFollows = trust.remove(user['npub']);
+      final authors = [
+        ...trust.keys.map((npub) => npub.hexKey),
+        packageBuilder,
+        packageSigner
+      ];
 
-    final authors = [
-      ...trust.keys.map((npub) => npub.hexKey),
-      packageBuilder,
-      packageSigner
-    ];
+      final r4 = RelayRequest(
+        kinds: {0},
+        authors: authors.toSet(),
+      );
+      final profileResponse = await authorRelays.query(r4);
 
-    final r4 = RelayRequest(
-      kinds: {0},
-      authors: authors.toSet(),
-    );
-    final profileResponse = await authorRelays.query(r4);
+      final profiles = {
+        for (final profile in profileResponse)
+          profile['pubkey'].toString().npub: jsonDecode(profile['content']),
+      };
 
-    final profiles = {
-      for (final profile in profileResponse)
-        profile['pubkey'].toString().npub: jsonDecode(profile['content']),
-    };
+      final signerInfo = profiles[signerNpub];
+      final signerText = signerInfo['display_name'] ?? signerInfo['name'];
 
-    final signerInfo = profiles[signerNpub];
-    final signerText = signerInfo['display_name'] ?? signerInfo['name'];
+      wotSpinner.success();
 
-    wotSpinner.success();
-
-    print(
-        'Package builder: ${formatProfile(profiles[builderNpub], builderNpub)}');
-    print('Package signer: ${formatProfile(signerInfo, signerNpub)}\n');
-
-    if (userFollows != null) {
       print(
-          '${logger.ansi.blue}You${logger.ansi.none} follow ${logger.ansi.emphasized(signerText)}!\n');
-    }
+          'Package builder: ${formatProfile(profiles[builderNpub], builderNpub)}');
+      print('Package signer: ${formatProfile(signerInfo, signerNpub)}\n');
 
-    print(
-        '${userFollows != null ? 'Other profiles' : 'Profiles'} you follow who follow ${logger.ansi.emphasized(signerText)}:');
-    for (final k in trust.keys) {
-      print(' - ${formatProfile(profiles[k], k)}');
-    }
-    print('\n');
+      if (userFollows != null) {
+        print(
+            '${logger.ansi.blue}You${logger.ansi.none} follow ${logger.ansi.emphasized(signerText)}!\n');
+      }
 
-    final installPackage = Confirm(
-      prompt:
-          'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} $appName${isUpdatable ? ' to $appVersion' : ''}?',
-      defaultValue: false,
-    ).interact();
+      print(
+          '${userFollows != null ? 'Other profiles' : 'Profiles'} you follow who follow ${logger.ansi.emphasized(signerText)}:');
+      for (final k in trust.keys) {
+        print(' - ${formatProfile(profiles[k], k)}');
+      }
+      print('\n');
 
-    if (!installPackage) {
-      exit(0);
+      final installPackage = Confirm(
+        prompt:
+            'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} $appName${isUpdatable ? ' to $appVersion' : ''}?',
+        defaultValue: false,
+      ).interact();
+
+      if (!installPackage) {
+        exit(0);
+      }
+    } else {
+      final r4 = await authorRelays
+          .query(RelayRequest(kinds: {0}, authors: {packageSigner}));
+      final signerInfo = r4.first;
+      print(
+          'Package signed by ${formatProfile(signerInfo, signerNpub)} who was previously trusted for this app');
     }
-  } else {
-    final r4 = await authorRelays
-        .query(RelayRequest(kinds: {0}, authors: {packageSigner}));
-    final signerInfo = r4.first;
-    print(
-        'Package signed by ${formatProfile(signerInfo, signerNpub)} who was previously trusted for this app');
+    await authorRelays.dispose();
   }
 
-  await authorRelays.dispose();
-
   final installSpinner = CliSpin(
-    text: 'Downloading package...',
+    text: 'Installing package...',
     spinner: CliSpinners.dots,
   ).start();
 

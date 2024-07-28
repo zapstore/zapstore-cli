@@ -1,4 +1,25 @@
+import 'package:collection/collection.dart';
+import 'package:zapstore_cli/models.dart';
 
+Future<(App, Release, Set<FileMetadata>)> finalizeEvents(
+    {required App app,
+    required Release release,
+    required Set<FileMetadata> fileMetadatas,
+    required String nsec}) async {
+  final signedFileMetadatas = fileMetadatas.map((fm) => fm.sign(nsec)).toSet();
+  final signedApp = app
+      .copyWith(
+          platforms: fileMetadatas.map((fm) => fm.platforms).flattened.toSet())
+      .sign(nsec);
+  final signedRelease = release
+      // TODO: Missing linked `a`
+      .copyWith(
+          linkedEvents:
+              signedFileMetadatas.map((fm) => fm.id.toString()).toSet())
+      .sign(nsec);
+
+  return (signedApp, signedRelease, signedFileMetadatas);
+}
 
 // export const produceEvents = async (app, release, fileMetadatas, nsec) => {
 //   let pubkey;

@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:interact_cli/interact_cli.dart';
 import 'package:purplebase/purplebase.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/commands/publish/github.dart';
+import 'package:zapstore_cli/commands/publish/events.dart';
+import 'package:zapstore_cli/commands/publish/fetchers.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/utils.dart';
 
 Future<void> publish(String? value) async {
   final doc = Map<String, dynamic>.from(
@@ -19,12 +22,12 @@ Future<void> publish(String? value) async {
       switch (os) {
         case 'cli':
           await cli(
-              App(
-                  artifacts: Map<String, dynamic>.from(app['artifacts']),
+              app: App(
                   identifier: app['identifier'],
                   name: app['name'],
                   repository: app['repository']),
-              appAlias);
+              artifacts: Map<String, dynamic>.from(app['artifacts']),
+              appAlias: appAlias);
           break;
         case 'android':
           break;
@@ -35,7 +38,10 @@ Future<void> publish(String? value) async {
   }
 }
 
-Future<void> cli(App app, appAlias) async {
+Future<void> cli(
+    {required App app,
+    required String appAlias,
+    required Map<String, dynamic> artifacts}) async {
   print('Releasing ${logger.ansi.emphasized(app.name ?? appAlias)} CLI app...');
 
   // TODO: For `identifier` check https://www.cyberciti.biz/faq/linuxunix-rules-for-naming-file-and-directory-names/
@@ -43,19 +49,13 @@ Future<void> cli(App app, appAlias) async {
 
   final repoUrl = Uri.parse(app.repository!);
 
-  App app2;
   Release release;
-  List<FileMetadata> fileMetadatas;
+  Set<FileMetadata> fileMetadatas;
   if (repoUrl.host == 'github.com') {
+    final fetcher = GithubFetcher();
     final repo = repoUrl.path.substring(1);
-    (app2, release, fileMetadatas) = await parseFromGithub(repo, app);
-    print(app2.toMap());
-    print('----');
-    print(release.toMap());
-    print('----');
-    for (final f in fileMetadatas) {
-      print(f.toMap());
-    }
+    (app, release, fileMetadatas) =
+        await fetcher.fetch(app: app, repoName: repo, artifacts: artifacts);
   } else {
     throw 'Unsupported repository; service: ${repoUrl.host}';
   }
@@ -63,11 +63,36 @@ Future<void> cli(App app, appAlias) async {
   // sign
 
   print(logger.ansi.emphasized(
-      'Please provide your nsec to sign the events. It is kept in memory for signing and will be immediately discarded'));
-  final nsec = Password(prompt: 'nsec').interact();
-  for (final BaseEvent e in [app, release, ...fileMetadatas]) {
-    e.sign(nsec);
+      'Please provide your nsec to sign and publish the events, it will be immediately discarded.\n(Ctrl+C to abort.)\n'));
+  var nsec =
+      Platform.environment['NSEC'] ?? Password(prompt: 'nsec').interact();
+
+  if (nsec.startsWith('nsec')) {
+    nsec = bech32Decode(nsec);
   }
-  // print(app);
-  // print(release);
+  if (!hexRegexp.hasMatch(nsec)) {
+    throw 'Bad nsec';
+  }
+
+  (app, release, fileMetadatas) = await finalizeEvents(
+      app: app, release: release, fileMetadatas: fileMetadatas, nsec: nsec);
+
+  print('app -----');
+  print(app);
+  print('release -----');
+  print(release);
+  for (final f in fileMetadatas) {
+    print('fm -----');
+    print(f);
+  }
+
+  final container = ProviderContainer();
+  final relay = container
+      .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
+  relay.initialize();
+  for (final BaseEvent e in [app, release, ...fileMetadatas]) {
+    print('publishing ${e.id}');
+    await relay.publish(e);
+  }
+  await relay.dispose();
 }
