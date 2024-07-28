@@ -12,6 +12,7 @@ import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
+import 'package:tint/tint.dart';
 
 final kBaseDir = path.join(Platform.environment['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
@@ -21,7 +22,7 @@ Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
   final dir = Directory(kBaseDir);
 
   if (!await dir.exists()) {
-    print(logger.ansi.emphasized('Welcome to zap.store!\n'));
+    print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');
     final setUp = Confirm(
       prompt:
           'This package requires creating the $kBaseDir directory. Proceed?',
@@ -47,9 +48,9 @@ Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
   final systemPath = Platform.environment['PATH']!;
   if (!systemPath.contains(kBaseDir)) {
     print(
-        '\nPlease run: ${logger.ansi.emphasized('echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc')} or equivalent to add zap.store to your PATH');
+        '\nPlease run: ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent to add zap.store to your PATH');
     print(
-        '\nAfter that, open a new shell and run this program with ${logger.ansi.emphasized('zapstore')}');
+        '\nAfter that, open a new shell and run this program with ${'zapstore'.white().onBlack()}');
     exit(0);
   }
 
@@ -90,8 +91,9 @@ Future<Map<String, dynamic>> ensureUser() async {
       : <String, dynamic>{};
 
   if (user['npub'] == null) {
-    print(logger.ansi.emphasized(
-        'Your npub will be used it to check your web of trust before installing any new packages'));
+    print(
+        'Your npub will be used it to check your web of trust before installing any new packages'
+            .bold());
     user['npub'] = Input(prompt: 'npub').interact();
     file.writeAsString(jsonEncode(user));
   }
@@ -99,12 +101,12 @@ Future<Map<String, dynamic>> ensureUser() async {
   return user;
 }
 
-String getTag(event, tagName) {
-  return (event['tags'] as List)
-          .firstWhereOrNull((t) => t.first == tagName)?[1]
-          .toString() ??
-      '';
-}
+// String getTag(event, tagName) {
+//   return (event['tags'] as List)
+//           .firstWhereOrNull((t) => t.first == tagName)?[1]
+//           .toString() ??
+//       '';
+// }
 
 int compareVersions(String v1, String v2) {
   final v1Parts = v1
@@ -126,13 +128,9 @@ int compareVersions(String v1, String v2) {
   return 0;
 }
 
-String formatProfile(Map<String, dynamic> p, String k) {
-  final name = ((p['display_name']?.isNotEmpty ?? false)
-          ? p['display_name']
-          : p['name']) ??
-      '';
-  final nip05 = (p['nip05']?.isNotEmpty ?? false) ? '(${p['nip05']}) ' : '';
-  return '${logger.ansi.emphasized(name)} $nip05- https://nostr.com/$k';
+String formatProfile(BaseUser user) {
+  final name = user.name ?? '';
+  return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
 }
 
 Future<void> fetchFile(String url, File file,

@@ -13,6 +13,10 @@ abstract class Fetcher {
 }
 
 class GithubFetcher extends Fetcher {
+  final RelayMessageNotifier relay;
+
+  GithubFetcher({required this.relay});
+
   @override
   Future<(App, Release, Set<FileMetadata>)> fetch(
       {required App app,
@@ -47,7 +51,7 @@ class GithubFetcher extends Fetcher {
       if (rs['message'] != null || rs.isEmpty) {
         throw 'Error ${rs['message']} for $repoName, I\'m done here';
       }
-      // TODO FINISH
+      // TODO: Finish this
       // rs.sort((a, b) => b.created_at.localeCompare(a.created_at));
       // latestReleaseJson = rs.first;
     }
@@ -85,11 +89,11 @@ class GithubFetcher extends Fetcher {
 
       // Check if we already processed this release
       final metadataOnRelay =
-          await queryZapstore(RelayRequest(kinds: {1063}, search: packageUrl));
+          await relay.query<FileMetadata>(search: packageUrl);
 
       // Search is full-text (not exact) so we double-check
       final metadataOnRelayCheck = metadataOnRelay
-          .firstWhereOrNull((m) => getTag(m, 'url') == packageUrl);
+          .firstWhereOrNull((m) => m.urls.firstOrNull == packageUrl);
       if (metadataOnRelayCheck != null) {
         if (Platform.environment['OVERWRITE'] == null) {
           packageSpinner
@@ -138,7 +142,6 @@ class GithubFetcher extends Fetcher {
           ? (repoJson['topics'] as Iterable).toSet().cast()
           : app.tags,
     );
-    print('here id is ${appFromGithub.identifier}');
 
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
