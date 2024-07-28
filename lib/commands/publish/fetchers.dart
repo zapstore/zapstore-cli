@@ -60,8 +60,8 @@ class GithubFetcher extends Fetcher {
         : assets;
 
     if (packageAssetArray.isEmpty) {
-      metadataSpinner.fail();
-      throw 'No packages in $repoName, I\'m done here';
+      metadataSpinner.fail('No packages in $repoName, I\'m done here');
+      throw GracefullyAbortSignal();
     }
 
     metadataSpinner.success('Fetched metadata from Github');
@@ -92,8 +92,9 @@ class GithubFetcher extends Fetcher {
           .firstWhereOrNull((m) => getTag(m, 'url') == packageUrl);
       if (metadataOnRelayCheck != null) {
         if (Platform.environment['OVERWRITE'] == null) {
-          packageSpinner.fail();
-          throw 'Metadata for latest $repoName release already in relay, nothing to do';
+          packageSpinner
+              .fail('Latest $repoName release already in relay, nothing to do');
+          throw GracefullyAbortSignal();
         }
       }
 
@@ -137,6 +138,7 @@ class GithubFetcher extends Fetcher {
           ? (repoJson['topics'] as Iterable).toSet().cast()
           : app.tags,
     );
+    print('here id is ${appFromGithub.identifier}');
 
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),

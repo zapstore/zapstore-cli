@@ -247,3 +247,5 @@ Future<String> runInShell(String cmd, {String? workingDirectory}) async {
           workingDirectory: workingDirectory, verbose: false))
       .outText;
 }
+
+class GracefullyAbortSignal extends Error {}

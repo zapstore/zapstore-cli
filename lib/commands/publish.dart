@@ -77,22 +77,22 @@ Future<void> cli(
   (app, release, fileMetadatas) = await finalizeEvents(
       app: app, release: release, fileMetadatas: fileMetadatas, nsec: nsec);
 
-  print('app -----');
-  print(app);
-  print('release -----');
-  print(release);
-  for (final f in fileMetadatas) {
-    print('fm -----');
-    print(f);
-  }
+  // print('app -----');
+  // print(app);
+  // print('release -----');
+  // print(release);
+  // for (final f in fileMetadatas) {
+  //   print('fm -----');
+  //   print(f);
+  // }
 
   final container = ProviderContainer();
   final relay = container
       .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
   relay.initialize();
   for (final BaseEvent e in [app, release, ...fileMetadatas]) {
-    print('publishing ${e.id}');
     await relay.publish(e);
+    print('Published kind ${e.kind}: ${e.id}');
   }
   await relay.dispose();
 }

@@ -6,10 +6,13 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:cli_util/cli_logging.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:tint/tint.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
+import 'package:zapstore_cli/commands/publish/fetchers.dart';
 import 'package:zapstore_cli/commands/remove.dart';
+import 'package:zapstore_cli/utils.dart';
 
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
@@ -35,6 +38,8 @@ void main(List<String> args) async {
       return;
     }
     await runner.run(args);
+  } on GracefullyAbortSignal {
+    // silently exit with no error
   } catch (e, stack) {
     print('${logger.ansi.error('ERROR')} $e');
     print(stack);

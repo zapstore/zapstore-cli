@@ -33,7 +33,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
   if (apps.isEmpty) {
     spinner.fail('No packages found for $value');
-    exit(0);
+    throw GracefullyAbortSignal();
   }
 
   var app = apps.first;
@@ -64,7 +64,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
   if (releases.isEmpty) {
     spinner.fail('No releases found');
-    exit(0);
+    throw GracefullyAbortSignal();
   }
 
   final eTags = (releases.first['tags'] as List)
@@ -80,8 +80,8 @@ Future<void> install(String value, {bool skipWot = false}) async {
   final fileMetadatas = await queryZapstore(r3);
 
   if (fileMetadatas.isEmpty) {
-    spinner.fail('No releases found');
-    exit(0);
+    spinner.fail('No file metadatas found');
+    throw GracefullyAbortSignal();
   }
 
   final meta = fileMetadatas[0];
