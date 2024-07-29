@@ -91,7 +91,7 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath in meta.tagMap['binaries'] ?? {name})
+        for (final binaryPath in meta.tagMap['executable'] ?? {name})
           _installBinary(
               path.join(extractDir, binaryPath),
               path.join(

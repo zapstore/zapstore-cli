@@ -71,16 +71,21 @@ class GithubFetcher extends Fetcher {
     metadataSpinner.success('Fetched metadata from Github');
 
     final fileMetadatas = <FileMetadata>{};
-    for (final regexpKey in artifacts!.keys) {
+    for (var MapEntry(key: regexpKey, :value) in artifacts!.entries) {
+      regexpKey = regexpKey.replaceAll('%v', r'(\d{0,3}\.\d{0,3}\.\d{0,3})');
       final r = RegExp(regexpKey);
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
+      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
+
+      if ((value['executables'] ?? []).isNotEmpty && matchedVersion == null) {
+        throw Exception('Failed to match pattern for executables');
+      }
 
       if (asset == null) {
         throw 'No asset matching ${r.pattern}';
       }
 
       final packageUrl = asset['browser_download_url'];
-      final value = artifacts[regexpKey];
 
       final packageSpinner = CliSpin(
         text: 'Fetching package: $packageUrl...',
@@ -111,21 +116,25 @@ class GithubFetcher extends Fetcher {
       final size = await runInShell('wc -c < $filePath');
       fileMetadatas.add(
         FileMetadata(
-          content: '${app.name} ${latestReleaseJson['tag_name']}',
-          createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
-          urls: {packageUrl},
-          mimeType: asset['content_type'],
-          hash: fileHash,
-          size: int.tryParse(size),
-          platforms: {value['platform']},
-          version: latestReleaseJson['tag_name'],
-          // additionalEventTags: {
-          //   ('version_code', 19),
-          //   ('min_sdk_version', 1),
-          //   ('target_sdk_version', 2),
-          //   ('apk_signature_hash', '122fg435')
-          // }
-        ),
+            content: '${app.name} ${latestReleaseJson['tag_name']}',
+            createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
+            urls: {packageUrl},
+            mimeType: asset['content_type'],
+            hash: fileHash,
+            size: int.tryParse(size),
+            platforms: {value['platform']},
+            version: latestReleaseJson['tag_name'],
+            additionalEventTags: {
+              //   ('version_code', 19),
+              //   ('min_sdk_version', 1),
+              //   ('target_sdk_version', 2),
+              //   ('apk_signature_hash', '122fg435')
+              for (final b in (value['executables'] ?? []))
+                (
+                  'executable',
+                  b.toString().replaceFirst('%v', matchedVersion!)
+                ),
+            }),
       );
       packageSpinner.success('Fetched package: $packageUrl');
     }

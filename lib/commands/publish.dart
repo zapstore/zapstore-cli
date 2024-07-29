@@ -34,50 +34,57 @@ Future<void> publish(String? value) async {
 
         print('Releasing ${(app.name ?? appAlias).bold()} $os app...');
 
-        // TODO: For `identifier` check https://www.cyberciti.biz/faq/linuxunix-rules-for-naming-file-and-directory-names/
-        // TODO: Validate `platform` is present always
+        try {
+          // TODO: For `identifier` check https://www.cyberciti.biz/faq/linuxunix-rules-for-naming-file-and-directory-names/
+          // TODO: Validate `platform` is present always
 
-        final repoUrl = Uri.parse(app.repository!);
+          final repoUrl = Uri.parse(app.repository!);
 
-        Release release;
-        Set<FileMetadata> fileMetadatas;
-        if (repoUrl.host == 'github.com') {
-          final fetcher = GithubFetcher(relay: relay);
-          final repo = repoUrl.path.substring(1);
-          (app, release, fileMetadatas) = await fetcher.fetch(
-              app: app, repoName: repo, artifacts: artifacts);
-        } else {
-          throw 'Unsupported repository; service: ${repoUrl.host}';
-        }
-
-        // sign
-
-        print(
-            'Please provide your nsec to sign and publish the events, it will be immediately discarded.\n(Ctrl+C to abort.)\n'
-                .bold());
-        var nsec =
-            Platform.environment['NSEC'] ?? Password(prompt: 'nsec').interact();
-
-        if (nsec.startsWith('nsec')) {
-          nsec = bech32Decode(nsec);
-        }
-        if (!hexRegexp.hasMatch(nsec)) {
-          throw 'Bad nsec';
-        }
-
-        (app, release, fileMetadatas) = await finalizeEvents(
-            app: app,
-            release: release,
-            fileMetadatas: fileMetadatas,
-            nsec: nsec);
-
-        for (final BaseEvent e in [app, release, ...fileMetadatas]) {
-          try {
-            await relay.publish(e);
-          } catch (e) {
-            print(e.toString().bold().black().onYellow());
+          Release release;
+          Set<FileMetadata> fileMetadatas;
+          if (repoUrl.host == 'github.com') {
+            final fetcher = GithubFetcher(relay: relay);
+            final repo = repoUrl.path.substring(1);
+            (app, release, fileMetadatas) = await fetcher.fetch(
+                app: app, repoName: repo, artifacts: artifacts);
+          } else {
+            throw 'Unsupported repository; service: ${repoUrl.host}';
           }
-          print('Published kind ${e.kind}: ${e.id.toString().bold()}');
+
+          // sign
+
+          print(
+              'Please provide your nsec to sign and publish the events, it will be immediately discarded.\n(Ctrl+C to abort.)\n'
+                  .bold());
+          var nsec = Platform.environment['NSEC'] ??
+              Password(prompt: 'nsec').interact();
+
+          if (nsec.startsWith('nsec')) {
+            nsec = bech32Decode(nsec);
+          }
+          if (!hexRegexp.hasMatch(nsec)) {
+            throw 'Bad nsec';
+          }
+
+          (app, release, fileMetadatas) = await finalizeEvents(
+              app: app,
+              release: release,
+              fileMetadatas: fileMetadatas,
+              nsec: nsec);
+
+          // print([app, release, fileMetadatas]);
+          // continue;
+
+          for (final BaseEvent e in [app, release, ...fileMetadatas]) {
+            try {
+              await relay.publish(e);
+            } catch (e) {
+              print(e.toString().bold().black().onYellow());
+            }
+            print('Published kind ${e.kind}: ${e.id.toString().bold()}');
+          }
+        } on GracefullyAbortSignal {
+          continue;
         }
       }
     }
