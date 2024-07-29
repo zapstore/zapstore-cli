@@ -1,5 +1,5 @@
 import 'package:tint/tint.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/models/package.dart';
 
 void list() async {
   final db = await loadPackages();
@@ -7,8 +7,8 @@ void list() async {
   if (db.isEmpty) {
     print('No packages installed');
   }
-  for (final MapEntry(:key, :value) in db.entries) {
+  for (final MapEntry(:key, value: package) in db.entries) {
     print(
-        '${key.bold()} ${value.map((e) => (e['enabled'] ?? false) ? '${e['version'].toString().bold()} (enabled)' : e['version']).toList().reversed.join(', ')}');
+        '${key.bold()} ${package.versions.map((v) => v == package.enabledVersion ? '${v.bold()} (enabled)' : v).toList().reversed.join(', ')}');
   }
 }

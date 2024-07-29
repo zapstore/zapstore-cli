@@ -1,19 +1,19 @@
 import 'package:interact_cli/interact_cli.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/models/package.dart';
 
-Future<void> remove(String value) async {
+Future<void> remove(String name) async {
   final db = await loadPackages();
-  if (db[value] != null && value != 'zapstore') {
+  if (db[name] != null && name != 'zapstore') {
     final removePackage = Confirm(
       prompt:
-          'Are you sure you want to remove all versions of package $value? (You can choose to unlink it instead)',
+          'Are you sure you want to remove all versions of package $name? (You can choose to unlink it instead)',
       defaultValue: false,
     ).interact();
 
     if (removePackage) {
       // Remove link and executables
-      await runInShell('rm -f $value *-$value@-*', workingDirectory: kBaseDir);
-      print('Removed all versions of package $value');
+      await db[name]!.remove();
+      print('Removed all versions of package $name');
     }
   } else {
     print('No packages to remove');

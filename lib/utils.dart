@@ -1,88 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
-import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
-import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
 
 final kBaseDir = path.join(Platform.environment['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
-
-Future<Map<String, List<Map<String, dynamic>>>> loadPackages() async {
-  final dir = Directory(kBaseDir);
-
-  if (!await dir.exists()) {
-    print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');
-    final setUp = Confirm(
-      prompt:
-          'This package requires creating the $kBaseDir directory. Proceed?',
-    ).interact();
-
-    if (!setUp) {
-      print('Okay, fine');
-      exit(0);
-    }
-    await run('mkdir -p $kBaseDir', verbose: false);
-
-    // Ensure zapstore is copied over to base dir
-    final thisExecutable = Platform.environment['_'];
-    final file = File(path.join(kBaseDir, 'zapstore'));
-    if (!await file.exists()) {
-      final newName = buildAppName(kZapstorePubkey, 'zapstore', kVersion);
-      await run('cp $thisExecutable ${path.join(kBaseDir, newName)}',
-          verbose: false);
-      await shell.run('ln -sf $newName zapstore');
-    }
-  }
-
-  final systemPath = Platform.environment['PATH']!;
-  if (!systemPath.contains(kBaseDir)) {
-    print(
-        '\nPlease run: ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent to add zap.store to your PATH');
-    print(
-        '\nAfter that, open a new shell and run this program with ${'zapstore'.white().onBlack()}');
-    exit(0);
-  }
-
-  final links =
-      (await shell.run('find . -type l')).outLines.map((e) => e.substring(2));
-  final programs = (await shell.run('find . -type f'))
-      .outLines
-      .map((e) => e.substring(2))
-      .where((e) => hexRegexp.hasMatch(e));
-
-  final db = <String, List<Map<String, dynamic>>>{};
-  for (final p in programs) {
-    final (pubkey, name, version) = splitAppName(p);
-    db[name] ??= [];
-    db[name]!.add({
-      'pubkey': pubkey,
-      'version': version,
-    });
-  }
-
-  // Determine which versions are enabled
-  for (final link in links) {
-    final file = (await shell.run('readlink $link')).outText;
-    if (file.trim().isNotEmpty) {
-      final (_, _, version) = splitAppName(file.trim());
-      db[link]?.firstWhereOrNull((a) => a['version'] == version)?['enabled'] =
-          true;
-    }
-  }
-
-  return db;
-}
 
 Future<Map<String, dynamic>> ensureUser() async {
   final file = File(path.join(kBaseDir, '_.json'));
@@ -99,33 +30,6 @@ Future<Map<String, dynamic>> ensureUser() async {
   }
 
   return user;
-}
-
-// String getTag(event, tagName) {
-//   return (event['tags'] as List)
-//           .firstWhereOrNull((t) => t.first == tagName)?[1]
-//           .toString() ??
-//       '';
-// }
-
-int compareVersions(String v1, String v2) {
-  final v1Parts = v1
-      .split('.')
-      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
-      .toList();
-  final v2Parts = v2
-      .split('.')
-      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
-      .toList();
-
-  for (var i = 0; i < max(v1Parts.length, v2Parts.length); i++) {
-    final v1Part = v1Parts[i];
-    final v2Part = v2Parts[i];
-    if (v1Part < v2Part) return -1;
-    if (v1Part > v2Part) return 1;
-  }
-
-  return 0;
 }
 
 String formatProfile(BaseUser user) {
@@ -198,15 +102,6 @@ Future<void> publishToZapstore(BaseEvent event) async {
   );
 }
 
-String buildAppName(String pubkey, String name, String version) {
-  return '$pubkey-$name@-$version';
-}
-
-(String, String, String) splitAppName(String str) {
-  final [name, version] = str.substring(65).split('@-');
-  return (str.substring(0, 64), name, version);
-}
-
 extension R2 on Future<http.Response> {
   Future<Map<String, dynamic>> getJson() async {
     return Map<String, dynamic>.from(jsonDecode((await this).body));
@@ -240,9 +135,10 @@ Future<(String, String)> renameToHash(String filePath) async {
   return (hash, destFilePath);
 }
 
-Future<String> runInShell(String cmd, {String? workingDirectory}) async {
+Future<String> runInShell(String cmd,
+    {String? workingDirectory, bool verbose = false}) async {
   return (await run('sh -c "$cmd"',
-          workingDirectory: workingDirectory, verbose: false))
+          workingDirectory: workingDirectory, verbose: verbose))
       .outText;
 }
 

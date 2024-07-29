@@ -3,12 +3,12 @@ import 'dart:io';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
-import 'package:path/path.dart' as path;
 import 'package:process_run/process_run.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:http/http.dart' as http;
 
@@ -81,45 +81,43 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     spinner.success('Found ${app.name}@${meta.version}');
 
-    final appVersions = db[app.name] as List?;
+    final installedPackage = db[app.name];
 
     var isUpdatable = false;
     var isAuthorTrusted = false;
-    if (appVersions != null) {
+    if (installedPackage != null) {
       final appVersionInstalled =
-          appVersions.firstWhereOrNull((v) => v['version'] == meta.version);
+          installedPackage.versions.firstWhereOrNull((v) => v == meta.version);
       if (appVersionInstalled != null) {
-        if (appVersionInstalled['enabled'] ?? false) {
+        if (appVersionInstalled.contains(installedPackage.enabledVersion)) {
           spinner.success('Package ${app.name} is already up to date');
         } else {
-          final appFileName = buildAppName(appVersionInstalled['pubkey'],
-              app.name!, appVersionInstalled['version']);
-          await shell.run('ln -sf $appFileName ${app.name}');
+          installedPackage.linkVersion(meta.version!);
           spinner.success('Package ${app.name} re-enabled');
         }
         exit(0);
       }
 
-      isAuthorTrusted = appVersions.any((a) => meta.pubkey == a['pubkey']);
+      isAuthorTrusted = installedPackage.pubkey == meta.pubkey;
 
-      isUpdatable = appVersions
-          .every((a) => compareVersions(meta.version!, a['version']) == 1);
+      isUpdatable = installedPackage.versions
+          .every((version) => compareVersions(meta.version!, version) == 1);
 
       if (!isUpdatable) {
-        final upToDate = appVersions
-            .any((a) => compareVersions(meta.version!, a['version']) == 0);
+        final upToDate = installedPackage.versions
+            .any((version) => compareVersions(meta.version!, version) == 0);
         if (upToDate) {
           print('Package already up to date ${app.name} ${meta.version}');
           exit(0);
         }
 
         // Then there must be a -1 (downgrade)
-        final higherVersion = appVersions.firstWhereOrNull(
-            (a) => compareVersions(meta.version!, a['version']) == -1);
+        final higherVersion = installedPackage.versions.firstWhereOrNull(
+            (version) => compareVersions(meta.version!, version) == -1);
 
         final installAnyway = Confirm(
           prompt:
-              'Are you sure you want to downgrade ${app.name} from ${higherVersion.version} to ${meta.version}?',
+              'Are you sure you want to downgrade ${app.name} from $higherVersion to ${meta.version}?',
           defaultValue: false,
         ).interact();
 
@@ -202,40 +200,17 @@ Future<void> install(String value, {bool skipWot = false}) async {
     }
 
     final installSpinner = CliSpin(
-      text: 'Installing package...',
+      text: 'Installing package ${app.name}...',
       spinner: CliSpinners.dots,
     ).start();
 
-    final appFileName = buildAppName(meta.pubkey, app.name!, meta.version!);
-    final downloadPath =
-        path.join(Directory.systemTemp.path, path.basename(meta.urls.first));
-    await fetchFile(meta.urls.first, File(downloadPath),
-        spinner: installSpinner);
-    final appPath = path.join(kBaseDir, appFileName);
-
-    final hash =
-        await runInShell('cat $downloadPath | shasum -a 256 | head -c 64');
-
-    if (hash != meta.hash) {
-      await shell.run('rm -f $downloadPath');
-      throw 'Hash mismatch! File server may be malicious, please report';
-    }
-
-    // Auto-extract
-    if (downloadPath.endsWith('tar.gz')) {
-      final extractDir = downloadPath.replaceFirst('.tar.gz', '');
-      await shell.run('''
-      mkdir -p $extractDir
-      tar zxf $downloadPath -C $extractDir
-      mv ${path.join(extractDir, app.name)} $appPath
-      rm -fr $extractDir $downloadPath
-    ''');
-    } else {
-      await shell.run('mv $downloadPath $appPath');
-    }
-
-    await shell.run('chmod +x $appPath');
-    await shell.run('ln -sf $appFileName ${app.name}');
+    final package = db[app.name] ??
+        Package(
+            name: app.name!,
+            pubkey: meta.pubkey,
+            versions: {meta.version!},
+            enabledVersion: meta.version!);
+    await package.installFromUrl(meta, spinner: installSpinner);
 
     installSpinner
         .success('Installed package ${app.name!.bold()}@${meta.version}');

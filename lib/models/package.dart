@@ -1,0 +1,231 @@
+import 'dart:io';
+import 'dart:math';
+
+import 'package:cli_spin/cli_spin.dart';
+import 'package:collection/collection.dart';
+import 'package:interact_cli/interact_cli.dart';
+import 'package:process_run/process_run.dart';
+import 'package:tint/tint.dart';
+import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/utils.dart';
+import 'package:path/path.dart' as path;
+
+class Package {
+  final String name;
+  final String pubkey;
+  final Set<String> versions;
+  final Set<String> binaries;
+  final String enabledVersion;
+
+  Package(
+      {required this.name,
+      required this.pubkey,
+      this.versions = const {},
+      this.binaries = const {},
+      required this.enabledVersion});
+
+  factory Package.fromString(
+      String key, Set<String> lines, Map<String, String> links) {
+    final pubkey = key.substring(0, 64);
+    final name = key.substring(65);
+    final binaries = <String>{};
+    String? enabledVersion;
+    final versions = lines.map((line) {
+      final [_, version, binary] = line.substring(65).split('/');
+      if (links[binary] == line) {
+        binaries.add(binary);
+        enabledVersion ??= version;
+      }
+      return version;
+    }).toSet();
+    if (enabledVersion == null) {
+      throw Exception('No valid version');
+    }
+    return Package(
+        name: name,
+        pubkey: pubkey,
+        versions: versions,
+        binaries: binaries,
+        enabledVersion: enabledVersion!);
+  }
+
+  Directory get directory => Directory(path.join(kBaseDir, '$pubkey-$name'));
+
+  Future<bool> skeletonExists() => directory.exists();
+
+  Future<void> installFrom(Set<String> filePaths) async {
+    for (final srcPath in filePaths) {
+      final basename = path.basename(srcPath);
+      if (binaries.contains(basename)) {
+        final destPath = path.join(directory.path, basename);
+        await runInShell('cp $srcPath $destPath');
+        await shell.run('ln -sf $destPath');
+      }
+    }
+  }
+
+  Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
+    final downloadPath =
+        path.join(Directory.systemTemp.path, path.basename(meta.urls.first));
+    await fetchFile(meta.urls.first, File(downloadPath), spinner: spinner);
+
+    final versionPath = path.join(directory.path, meta.version);
+    await shell.run('mkdir -p $versionPath');
+
+    final hash =
+        await runInShell('cat $downloadPath | shasum -a 256 | head -c 64');
+
+    if (hash != meta.hash) {
+      await shell.run('rm -f $downloadPath');
+      throw 'Hash mismatch! File server may be malicious, please report';
+    }
+
+    // Auto-extract
+    if (['application/zip', 'application/gzip'].contains(meta.mimeType)) {
+      final extractDir = path.basenameWithoutExtension(downloadPath);
+
+      final uncompress = meta.mimeType == 'application/zip'
+          ? 'unzip -d $extractDir $downloadPath'
+          : 'tar zxf $downloadPath -C $extractDir';
+
+      final mvs = {
+        // Attempt to find declared binaries in meta, or default to package name
+        for (final binaryPath in meta.tagMap['binaries'] ?? {name})
+          _installBinary(
+              path.join(extractDir, binaryPath),
+              path.join(
+                versionPath,
+                path.basename(binaryPath),
+              ))
+      }.join('\n');
+
+      final cmd = '''
+      mkdir -p $extractDir
+      $uncompress
+      $mvs
+      rm -fr $extractDir $downloadPath
+    ''';
+      await shell.run(cmd);
+    } else {
+      final binaryPath = path.join(versionPath, name);
+      final cmd = _installBinary(downloadPath, binaryPath);
+      await shell.run(cmd);
+    }
+  }
+
+  String _installBinary(String srcPath, String destPath) {
+    return '''
+      mv $srcPath $destPath
+      chmod +x $destPath
+      ln -sf ${path.relative(destPath, from: kBaseDir)}
+    ''';
+  }
+
+  Future<void> remove() async {
+    await runInShell('rm -fr ${binaries.join(' ')} ${directory.path}',
+        workingDirectory: kBaseDir);
+  }
+
+  Future<void> linkVersion(String version) async {
+    await shell.run('ln -sf ${path.join(directory.path, version, name)}');
+  }
+
+  @override
+  String toString() {
+    return '$name versions: $versions binaries: $binaries';
+  }
+}
+
+Future<Map<String, Package>> loadPackages() async {
+  final dir = Directory(kBaseDir);
+
+  if (!await dir.exists()) {
+    print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');
+    final setUp = Confirm(
+      prompt:
+          'This package requires creating the $kBaseDir directory. Proceed?',
+    ).interact();
+
+    if (!setUp) {
+      print('Okay, fine');
+      exit(0);
+    }
+    await run('mkdir -p $kBaseDir', verbose: false);
+  }
+
+  final systemPath = Platform.environment['PATH']!;
+  if (!systemPath.contains(kBaseDir)) {
+    print(
+        '\nPlease run: ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent to add zap.store to your PATH');
+    print(
+        '\nAfter that, open a new shell and run this program with ${'zapstore'.white().onBlack()}');
+    exit(0);
+  }
+
+  final links = {
+    for (final link in (await shell.run('find . -maxdepth 1 -type l')).outLines)
+      link.substring(2): (await shell.run('readlink $link')).outText
+  };
+
+  final binaryFullPaths =
+      (await shell.run('find . -mindepth 3 -maxdepth 3 -type f'))
+          .outLines
+          .map((e) => e.substring(2))
+          .where((e) => hexRegexp.hasMatch(e));
+
+  final db = <String, Package>{};
+  final groupedBinaryFullPaths =
+      binaryFullPaths.groupSetsBy((e) => e.split('/').first);
+
+  for (final key in groupedBinaryFullPaths.keys) {
+    try {
+      final package =
+          Package.fromString(key, groupedBinaryFullPaths[key]!, links);
+      db[package.name] = package;
+    } catch (e) {
+      // TODO: Remove
+      // await remove(package.name);
+    }
+  }
+
+  // If zapstore not in db, auto-install
+  // TODO: Double-check logic, can reuse install here?
+  if (db['zapstore'] == null) {
+    final zapstorePackage = Package(
+        name: 'zapstore',
+        pubkey: kZapstorePubkey,
+        versions: {kVersion},
+        binaries: {'zapstore'},
+        enabledVersion: kVersion);
+    if (!await zapstorePackage.skeletonExists()) {
+      // Ensure zapstore is copied over to base dir
+      final thisExecutable = Platform.environment['_'];
+      await zapstorePackage.installFrom({thisExecutable!});
+    }
+    // Try again
+    return await loadPackages();
+  }
+
+  return db;
+}
+
+int compareVersions(String v1, String v2) {
+  final v1Parts = v1
+      .split('.')
+      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
+      .toList();
+  final v2Parts = v2
+      .split('.')
+      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
+      .toList();
+
+  for (var i = 0; i < max(v1Parts.length, v2Parts.length); i++) {
+    final v1Part = v1Parts[i];
+    final v2Part = v2Parts[i];
+    if (v1Part < v2Part) return -1;
+    if (v1Part > v2Part) return 1;
+  }
+
+  return 0;
+}
