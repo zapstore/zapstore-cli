@@ -140,7 +140,7 @@ class GithubFetcher extends Fetcher {
     }
 
     final appFromGithub = App(
-      content: app.summary ?? repoJson['description'],
+      content: app.summary ?? repoJson['description'] ?? repoJson['name'],
       identifier: app.identifier ?? repoJson['name'],
       name: app.name ?? repoJson['name'],
       summary: app.summary ?? repoJson['description'],

@@ -127,9 +127,9 @@ Future<void> install(String value, {bool skipWot = false}) async {
       }
     }
 
-    final packageBuilder = app.pubkeys.first;
+    final packageBuilder = app.pubkeys.firstOrNull ?? app.pubkey;
     final builderNpub = packageBuilder.npub;
-    final packageSigner = app.pubkey.toString();
+    final packageSigner = app.pubkey;
     final signerNpub = packageSigner.npub;
 
     if (!skipWot) {

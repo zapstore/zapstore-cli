@@ -83,7 +83,8 @@ class Package {
 
     // Auto-extract
     if (['application/zip', 'application/gzip'].contains(meta.mimeType)) {
-      final extractDir = path.basenameWithoutExtension(downloadPath);
+      final extractDir = path.join(Directory.systemTemp.path,
+          path.basenameWithoutExtension(downloadPath));
 
       final uncompress = meta.mimeType == 'application/zip'
           ? 'unzip -d $extractDir $downloadPath'

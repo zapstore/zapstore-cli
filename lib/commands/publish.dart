@@ -63,7 +63,7 @@ Future<void> publish(String? value) async {
             nsec = bech32Decode(nsec);
           }
           if (!hexRegexp.hasMatch(nsec)) {
-            throw 'Bad nsec';
+            throw 'Bad nsec, or the input was cropped. Try again with a wider terminal.';
           }
 
           (app, release, fileMetadatas) = await finalizeEvents(

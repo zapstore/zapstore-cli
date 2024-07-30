@@ -117,11 +117,14 @@ Future<(String, String)> renameToHash(String filePath) async {
   final hash = await runInShell('cat $filePath | shasum -a 256 | head -c 64');
   var hashName = '$hash$ext';
   if (hash == hashName) {
-    final mimeType =
-        (await run('file -b --mime-type $filePath', verbose: false))
-            .outText
-            .split('\n')
-            .first;
+    var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
+        .outText
+        .split('\n')
+        .first;
+    if (mimeType == 'application/octet-stream' &&
+        filePath.endsWith('.tar.gz')) {
+      mimeType = 'application/gzip';
+    }
     final [t1, t2] = mimeType.split('/');
     if (t1.trim() == 'image') {
       hashName = '$hash.$t2';
