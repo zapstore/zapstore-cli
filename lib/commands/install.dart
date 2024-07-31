@@ -137,58 +137,63 @@ Future<void> install(String value, {bool skipWot = false}) async {
           ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
       authorRelays.initialize();
       if (!isAuthorTrusted) {
-        final user = await ensureUser();
+        final user = await checkUser();
 
-        final wotSpinner = CliSpin(
-          text: 'Checking web of trust...',
-          spinner: CliSpinners.dots,
-        ).start();
+        if (user['npub'] != null) {
+          final wotSpinner = CliSpin(
+            text: 'Checking web of trust...',
+            spinner: CliSpinners.dots,
+          ).start();
 
-        final trust = await http
-            .get(Uri.parse(
-                'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
-            .getJson();
+          final trust = await http
+              .get(Uri.parse(
+                  'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
+              .getJson();
 
-        // Separate querying user from result
-        final userFollows = trust.remove(user['npub']);
+          // Separate querying user from result
+          final userFollows = trust.remove(user['npub']);
 
-        final authors = {
-          ...trust.keys.map((npub) => npub.hexKey),
-          packageBuilder,
-          packageSigner
-        };
+          final authors = {
+            ...trust.keys.map((npub) => npub.hexKey),
+            packageBuilder,
+            packageSigner
+          };
 
-        final users = await authorRelays.query<BaseUser>(authors: authors);
+          final users = await authorRelays.query<BaseUser>(authors: authors);
 
-        final signerUser = users.firstWhereOrNull((e) => e.npub == signerNpub)!;
-        final builderUser =
-            users.firstWhereOrNull((e) => e.npub == builderNpub)!;
+          final signerUser =
+              users.firstWhereOrNull((e) => e.npub == signerNpub)!;
+          final builderUser =
+              users.firstWhereOrNull((e) => e.npub == builderNpub)!;
 
-        wotSpinner.success();
+          wotSpinner.success();
 
-        print('Package builder: ${formatProfile(builderUser)}');
-        print('Package signer: ${formatProfile(signerUser)}\n');
+          print('Package builder: ${formatProfile(builderUser)}');
+          print('Package signer: ${formatProfile(signerUser)}\n');
 
-        if (userFollows != null) {
-          print('You follow ${signerUser.name!.toString().bold()}!\n');
-        }
+          if (userFollows != null) {
+            print('You follow ${signerUser.name!.toString().bold()}!\n');
+          }
 
-        print(
-            '${userFollows != null ? 'Other profiles' : 'Profiles'} you follow who follow ${signerUser.name!.bold()}:');
-        for (final k in trust.keys) {
           print(
-              ' - ${formatProfile(users.firstWhereOrNull((e) => e.npub == k)!)}');
-        }
-        print('\n');
+              '${userFollows != null ? 'Other profiles' : 'Profiles'} you follow who follow ${signerUser.name!.bold()}:');
+          for (final k in trust.keys) {
+            print(
+                ' - ${formatProfile(users.firstWhereOrNull((e) => e.npub == k)!)}');
+          }
+          print('\n');
 
-        final installPackage = Confirm(
-          prompt:
-              'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.name}${isUpdatable ? ' to ${meta.version}' : ''}?',
-          defaultValue: false,
-        ).interact();
+          final installPackage = Confirm(
+            prompt:
+                'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.name}${isUpdatable ? ' to ${meta.version}' : ''}?',
+            defaultValue: false,
+          ).interact();
 
-        if (!installPackage) {
-          exit(0);
+          if (!installPackage) {
+            exit(0);
+          }
+        } else {
+          print('Skipping web of trust check...\n');
         }
       } else {
         final users =

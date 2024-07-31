@@ -15,7 +15,7 @@ final kBaseDir = path.join(Platform.environment['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
-Future<Map<String, dynamic>> ensureUser() async {
+Future<Map<String, dynamic>> checkUser() async {
   final file = File(path.join(kBaseDir, '_.json'));
   final user = await file.exists()
       ? Map<String, dynamic>.from(jsonDecode(await file.readAsString()))
@@ -23,10 +23,14 @@ Future<Map<String, dynamic>> ensureUser() async {
 
   if (user['npub'] == null) {
     print(
-        'Your npub will be used it to check your web of trust before installing any new packages'
+        '\nYour npub will be used to check your web of trust before installing any new packages'
             .bold());
-    user['npub'] = Input(prompt: 'npub').interact();
-    file.writeAsString(jsonEncode(user));
+    print('Press enter to ignore check and proceed to install');
+    final npub = Input(prompt: 'npub').interact();
+    if (npub.trim().isNotEmpty) {
+      user['npub'] = npub.trim();
+      file.writeAsString(jsonEncode(user));
+    }
   }
 
   return user;
