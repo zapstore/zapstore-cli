@@ -64,3 +64,5 @@ phoenixd:
         platform: darwin-arm64
         executables: [phoenix-%v-macos-arm64/phoenixd, phoenix-%v-macos-arm64/phoenix-cli]
 ```
+
+Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Let us know.
