@@ -5,8 +5,7 @@ Future<void> remove(String name) async {
   final db = await loadPackages();
   if (db[name] != null && name != 'zapstore') {
     final removePackage = Confirm(
-      prompt:
-          'Are you sure you want to remove all versions of package $name? (You can choose to unlink it instead)',
+      prompt: 'Are you sure you want to remove all versions of package $name?',
       defaultValue: false,
     ).interact();
 

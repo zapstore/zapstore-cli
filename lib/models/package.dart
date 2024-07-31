@@ -16,7 +16,7 @@ class Package {
   final String pubkey;
   final Set<String> versions;
   final Set<String> binaries;
-  final String enabledVersion;
+  String? enabledVersion;
 
   Package(
       {required this.name,
@@ -39,37 +39,27 @@ class Package {
       }
       return version;
     }).toSet();
-    if (enabledVersion == null) {
-      throw Exception('No valid version');
-    }
     return Package(
         name: name,
         pubkey: pubkey,
         versions: versions,
         binaries: binaries,
-        enabledVersion: enabledVersion!);
+        enabledVersion: enabledVersion);
   }
 
   Directory get directory => Directory(path.join(kBaseDir, '$pubkey-$name'));
 
   Future<bool> skeletonExists() => directory.exists();
 
-  Future<void> installFrom(Set<String> filePaths) async {
-    for (final srcPath in filePaths) {
-      final basename = path.basename(srcPath);
-      if (binaries.contains(basename)) {
-        final destPath = path.join(directory.path, basename);
-        await runInShell('cp $srcPath $destPath');
-        await shell.run('ln -sf $destPath');
-      }
-    }
-  }
-
   Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
     final downloadPath =
         path.join(Directory.systemTemp.path, path.basename(meta.urls.first));
     await fetchFile(meta.urls.first, File(downloadPath), spinner: spinner);
+    await _installFromLocal(downloadPath, meta);
+  }
 
+  Future<void> _installFromLocal(String downloadPath, FileMetadata meta,
+      {bool keepCopy = false}) async {
     final versionPath = path.join(directory.path, meta.version);
     await shell.run('mkdir -p $versionPath');
 
@@ -82,13 +72,14 @@ class Package {
     }
 
     // Auto-extract
-    if (['application/zip', 'application/gzip'].contains(meta.mimeType)) {
+    if (['application/x-zip-compressed', 'application/zip', 'application/gzip']
+        .contains(meta.mimeType)) {
       final extractDir = path.join(Directory.systemTemp.path,
           path.basenameWithoutExtension(downloadPath));
 
-      final uncompress = meta.mimeType == 'application/zip'
-          ? 'unzip -d $extractDir $downloadPath'
-          : 'tar zxf $downloadPath -C $extractDir';
+      final uncompress = meta.mimeType == 'application/gzip'
+          ? 'tar zxf $downloadPath -C $extractDir'
+          : 'unzip -d $extractDir $downloadPath';
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
@@ -110,14 +101,15 @@ class Package {
       await shell.run(cmd);
     } else {
       final binaryPath = path.join(versionPath, name);
-      final cmd = _installBinary(downloadPath, binaryPath);
+      final cmd = _installBinary(downloadPath, binaryPath, keepCopy: keepCopy);
       await shell.run(cmd);
     }
   }
 
-  String _installBinary(String srcPath, String destPath) {
+  String _installBinary(String srcPath, String destPath,
+      {bool keepCopy = false}) {
     return '''
-      mv $srcPath $destPath
+      ${keepCopy ? 'cp' : 'mv'} $srcPath $destPath
       chmod +x $destPath
       ln -sf ${path.relative(destPath, from: kBaseDir)}
     ''';
@@ -129,7 +121,8 @@ class Package {
   }
 
   Future<void> linkVersion(String version) async {
-    await shell.run('ln -sf ${path.join(directory.path, version, name)}');
+    await shell.run('ln -sf ${path.join('$pubkey-$name', version, name)}');
+    enabledVersion = version;
   }
 
   @override
@@ -180,18 +173,12 @@ Future<Map<String, Package>> loadPackages() async {
       binaryFullPaths.groupSetsBy((e) => e.split('/').first);
 
   for (final key in groupedBinaryFullPaths.keys) {
-    try {
-      final package =
-          Package.fromString(key, groupedBinaryFullPaths[key]!, links);
-      db[package.name] = package;
-    } catch (e) {
-      // TODO: Remove
-      // await remove(package.name);
-    }
+    final package =
+        Package.fromString(key, groupedBinaryFullPaths[key]!, links);
+    db[package.name] = package;
   }
 
   // If zapstore not in db, auto-install
-  // TODO: Double-check logic, can reuse install here?
   if (db['zapstore'] == null) {
     final zapstorePackage = Package(
         name: 'zapstore',
@@ -199,12 +186,14 @@ Future<Map<String, Package>> loadPackages() async {
         versions: {kVersion},
         binaries: {'zapstore'},
         enabledVersion: kVersion);
-    if (!await zapstorePackage.skeletonExists()) {
-      // Ensure zapstore is copied over to base dir
-      final thisExecutable = Platform.environment['_'];
-      await zapstorePackage.installFrom({thisExecutable!});
-    }
-    // Try again
+
+    final filePath = Platform.script.toFilePath();
+    final hash = await runInShell('cat $filePath | shasum -a 256 | head -c 64');
+    zapstorePackage._installFromLocal(
+        filePath, FileMetadata(version: kVersion, hash: hash),
+        keepCopy: true);
+    zapstorePackage.linkVersion(kVersion);
+    // Try again with zapstore installed
     return await loadPackages();
   }
 

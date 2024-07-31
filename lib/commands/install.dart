@@ -89,7 +89,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
       final appVersionInstalled =
           installedPackage.versions.firstWhereOrNull((v) => v == meta.version);
       if (appVersionInstalled != null) {
-        if (appVersionInstalled.contains(installedPackage.enabledVersion)) {
+        if (appVersionInstalled == installedPackage.enabledVersion) {
           spinner.success('Package ${app.name} is already up to date');
         } else {
           installedPackage.linkVersion(meta.version!);
