@@ -25,7 +25,7 @@ Future<Map<String, dynamic>> checkUser() async {
     print(
         '\nYour npub will be used to check your web of trust before installing any new packages'
             .bold());
-    print('Press enter to ignore check and proceed to install');
+    print('Leave blank and press enter to ignore check and proceed to install');
     final npub = Input(prompt: 'npub').interact();
     if (npub.trim().isNotEmpty) {
       user['npub'] = npub.trim();
