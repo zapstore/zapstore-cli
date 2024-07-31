@@ -145,4 +145,17 @@ Future<String> runInShell(String cmd,
       .outText;
 }
 
+void printJsonEncodeColored(Object obj) {
+  final prettyJson = JsonEncoder.withIndent('  ').convert(obj);
+
+  prettyJson.split('\n').forEach((line) {
+    if (line.contains('":')) {
+      final parts = line.split(':');
+      print('${parts[0].green()}:${parts[1].blue()}');
+    } else {
+      print(line.blue());
+    }
+  });
+}
+
 class GracefullyAbortSignal extends Error {}

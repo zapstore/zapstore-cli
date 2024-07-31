@@ -75,11 +75,6 @@ class GithubFetcher extends Fetcher {
       regexpKey = regexpKey.replaceAll('%v', r'(\d{0,3}\.\d{0,3}\.\d{0,3})');
       final r = RegExp(regexpKey);
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
-      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
-
-      if ((value['executables'] ?? []).isNotEmpty && matchedVersion == null) {
-        throw Exception('Failed to match pattern for executables');
-      }
 
       if (asset == null) {
         throw 'No asset matching ${r.pattern}';
@@ -112,17 +107,37 @@ class GithubFetcher extends Fetcher {
       await fetchFile(packageUrl, File(tempPackagePath),
           headers: headers, spinner: packageSpinner);
 
+      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
+
+      // Validate executables
+      if ((value['executables'] ?? []).isNotEmpty && matchedVersion == null) {
+        throw Exception('Failed to match pattern for executables');
+      }
+
+      // Validate platform
+      final platform = value['platform'];
+      final stdPlatforms = [
+        'darwin-arm64',
+        'darwin-x86_64',
+        'linux-aarch64',
+        'linux-x86_64',
+        'windows'
+      ];
+      if (!stdPlatforms.contains(platform)) {
+        throw 'Asset ${asset['name']} has a platform value of $platform but must be one of $stdPlatforms';
+      }
+
       final (fileHash, filePath) = await renameToHash(tempPackagePath);
       final size = await runInShell('wc -c < $filePath');
       fileMetadatas.add(
         FileMetadata(
-            content: '${app.name} ${latestReleaseJson['tag_name']}',
+            content: '${app.name} ${latestReleaseJson['tag_name']} $platform',
             createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
             urls: {packageUrl},
             mimeType: asset['content_type'],
             hash: fileHash,
             size: int.tryParse(size),
-            platforms: {value['platform']},
+            platforms: {platform},
             version: latestReleaseJson['tag_name'],
             additionalEventTags: {
               //   ('version_code', 19),
