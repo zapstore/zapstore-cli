@@ -114,7 +114,7 @@ extension on int {
 
 Future<(String, String)> renameToHash(String filePath) async {
   final ext = path.extension(filePath);
-  final hash = await runInShell('cat $filePath | shasum -a 256 | head -c 64');
+  final hash = await computeHash(filePath);
   var hashName = '$hash$ext';
   if (hash == hashName) {
     var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
@@ -143,6 +143,11 @@ Future<String> runInShell(String cmd,
   return (await run('sh -c "$cmd"',
           workingDirectory: workingDirectory, verbose: verbose))
       .outText;
+}
+
+Future<String> computeHash(String filePath) async {
+  return await runInShell(
+      'cat $filePath | ${Platform.isLinux ? 'sha256sum' : 'shasum -a 256'} | head -c 64');
 }
 
 void printJsonEncodeColored(Object obj) {

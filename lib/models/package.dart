@@ -63,12 +63,11 @@ class Package {
     final versionPath = path.join(directory.path, meta.version);
     await shell.run('mkdir -p $versionPath');
 
-    final hash =
-        await runInShell('cat $downloadPath | shasum -a 256 | head -c 64');
+    final hash = await computeHash(downloadPath);
 
     if (hash != meta.hash) {
       await shell.run('rm -f $downloadPath');
-      throw 'Hash mismatch! File server may be malicious, please report';
+      throw 'Hash mismatch! $hash != ${meta.hash}\nFile server may be compromised.';
     }
 
     // Auto-extract
@@ -138,28 +137,36 @@ class Package {
 
 Future<Map<String, Package>> loadPackages() async {
   final dir = Directory(kBaseDir);
+  final systemPath = Platform.environment['PATH']!;
 
-  if (!await dir.exists()) {
+  if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
     print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');
-    final setUp = Confirm(
-      prompt:
-          'This package requires creating the $kBaseDir directory. Proceed?',
-    ).interact();
 
-    if (!setUp) {
-      print('Okay, fine');
+    if (!await dir.exists()) {
+      final setUp = Confirm(
+        prompt:
+            'This program requires creating the $kBaseDir directory. Proceed?',
+      ).interact();
+
+      if (setUp) {
+        await run('mkdir -p $kBaseDir', verbose: false);
+      } else {
+        print('Okay, good luck.');
+        exit(0);
+      }
+    }
+
+    if (!systemPath.contains(kBaseDir)) {
+      print('''\n
+Make sure ${kBaseDir.bold()} is in your PATH
+
+You can run ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent.
+This will make programs installed by zap.store available in your system.
+
+After that, open a new shell and re-run this program.
+''');
       exit(0);
     }
-    await run('mkdir -p $kBaseDir', verbose: false);
-  }
-
-  final systemPath = Platform.environment['PATH']!;
-  if (!systemPath.contains(kBaseDir)) {
-    print(
-        '\nPlease run: ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent to add zap.store to your PATH');
-    print(
-        '\nAfter that, open a new shell and run this program with ${'zapstore'.white().onBlack()}');
-    exit(0);
   }
 
   final links = {
@@ -193,7 +200,7 @@ Future<Map<String, Package>> loadPackages() async {
         enabledVersion: kVersion);
 
     final filePath = Platform.script.toFilePath();
-    final hash = await runInShell('cat $filePath | shasum -a 256 | head -c 64');
+    final hash = await computeHash(filePath);
     zapstorePackage._installFromLocal(
         filePath, FileMetadata(version: kVersion, hash: hash),
         keepCopy: true);
