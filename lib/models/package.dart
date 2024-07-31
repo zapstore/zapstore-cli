@@ -72,14 +72,19 @@ class Package {
     }
 
     // Auto-extract
-    if (['application/x-zip-compressed', 'application/zip', 'application/gzip']
-        .contains(meta.mimeType)) {
+    if ([
+      'application/x-zip-compressed',
+      'application/zip',
+      'application/gzip',
+      'application/x-gtar'
+    ].contains(meta.mimeType)) {
       final extractDir = path.join(Directory.systemTemp.path,
           path.basenameWithoutExtension(downloadPath));
 
-      final uncompress = meta.mimeType == 'application/gzip'
-          ? 'tar zxf $downloadPath -C $extractDir'
-          : 'unzip -d $extractDir $downloadPath';
+      final uncompress =
+          ['application/gzip', 'application/x-gtar'].contains(meta.mimeType)
+              ? 'tar zxf $downloadPath -C $extractDir'
+              : 'unzip -d $extractDir $downloadPath';
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name

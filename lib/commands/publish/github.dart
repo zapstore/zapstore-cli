@@ -3,14 +3,11 @@ import 'dart:io';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
+import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/models.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
-
-abstract class Fetcher {
-  Future<(App, Release, Set<FileMetadata>)> fetch({required App app});
-}
 
 class GithubFetcher extends Fetcher {
   final RelayMessageNotifier relay;
@@ -72,7 +69,7 @@ class GithubFetcher extends Fetcher {
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(key: regexpKey, :value) in artifacts!.entries) {
-      regexpKey = regexpKey.replaceAll('%v', r'(\d{0,3}\.\d{0,3}\.\d{0,3})');
+      regexpKey = regexpKey.replaceAll('%v', r'\d+\.\d+(\.\d+)?');
       final r = RegExp(regexpKey);
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
 
@@ -107,12 +104,7 @@ class GithubFetcher extends Fetcher {
       await fetchFile(packageUrl, File(tempPackagePath),
           headers: headers, spinner: packageSpinner);
 
-      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
-
-      // Validate executables
-      if ((value['executables'] ?? []).isNotEmpty && matchedVersion == null) {
-        throw Exception('Failed to match pattern for executables');
-      }
+      final matchedVersion = r.stringMatch(asset['name']);
 
       // Validate platform
       final platform = value['platform'];
@@ -147,7 +139,9 @@ class GithubFetcher extends Fetcher {
               for (final b in (value['executables'] ?? []))
                 (
                   'executable',
-                  b.toString().replaceFirst('%v', matchedVersion!)
+                  matchedVersion != null
+                      ? b.toString().replaceFirst('%v', matchedVersion)
+                      : b
                 ),
             }),
       );

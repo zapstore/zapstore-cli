@@ -37,8 +37,10 @@ void main(List<String> args) async {
   } on GracefullyAbortSignal {
     // silently exit with no error
   } catch (e, stack) {
-    print('${'ERROR'.red()} $e');
-    print(stack);
+    print('\n${'ERROR'.white().onRed()} $e');
+    if (e is! UsageException) {
+      print(stack);
+    }
     wasError = true;
     reset();
   } finally {
@@ -66,7 +68,7 @@ class InstallCommand extends Command {
     if (argResults!.rest.isEmpty) {
       usageException('Please provide a package to install');
     }
-    final [value] = argResults!.rest;
+    final [value, ..._] = argResults!.rest;
     await install(value, skipWot: argResults!.flag('trust'));
   }
 }
@@ -100,7 +102,7 @@ class RemoveCommand extends Command {
     if (argResults!.rest.isEmpty) {
       usageException('Please provide a package to remove');
     }
-    final [value] = argResults!.rest;
+    final [value, ..._] = argResults!.rest;
     await remove(value);
   }
 }

@@ -1,5 +1,5 @@
 import 'package:html/parser.dart';
-import 'package:zapstore_cli/commands/publish/fetchers.dart';
+import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/models.dart';
 
 class PlayStoreFetcher extends Fetcher {

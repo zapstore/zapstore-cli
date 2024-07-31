@@ -6,7 +6,7 @@ import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
-import 'package:zapstore_cli/commands/publish/fetchers.dart';
+import 'package:zapstore_cli/commands/publish/github.dart';
 import 'package:zapstore_cli/models.dart';
 import 'package:zapstore_cli/utils.dart';
 
@@ -95,6 +95,7 @@ Future<void> publish(String? value) async {
 
           var publishEvents = true;
           if (viewEvents == 0) {
+            print('\n');
             print('App event (kind 32267)'.bold().black().onWhite());
             print('\n');
             printJsonEncodeColored(app.toMap());
@@ -119,13 +120,15 @@ Future<void> publish(String? value) async {
           if (publishEvents == false) {
             print('Events NOT published, exiting');
           } else {
-            for (final BaseEvent e in [app, release, ...fileMetadatas]) {
+            for (final BaseEvent event in [app, release, ...fileMetadatas]) {
               try {
-                await relay.publish(e);
+                await relay.publish(event);
+                print(
+                    '${'Published'.bold().black().onWhite()}: ${event.id.toString()} (kind ${event.kind})');
               } catch (e) {
-                print(e.toString().bold().black().onYellow());
+                print(
+                    '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');
               }
-              print('Published kind ${e.kind}: ${e.id.toString().bold()}');
             }
           }
         } on GracefullyAbortSignal {
@@ -139,4 +142,8 @@ Future<void> publish(String? value) async {
     await relay.dispose();
     container.dispose();
   }
+}
+
+abstract class Fetcher {
+  Future<(App, Release, Set<FileMetadata>)> fetch({required App app});
 }

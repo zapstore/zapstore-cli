@@ -150,8 +150,8 @@ void printJsonEncodeColored(Object obj) {
 
   prettyJson.split('\n').forEach((line) {
     if (line.contains('":')) {
-      final parts = line.split(':');
-      print('${parts[0].green()}:${parts[1].blue()}');
+      final [prop, ...rest] = line.split('":');
+      print('${prop.green()}:${rest.join(':').blue()}');
     } else {
       print(line.blue());
     }
