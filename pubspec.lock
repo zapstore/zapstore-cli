@@ -388,9 +388,11 @@ packages:
   purplebase:
     dependency: "direct main"
     description:
-      path: "../purplebase"
-      relative: true
-    source: path
+      path: "."
+      ref: "6953429"
+      resolved-ref: "69534297c667fee5ab0b9fc9dd4ad95fa393824e"
+      url: "https://github.com/purplebase/purplebase"
+    source: git
     version: "0.1.1"
   rational:
     dependency: transitive
