@@ -43,6 +43,7 @@ Future<void> publish(String? value) async {
           name: yamlApp['name'],
           repository: yamlApp['repository'],
           pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
+          zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
         );
         final artifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
 

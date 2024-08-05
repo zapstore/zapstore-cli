@@ -69,7 +69,7 @@ class GithubFetcher extends Fetcher {
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(key: regexpKey, :value) in artifacts!.entries) {
-      regexpKey = regexpKey.replaceAll('%v', r'\d+\.\d+(\.\d+)?');
+      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(\.\d+)?)');
       final r = RegExp(regexpKey);
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
 
@@ -104,7 +104,7 @@ class GithubFetcher extends Fetcher {
       await fetchFile(packageUrl, File(tempPackagePath),
           headers: headers, spinner: packageSpinner);
 
-      final matchedVersion = r.stringMatch(asset['name']);
+      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
 
       // Validate platform
       final platform = value['platform'];
@@ -131,6 +131,8 @@ class GithubFetcher extends Fetcher {
             size: int.tryParse(size),
             platforms: {platform},
             version: latestReleaseJson['tag_name'],
+            pubkeys: app.pubkeys,
+            zapTags: app.zapTags,
             additionalEventTags: {
               //   ('version_code', 19),
               //   ('min_sdk_version', 1),
@@ -153,12 +155,15 @@ class GithubFetcher extends Fetcher {
       identifier: app.identifier ?? repoJson['name'],
       name: app.name ?? repoJson['name'],
       summary: app.summary ?? repoJson['description'],
-      url: app.url ?? repoJson['homepage'],
+      url: app.url ??
+          (repoJson['homepage'].isNotEmpty ? repoJson['homepage'] : null),
       repository: app.repository ?? 'https://github.com/$repoName',
       license: app.license ?? repoJson['license']?['spdx_id'],
       tags: app.tags.isEmpty
           ? (repoJson['topics'] as Iterable).toSet().cast()
           : app.tags,
+      pubkeys: app.pubkeys,
+      zapTags: app.zapTags,
     );
 
     final release = Release(
@@ -166,6 +171,8 @@ class GithubFetcher extends Fetcher {
       content: latestReleaseJson['body'],
       identifier: '${repoJson['name']}@${latestReleaseJson['tag_name']}',
       url: latestReleaseJson['html_url'],
+      pubkeys: app.pubkeys,
+      zapTags: app.zapTags,
     );
 
     return (appFromGithub, release, fileMetadatas);

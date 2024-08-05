@@ -136,6 +136,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
       final authorRelays = container.read(relayMessageNotifierProvider(
           ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
       authorRelays.initialize();
+
       if (!isAuthorTrusted) {
         final user = await checkUser();
 

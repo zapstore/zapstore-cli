@@ -71,6 +71,9 @@ class Package {
     }
 
     // Auto-extract
+    // application/x-gzip
+    // application/x-gtar
+    // application/x-tgz
     if ([
       'application/x-zip-compressed',
       'application/zip',
