@@ -25,8 +25,21 @@ Future<Map<String, dynamic>> checkUser() async {
     print(
         '\nYour npub will be used to check your web of trust before installing any new packages'
             .bold());
-    print('Leave blank and press enter to ignore check and proceed to install');
-    final npub = Input(prompt: 'npub').interact();
+    print(
+        '\nIf you prefer to skip this, leave it blank and press enter to proceed to install');
+    final npub = Input(
+        prompt: 'npub',
+        validator: (str) {
+          try {
+            if (str.trim().isEmpty) {
+              return true;
+            }
+            str.trim().hexKey.npub;
+            return true;
+          } catch (e) {
+            throw ValidationError('Invalid npub');
+          }
+        }).interact();
     if (npub.trim().isNotEmpty) {
       user['npub'] = npub.trim();
       file.writeAsString(jsonEncode(user));
