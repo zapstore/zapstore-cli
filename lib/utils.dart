@@ -98,27 +98,6 @@ Future<void> fetchFile(String url, File file,
   return completer.future;
 }
 
-Future<List<Map<String, dynamic>>> queryZapstore(RelayRequest req) async {
-  final response = await http.post(
-    Uri.parse('https://relay.zap.store/'),
-    headers: {
-      'Content-Type': 'application/json; charset=UTF-8',
-    },
-    body: jsonEncode(req.toMap()),
-  );
-  return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-}
-
-Future<void> publishToZapstore(BaseEvent event) async {
-  await http.post(
-    Uri.parse('https://relay.zap.store/'),
-    headers: {
-      'Content-Type': 'application/json; charset=UTF-8',
-    },
-    body: jsonEncode(["EVENT", event.toMap()]),
-  );
-}
-
 extension R2 on Future<http.Response> {
   Future<Map<String, dynamic>> getJson() async {
     return Map<String, dynamic>.from(jsonDecode((await this).body));

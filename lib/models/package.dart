@@ -115,11 +115,12 @@ class Package {
 
   String _installBinary(String srcPath, String destPath,
       {bool keepCopy = false}) {
-    return '''
+    final cmd = '''
       ${keepCopy ? 'cp' : 'mv'} $srcPath $destPath
       chmod +x $destPath
       ln -sf ${path.relative(destPath, from: kBaseDir)}
     ''';
+    return cmd;
   }
 
   Future<void> remove() async {
@@ -193,8 +194,10 @@ After that, open a new shell and re-run this program.
     db[package.name] = package;
   }
 
-  // If zapstore not in db, auto-install
-  if (db['zapstore'] == null) {
+  // If zapstore not in db, auto-install/update
+  if (db['zapstore'] == null ||
+      db['zapstore']!.enabledVersion != null &&
+          compareVersions(db['zapstore']!.enabledVersion!, kVersion) == -1) {
     final zapstorePackage = Package(
         name: 'zapstore',
         pubkey: kZapstorePubkey,
@@ -204,11 +207,11 @@ After that, open a new shell and re-run this program.
 
     final filePath = Platform.script.toFilePath();
     final hash = await computeHash(filePath);
-    zapstorePackage._installFromLocal(
+    await zapstorePackage._installFromLocal(
         filePath, FileMetadata(version: kVersion, hash: hash),
         keepCopy: true);
-    zapstorePackage.linkVersion(kVersion);
-    // Try again with zapstore installed
+    await zapstorePackage.linkVersion(kVersion);
+    // Try again with zapstore installed/updated
     return await loadPackages();
   }
 

@@ -14,7 +14,7 @@ import 'package:http/http.dart' as http;
 
 Future<void> install(String value, {bool skipWot = false}) async {
   final container = ProviderContainer();
-  late final RelayMessageNotifier relay;
+  RelayMessageNotifier? relay;
   try {
     final db = await loadPackages();
 
@@ -30,7 +30,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     relay = container
         .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    relay.initialize();
+    relay!.initialize();
 
     final apps = await relay.query<App>(search: value, tags: {
       '#f': [hostPlatform]
@@ -223,7 +223,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
   } catch (e) {
     rethrow;
   } finally {
-    await relay.dispose();
+    await relay?.dispose();
     container.dispose();
   }
 }
