@@ -1,31 +1,41 @@
 import 'dart:io';
 
+import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
+import 'package:zapstore_cli/commands/publish/apk.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github.dart';
+import 'package:zapstore_cli/commands/publish/local.dart';
 import 'package:zapstore_cli/models.dart';
 import 'package:zapstore_cli/utils.dart';
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
 
-Future<void> publish(String? value) async {
-  final doc = Map<String, dynamic>.from(
-      loadYaml(await File('zapstore.yaml').readAsString()));
+Future<void> publish(
+    {String? appAlias,
+    List<String> artifacts = const [],
+    String? version}) async {
+  final yamlFile = File('zapstore.yaml');
+  if (!await yamlFile.exists()) {
+    throw 'zapstore.yaml not found';
+  }
+  final doc =
+      Map<String, dynamic>.from(loadYaml(await yamlFile.readAsString()));
 
   final container = ProviderContainer();
   late final RelayMessageNotifier relay;
   try {
     relay = container
         .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    relay.initialize();
+    relay.initialize(); // TODO await
 
-    for (final MapEntry(key: appAlias, value: appObj) in doc.entries) {
+    for (final MapEntry(key: yamlAppAlias, value: appObj) in doc.entries) {
       for (final MapEntry(key: os, value: yamlApp) in appObj.entries) {
-        if (value != null && value != appAlias) {
+        if (appAlias != null && appAlias != yamlAppAlias) {
           continue;
         }
 
@@ -40,27 +50,61 @@ Future<void> publish(String? value) async {
 
         var app = App(
           identifier: id,
+          content: yamlApp['description'] ?? yamlApp['summary'],
           name: yamlApp['name'],
+          summary: yamlApp['summary'],
           repository: yamlApp['repository'],
           pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
           zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
         );
-        final artifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
+        final yamlArtifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
 
-        print('Releasing ${(app.name ?? appAlias).bold()} $os app...');
+        print('Publishing ${(app.name ?? yamlAppAlias).bold()} $os app...');
 
         try {
           final repoUrl = Uri.parse(app.repository!);
 
           Release release;
           Set<FileMetadata> fileMetadatas;
-          if (repoUrl.host == 'github.com') {
-            final fetcher = GithubFetcher(relay: relay);
-            final repo = repoUrl.path.substring(1);
-            (app, release, fileMetadatas) = await fetcher.fetch(
-                app: app, repoName: repo, artifacts: artifacts);
+
+          if (artifacts.isNotEmpty) {
+            (release, fileMetadatas) = await LocalParser(
+                    app: app,
+                    artifacts: artifacts,
+                    version: version!,
+                    relay: relay)
+                .process(os: os, yamlArtifacts: yamlArtifacts);
           } else {
-            throw 'Unsupported repository; service: ${repoUrl.host}';
+            if (repoUrl.host == 'github.com') {
+              final githubFetcher = GithubParser(relay: relay);
+              final repo = repoUrl.path.substring(1);
+              (app, release, fileMetadatas) = await githubFetcher.fetch(
+                app: app,
+                os: os,
+                repoName: repo,
+                artifacts: yamlArtifacts,
+              );
+            } else {
+              throw 'Unsupported repository; service: ${repoUrl.host}';
+            }
+          }
+
+          if (os == 'android') {
+            final newFileMetadatas = <FileMetadata>[];
+            for (var fileMetadata in fileMetadatas) {
+              newFileMetadatas.add(await parseApk(fileMetadata, '')); // TODO
+            }
+            print(newFileMetadatas);
+
+            // final extraMetadata = Select(
+            //   prompt: 'Would you like to pull extra metadata?',
+            //   options: ['Play Store', 'F-Droid', 'None'],
+            // ).interact();
+
+            // if (extraMetadata == 0) {
+            //   final playStoreFetcher = PlayStoreFetcher();
+            //   (app, _, _) = await playStoreFetcher.fetch(app: app);
+            // }
           }
 
           // sign
@@ -123,9 +167,13 @@ Future<void> publish(String? value) async {
           } else {
             for (final BaseEvent event in [app, release, ...fileMetadatas]) {
               try {
+                final spinner = CliSpin(
+                  text: 'Publishing kind ${event.kind}...',
+                  spinner: CliSpinners.dots,
+                ).start();
                 await relay.publish(event);
-                print(
-                    '${'Published'.bold().black().onWhite()}: ${event.id.toString()} (kind ${event.kind})');
+                spinner.success(
+                    '${'Published'.bold()}: ${event.id.toString()} (kind ${event.kind})');
               } catch (e) {
                 print(
                     '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');
@@ -145,6 +193,9 @@ Future<void> publish(String? value) async {
   }
 }
 
-abstract class Fetcher {
-  Future<(App, Release, Set<FileMetadata>)> fetch({required App app});
+abstract class RepositoryParser {
+  Future<(App, Release, Set<FileMetadata>)> fetch({
+    required App app,
+    required String os,
+  });
 }

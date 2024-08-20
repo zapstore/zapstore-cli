@@ -9,14 +9,15 @@ import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
-class GithubFetcher extends Fetcher {
+class GithubParser extends RepositoryParser {
   final RelayMessageNotifier relay;
 
-  GithubFetcher({required this.relay});
+  GithubParser({required this.relay});
 
   @override
   Future<(App, Release, Set<FileMetadata>)> fetch(
       {required App app,
+      required String os,
       String? repoName,
       Map<String, dynamic>? artifacts,
       String? contentType}) async {
@@ -104,40 +105,34 @@ class GithubFetcher extends Fetcher {
       await fetchFile(packageUrl, File(tempPackagePath),
           headers: headers, spinner: packageSpinner);
 
-      final matchedVersion = r.firstMatch(asset['name'])?.group(1);
+      final match = r.firstMatch(asset['name']);
+      final matchedVersion = (match?.groupCount ?? 0) > 0
+          ? r.firstMatch(asset['name'])?.group(1)
+          : latestReleaseJson['tag_name'];
 
-      // Validate platform
-      final platform = value['platform'];
-      final stdPlatforms = [
-        'darwin-arm64',
-        'darwin-x86_64',
-        'linux-aarch64',
-        'linux-x86_64',
-        'windows'
-      ];
-      if (!stdPlatforms.contains(platform)) {
-        throw 'Asset ${asset['name']} has a platform value of $platform but must be one of $stdPlatforms';
+      // Validate platforms
+      final platforms = {...?value['platforms'] as Iterable?};
+      if (!platforms
+          .every((platform) => kSupportedPlatforms.contains(platform))) {
+        throw 'Artifact ${asset['name']} has platforms $platforms but some are not in $kSupportedPlatforms';
       }
 
-      final (fileHash, filePath) = await renameToHash(tempPackagePath);
+      final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
       final size = await runInShell('wc -c < $filePath');
       fileMetadatas.add(
         FileMetadata(
-            content: '${app.name} ${latestReleaseJson['tag_name']} $platform',
+            content: '${app.name} ${latestReleaseJson['tag_name']}',
             createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
             urls: {packageUrl},
             mimeType: asset['content_type'],
             hash: fileHash,
             size: int.tryParse(size),
-            platforms: {platform},
+            platforms: platforms.toSet().cast(),
             version: latestReleaseJson['tag_name'],
             pubkeys: app.pubkeys,
             zapTags: app.zapTags,
             additionalEventTags: {
-              //   ('version_code', 19),
-              //   ('min_sdk_version', 1),
-              //   ('target_sdk_version', 2),
-              //   ('apk_signature_hash', '122fg435')
+              // ('temp_package_path', tempPackagePath),
               for (final b in (value['executables'] ?? []))
                 (
                   'executable',

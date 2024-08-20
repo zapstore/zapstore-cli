@@ -79,9 +79,9 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     final meta = fileMetadatas[0];
 
-    spinner.success('Found ${app.name}@${meta.version}');
+    spinner.success('Found ${app.identifier}@${meta.version}');
 
-    final installedPackage = db[app.name];
+    final installedPackage = db[app.identifier];
 
     var isUpdatable = false;
     var isAuthorTrusted = false;
@@ -90,10 +90,10 @@ Future<void> install(String value, {bool skipWot = false}) async {
           installedPackage.versions.firstWhereOrNull((v) => v == meta.version);
       if (appVersionInstalled != null) {
         if (appVersionInstalled == installedPackage.enabledVersion) {
-          spinner.success('Package ${app.name} is already up to date');
+          spinner.success('Package ${app.identifier} is already up to date');
         } else {
           installedPackage.linkVersion(meta.version!);
-          spinner.success('Package ${app.name} re-enabled');
+          spinner.success('Package ${app.identifier} re-enabled');
         }
         exit(0);
       }
@@ -107,7 +107,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
         final upToDate = installedPackage.versions
             .any((version) => compareVersions(meta.version!, version) == 0);
         if (upToDate) {
-          print('Package already up to date ${app.name} ${meta.version}');
+          print('Package already up to date ${app.identifier} ${meta.version}');
           exit(0);
         }
 
@@ -117,7 +117,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
         final installAnyway = Confirm(
           prompt:
-              'Are you sure you want to downgrade ${app.name} from $higherVersion to ${meta.version}?',
+              'Are you sure you want to downgrade ${app.identifier} from $higherVersion to ${meta.version}?',
           defaultValue: false,
         ).interact();
 
@@ -186,7 +186,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
           final installPackage = Confirm(
             prompt:
-                'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.name}${isUpdatable ? ' to ${meta.version}' : ''}?',
+                'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.identifier}${isUpdatable ? ' to ${meta.version}' : ''}?',
             defaultValue: false,
           ).interact();
 
@@ -206,21 +206,22 @@ Future<void> install(String value, {bool skipWot = false}) async {
     }
 
     final installSpinner = CliSpin(
-      text: 'Installing package ${app.name}...',
+      text: 'Installing package ${app.identifier}...',
       spinner: CliSpinners.dots,
     ).start();
 
-    final package = db[app.name] ??
+    final package = db[app.identifier] ??
         Package(
-            name: app.name!,
+            identifier: app.identifier!,
             pubkey: meta.pubkey,
             versions: {meta.version!},
             enabledVersion: meta.version!);
     await package.installFromUrl(meta, spinner: installSpinner);
 
     installSpinner
-        .success('Installed package ${app.name!.bold()}@${meta.version}');
-  } catch (e) {
+        .success('Installed package ${app.identifier!.bold()}@${meta.version}');
+  } catch (e, stack) {
+    print(stack);
     rethrow;
   } finally {
     await relay?.dispose();

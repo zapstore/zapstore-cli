@@ -108,15 +108,15 @@ extension on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
 }
 
-Future<(String, String)> renameToHash(String filePath) async {
+Future<(String, String, String)> renameToHash(String filePath) async {
   final ext = path.extension(filePath);
   final hash = await computeHash(filePath);
+  var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
+      .outText
+      .split('\n')
+      .first;
   var hashName = '$hash$ext';
   if (hash == hashName) {
-    var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
-        .outText
-        .split('\n')
-        .first;
     if (mimeType == 'application/octet-stream' &&
         filePath.endsWith('.tar.gz')) {
       mimeType = 'application/gzip';
@@ -131,7 +131,7 @@ Future<(String, String)> renameToHash(String filePath) async {
       ? path.join(Platform.environment['BLOSSOM_DIR']!, hashName)
       : path.join(Directory.systemTemp.path, hashName);
   await run('mv $filePath $destFilePath', verbose: false);
-  return (hash, destFilePath);
+  return (hash, destFilePath, mimeType);
 }
 
 Future<String> runInShell(String cmd,
@@ -160,3 +160,11 @@ void printJsonEncodeColored(Object obj) {
 }
 
 class GracefullyAbortSignal extends Error {}
+
+const kSupportedPlatforms = [
+  'darwin-arm64',
+  'darwin-x86_64',
+  'linux-aarch64',
+  'linux-x86_64',
+  'android-arm64-v8a',
+];

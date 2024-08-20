@@ -37,9 +37,11 @@ void main(List<String> args) async {
   } on GracefullyAbortSignal {
     // silently exit with no error
   } catch (e, stack) {
-    print('\n${'ERROR'.white().onRed()} $e');
+    final first = e.toString().split('\n').first;
+    final rest = e.toString().split('\n').sublist(1).join('\n');
+    print('\n${'ERROR'.white().onRed()} ${first.bold()}\n$rest');
     if (e is! UsageException) {
-      print(stack);
+      print(stack.toString().gray());
     }
     wasError = true;
     reset();
@@ -108,6 +110,11 @@ class RemoveCommand extends Command {
 }
 
 class PublishCommand extends Command {
+  PublishCommand() {
+    argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
+    argParser.addOption('releaseVersion',
+        abbr: 'r', help: 'Local release version.');
+  }
   @override
   String get name => 'publish';
 
@@ -120,7 +127,17 @@ class PublishCommand extends Command {
   @override
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
-    await publish(value);
+    final artifacts = argResults!.multiOption('artifacts');
+    final version = argResults!.option('releaseVersion');
+    if (artifacts.isNotEmpty && version == null) {
+      usageException(
+          'Please provide a release version (-r option) along with artifacts');
+    }
+    await publish(
+      appAlias: value,
+      artifacts: artifacts,
+      version: version,
+    );
   }
 }
 

@@ -12,14 +12,14 @@ import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
 class Package {
-  final String name;
+  final String identifier;
   final String pubkey;
   final Set<String> versions;
   final Set<String> binaries;
   String? enabledVersion;
 
   Package(
-      {required this.name,
+      {required this.identifier,
       required this.pubkey,
       this.versions = const {},
       this.binaries = const {},
@@ -40,14 +40,15 @@ class Package {
       return version;
     }).toSet();
     return Package(
-        name: name,
+        identifier: name,
         pubkey: pubkey,
         versions: versions,
         binaries: binaries,
         enabledVersion: enabledVersion);
   }
 
-  Directory get directory => Directory(path.join(kBaseDir, '$pubkey-$name'));
+  Directory get directory =>
+      Directory(path.join(kBaseDir, '$pubkey-$identifier'));
 
   Future<bool> skeletonExists() => directory.exists();
 
@@ -90,7 +91,7 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath in meta.tagMap['executable'] ?? {name})
+        for (final binaryPath in meta.tagMap['executable'] ?? {identifier})
           _installBinary(
               path.join(extractDir, binaryPath),
               path.join(
@@ -100,6 +101,7 @@ class Package {
       }.join('\n');
 
       final cmd = '''
+      rm -fr $extractDir
       mkdir -p $extractDir
       $uncompress
       $mvs
@@ -107,7 +109,7 @@ class Package {
     ''';
       await shell.run(cmd);
     } else {
-      final binaryPath = path.join(versionPath, name);
+      final binaryPath = path.join(versionPath, identifier);
       final cmd = _installBinary(downloadPath, binaryPath, keepCopy: keepCopy);
       await shell.run(cmd);
     }
@@ -129,13 +131,14 @@ class Package {
   }
 
   Future<void> linkVersion(String version) async {
-    await shell.run('ln -sf ${path.join('$pubkey-$name', version, name)}');
+    await shell
+        .run('ln -sf ${path.join('$pubkey-$identifier', version, identifier)}');
     enabledVersion = version;
   }
 
   @override
   String toString() {
-    return '$name versions: $versions binaries: $binaries';
+    return '$identifier versions: $versions binaries: $binaries';
   }
 }
 
@@ -191,7 +194,7 @@ After that, open a new shell and re-run this program.
   for (final key in groupedBinaryFullPaths.keys) {
     final package =
         Package.fromString(key, groupedBinaryFullPaths[key]!, links);
-    db[package.name] = package;
+    db[package.identifier] = package;
   }
 
   // If zapstore not in db, auto-install/update
@@ -199,7 +202,7 @@ After that, open a new shell and re-run this program.
       db['zapstore']!.enabledVersion != null &&
           compareVersions(db['zapstore']!.enabledVersion!, kVersion) == -1) {
     final zapstorePackage = Package(
-        name: 'zapstore',
+        identifier: 'zapstore',
         pubkey: kZapstorePubkey,
         versions: {kVersion},
         binaries: {'zapstore'},
