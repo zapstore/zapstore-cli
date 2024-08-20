@@ -4,7 +4,7 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/commands/publish.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
@@ -15,7 +15,7 @@ class GithubParser extends RepositoryParser {
   GithubParser({required this.relay});
 
   @override
-  Future<(App, Release, Set<FileMetadata>)> fetch(
+  Future<(App, Release, Set<FileMetadata>)> run(
       {required App app,
       required String os,
       String? repoName,

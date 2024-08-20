@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 
 Future<(App, Release, Set<FileMetadata>)> finalizeEvents(
     {required App app,

@@ -167,4 +167,9 @@ const kSupportedPlatforms = [
   'linux-aarch64',
   'linux-x86_64',
   'android-arm64-v8a',
+  'android-armeabi',
+  'android-armeabi-v7a',
+  'android-mips',
+  'android-mips64',
+  'android-x86_64',
 ];

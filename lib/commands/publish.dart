@@ -10,7 +10,8 @@ import 'package:zapstore_cli/commands/publish/apk.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/commands/publish/playstore_parser.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
@@ -31,7 +32,7 @@ Future<void> publish(
   try {
     relay = container
         .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    relay.initialize(); // TODO await
+    await relay.initialize();
 
     for (final MapEntry(key: yamlAppAlias, value: appObj) in doc.entries) {
       for (final MapEntry(key: os, value: yamlApp) in appObj.entries) {
@@ -57,7 +58,17 @@ Future<void> publish(
           pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
           zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
         );
-        final yamlArtifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
+
+        var yamlArtifacts = <String, dynamic>{};
+        if (yamlApp['artifacts'] is YamlList) {
+          for (final a in yamlApp['artifacts']) {
+            yamlArtifacts[a] = {};
+          }
+        } else if (yamlApp['artifacts'] is YamlMap) {
+          yamlArtifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
+        } else {
+          throw 'Invalid artifacts format, it must be a list or a map:\n${yamlApp['artifacts']}';
+        }
 
         print('Publishing ${(app.name ?? yamlAppAlias).bold()} $os app...');
 
@@ -78,7 +89,7 @@ Future<void> publish(
             if (repoUrl.host == 'github.com') {
               final githubFetcher = GithubParser(relay: relay);
               final repo = repoUrl.path.substring(1);
-              (app, release, fileMetadatas) = await githubFetcher.fetch(
+              (app, release, fileMetadatas) = await githubFetcher.run(
                 app: app,
                 os: os,
                 repoName: repo,
@@ -90,21 +101,23 @@ Future<void> publish(
           }
 
           if (os == 'android') {
-            final newFileMetadatas = <FileMetadata>[];
+            final newFileMetadatas = <FileMetadata>{};
             for (var fileMetadata in fileMetadatas) {
-              newFileMetadatas.add(await parseApk(fileMetadata, '')); // TODO
+              newFileMetadatas.add(await parseApk(app, fileMetadata));
             }
-            print(newFileMetadatas);
+            fileMetadatas = newFileMetadatas;
 
-            // final extraMetadata = Select(
-            //   prompt: 'Would you like to pull extra metadata?',
-            //   options: ['Play Store', 'F-Droid', 'None'],
-            // ).interact();
+            final extraMetadata = Select(
+              prompt: 'Would you like to pull extra metadata?',
+              options: ['Play Store', 'F-Droid', 'None'],
+            ).interact();
 
-            // if (extraMetadata == 0) {
-            //   final playStoreFetcher = PlayStoreFetcher();
-            //   (app, _, _) = await playStoreFetcher.fetch(app: app);
-            // }
+            if (extraMetadata == 0) {
+              final playStoreParser = PlayStoreParser();
+              app = await playStoreParser.run(app: app);
+            } else if (extraMetadata == 1) {
+              throw 'Not yet supported, sorry';
+            }
           }
 
           // sign
@@ -194,7 +207,7 @@ Future<void> publish(
 }
 
 abstract class RepositoryParser {
-  Future<(App, Release, Set<FileMetadata>)> fetch({
+  Future<(App, Release, Set<FileMetadata>)> run({
     required App app,
     required String os,
   });

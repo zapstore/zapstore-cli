@@ -5,7 +5,7 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:purplebase/purplebase.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
@@ -77,6 +77,7 @@ class LocalParser {
       }
 
       final headResponse = await http.head(Uri.parse(artifactUrl));
+      // TODO artifactUrl not having extension when returns from head
       if (headResponse.statusCode != 200) {
         final bytes = await artifactFile.readAsBytes();
         final response = await http.post(
@@ -114,28 +115,28 @@ class LocalParser {
 
       final size = await runInShell('wc -c < $newFilePath');
 
-      fileMetadatas.add(
-        FileMetadata(
-            content: '${app.name} $version',
-            createdAt: releaseCreatedAt,
-            urls: {artifactUrl},
-            mimeType: mimeType,
-            hash: artifactHash,
-            size: int.tryParse(size),
-            platforms: platforms.toSet().cast(),
-            version: version,
-            pubkeys: app.pubkeys,
-            zapTags: app.zapTags,
-            additionalEventTags: {
-              for (final b in (value['executables'] ?? []))
-                (
-                  'executable',
-                  matchedVersion != null
-                      ? b.toString().replaceFirst('%v', matchedVersion)
-                      : b
-                ),
-            }),
-      );
+      final fileMetadata = FileMetadata(
+          content: '${app.name} $version',
+          createdAt: releaseCreatedAt,
+          urls: {artifactUrl},
+          mimeType: mimeType,
+          hash: artifactHash,
+          size: int.tryParse(size),
+          platforms: platforms.toSet().cast(),
+          version: version,
+          pubkeys: app.pubkeys,
+          zapTags: app.zapTags,
+          additionalEventTags: {
+            for (final b in (value['executables'] ?? []))
+              (
+                'executable',
+                matchedVersion != null
+                    ? b.toString().replaceFirst('%v', matchedVersion)
+                    : b
+              ),
+          });
+      fileMetadata.transientData['apkPath'] = newFilePath;
+      fileMetadatas.add(fileMetadata);
       uploadSpinner.success('Uploaded artifact: $artifact to $artifactUrl');
     }
 

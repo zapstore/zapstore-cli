@@ -7,7 +7,7 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 

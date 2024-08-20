@@ -7,7 +7,7 @@ import 'package:process_run/process_run.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
-import 'package:zapstore_cli/models.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:http/http.dart' as http;
@@ -30,7 +30,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     relay = container
         .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    relay!.initialize();
+    await relay!.initialize();
 
     final apps = await relay.query<App>(search: value, tags: {
       '#f': [hostPlatform]
@@ -135,7 +135,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
     if (!skipWot) {
       final authorRelays = container.read(relayMessageNotifierProvider(
           ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
-      authorRelays.initialize();
+      await authorRelays.initialize();
 
       if (!isAuthorTrusted) {
         final user = await checkUser();
