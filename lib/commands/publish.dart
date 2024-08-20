@@ -8,8 +8,8 @@ import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/apk.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
-import 'package:zapstore_cli/commands/publish/github.dart';
-import 'package:zapstore_cli/commands/publish/local.dart';
+import 'package:zapstore_cli/commands/publish/github_parser.dart';
+import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/models.dart';
 import 'package:zapstore_cli/utils.dart';
 
