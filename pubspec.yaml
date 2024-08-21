@@ -1,6 +1,6 @@
 name: zapstore_cli
 description: The permissionless app store powered by your social network
-version: 0.0.3
+version: 0.0.4
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:
@@ -23,10 +23,10 @@ dependencies:
 
 dependency_overrides:
   purplebase:
-    path: ../purplebase
-    # git:
-    #   url: https://github.com/purplebase/purplebase
-    #   ref: c03cce7c8e03b6eeb1c3d42cf32ab3f4657222c8
+    # path: ../purplebase
+    git:
+      url: https://github.com/purplebase/purplebase
+      ref: c0e7b95cffc74caa3787b17fd742ca1f15a6fd0a
 
 dev_dependencies:
   lints: ^3.0.0

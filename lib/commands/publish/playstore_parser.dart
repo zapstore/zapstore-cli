@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:cli_spin/cli_spin.dart';
 import 'package:html/parser.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
 import 'package:html2md/html2md.dart';
 import 'package:zapstore_cli/utils.dart';
 

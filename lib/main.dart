@@ -12,9 +12,7 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 
-const kZapstorePubkey =
-    '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
-const kVersion = '0.0.3';
+const kVersion = '0.0.4';
 
 void main(List<String> args) async {
   var wasError = false;

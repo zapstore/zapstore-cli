@@ -220,8 +220,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     installSpinner
         .success('Installed package ${app.identifier!.bold()}@${meta.version}');
-  } catch (e, stack) {
-    print(stack);
+  } catch (e) {
     rethrow;
   } finally {
     await relay?.dispose();

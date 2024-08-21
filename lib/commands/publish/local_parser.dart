@@ -65,8 +65,8 @@ class LocalParser {
 
       if (metadataOnRelay.isNotEmpty) {
         if (Platform.environment['OVERWRITE'] == null) {
-          uploadSpinner
-              .fail('Release version $version already in relay, nothing to do');
+          uploadSpinner.fail(
+              'Artifact with hash $artifactHash is already in relay, nothing to do');
           throw GracefullyAbortSignal();
         }
       }
