@@ -46,33 +46,32 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
   final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion'];
   final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion'];
 
-  // if (!iconPath) {
-  //   // TODO prevent XML image shit
-  //   try {
-  //     final iconPointer = await $`cat $MANIFEST | xq -q 'manifest application' -a 'android:icon'`.env({ MANIFEST: `${apkFolder}/AndroidManifest.xml` }).text();
-  //     if (iconPointer.startsWith('@mipmap')) {
-  //       final mipmapFolders = await $`ls $FOLDER/res | grep mipmap`.env({ FOLDER: apkFolder }).text();
-  //       final bestMipmapFolder = selectBestString(mipmapFolders.trim().split('\n'), [
-  //         [/xxxhdpi/, 5],
-  //         [/xxhdpi/, 4],
-  //         [/xhdpi/, 3],
-  //         [/hdpi/, 2],
-  //         [/mdpi/, 1],
-  //       ]);
-  //       final iconBasename = iconPointer.replace('@mipmap/', '').trim();
-  //       final iconFolder = join(apkFolder, 'res', bestMipmapFolder);
-  //       final _iconName = await $`ls ${iconBasename}.*'`.cwd(iconFolder).text();
-  //       iconPath = join(iconFolder, _iconName.trim());
-  //     }
-  //   } catch (e) {
-  //     // ignore
-  //   }
-  // }
+  // TODO: Prevent XML image shit
+  // TODO: Check appIcon, convert svg to png
 
-  // // TODO check appIcon, convert svg to png
+  try {
+    final iconPointer = await runInShell(
+        "cat $apkFolder/AndroidManifest.xml | xq -q 'manifest application' -a 'android:icon'");
+    if (iconPointer.startsWith('@mipmap')) {
+      // final mipmapFolders = await runInShell("ls $apkFolder/res | grep mipmap");
+      // final bestMipmapFolder = selectBestString(mipmapFolders.trim().split('\n'), [
+      //   [/xxxhdpi/, 5],
+      //   [/xxhdpi/, 4],
+      //   [/xhdpi/, 3],
+      //   [/hdpi/, 2],
+      //   [/mdpi/, 1],
+      // ]);
+      // final iconBasename = iconPointer.replaceAll('@mipmap/', '').trim();
+      // final iconFolder = path.join(apkFolder, 'res', 'xxxhdpi');
+      // final iconName = await runInShell('ls $iconFolder/$iconBasename.*');
+      // iconPath = join(iconFolder, _iconName.trim());
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // final [_, iconHashName] = iconPath ? await renameToHash(iconPath) : [undefined, undefined];
 
-  // print('Cleaning up folder', apkFolder);
   await runInShell('rm -fr $apkFolder');
 
   apkSpinner.success('Parsed APK');

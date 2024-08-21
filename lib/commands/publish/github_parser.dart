@@ -7,7 +7,6 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
-import 'package:path/path.dart' as path;
 
 class GithubParser extends RepositoryParser {
   final RelayMessageNotifier relay;
@@ -100,9 +99,7 @@ class GithubParser extends RepositoryParser {
         }
       }
 
-      final tempPackagePath =
-          path.join(Directory.systemTemp.path, path.basename(packageUrl));
-      await fetchFile(packageUrl, File(tempPackagePath),
+      final tempPackagePath = await fetchFile(packageUrl,
           headers: headers, spinner: packageSpinner);
 
       final match = r.firstMatch(asset['name']);

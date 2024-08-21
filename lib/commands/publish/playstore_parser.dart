@@ -4,8 +4,8 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:html/parser.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
-import 'package:html2md/html2md.dart';
 import 'package:path/path.dart' as path;
+import 'package:html2md/html2md.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class PlayStoreParser {
@@ -20,17 +20,14 @@ class PlayStoreParser {
       return app;
     }
 
-    final imageHashNames = [];
-
     final document = parse(response.body);
 
     if (app.name == null) {
       final appName = document.querySelector('h1[itemprop=name]')!.text.trim();
-      print(appName);
       app = app.copyWith(name: appName);
     }
 
-    if (app.summary == null) {
+    if (app.content == null || app.content!.isEmpty) {
       final appDescription =
           document.querySelector('div[data-g-id=description]')!.text.trim();
       final markdownAppDescription = convert(appDescription);
@@ -42,16 +39,12 @@ class PlayStoreParser {
         .map((e) => e.attributes['src'])
         .nonNulls;
     final iconUrl = iconUrls.first;
-    print(iconUrls);
+    final iconPath = await fetchFile(iconUrl);
+    final (iconHash, newIconPath, iconMimeType) = await renameToHash(iconPath);
+    final iconBlossomUrl =
+        await uploadToBlossom(newIconPath, iconHash, iconMimeType);
 
-    String iconPath;
-    if (iconUrl.trim().isNotEmpty) {
-      iconPath = path.join('', path.basename(iconUrl));
-      final response = await http.get(Uri.parse(iconUrl));
-      await File(iconPath).writeAsBytes(response.bodyBytes);
-      // TODO upload to blossom server
-    }
-
+    final imageBlossomUrls = <String>{};
     final imageUrls = document
         .querySelectorAll('img[data-screenshot-index]')
         .map((e) => e.attributes['src'])
@@ -59,18 +52,17 @@ class PlayStoreParser {
 
     for (final imageUrl in imageUrls) {
       if (imageUrl.trim().isNotEmpty) {
-        final tempImagePath =
-            path.join(Directory.systemTemp.path, path.basename(imageUrl));
-        final response = await http.get(Uri.parse(imageUrl));
-        await File(tempImagePath).writeAsBytes(response.bodyBytes);
-        final (_, imageHashName, _) = await renameToHash(tempImagePath);
-        imageHashNames.add(imageHashName);
-        // TODO upload blossom
+        final imagePath = await fetchFile(imageUrl);
+        final (imageHash, newImagePath, imageMimeType) =
+            await renameToHash(imagePath);
+        final imageBlossomUrl =
+            await uploadToBlossom(newImagePath, imageHash, imageMimeType);
+        imageBlossomUrls.add(imageBlossomUrl);
       }
     }
 
     spinner?.success('Fetched metadata from Google Play Store');
 
-    return app;
+    return app.copyWith(icons: {iconBlossomUrl}, images: imageBlossomUrls);
   }
 }

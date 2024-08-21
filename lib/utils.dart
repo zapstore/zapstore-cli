@@ -54,10 +54,11 @@ String formatProfile(BaseUser user) {
   return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
 }
 
-Future<void> fetchFile(String url, File file,
+Future<String> fetchFile(String url,
     {Map<String, String>? headers, CliSpin? spinner}) async {
+  final file = File(path.join(Directory.systemTemp.path, path.basename(url)));
   final initialText = spinner?.text;
-  final completer = Completer();
+  final completer = Completer<String>();
   StreamSubscription? sub;
   final client = http.Client();
   final sink = file.openWrite();
@@ -93,9 +94,35 @@ Future<void> fetchFile(String url, File file,
     await sub?.cancel();
     await sink.close();
     client.close();
-    completer.complete();
+    completer.complete(file.path);
   });
   return completer.future;
+}
+
+Future<String> uploadToBlossom(
+    String artifactPath, String artifactHash, String artifactMimeType,
+    {CliSpin? spinner}) async {
+  var artifactUrl = 'https://cdn.zap.store/$artifactHash';
+  final headResponse = await http.head(Uri.parse(artifactUrl));
+  if (headResponse.statusCode != 200) {
+    final bytes = await File(artifactPath).readAsBytes();
+    final response = await http.post(
+      Uri.parse('https://cdn.zap.store/upload'),
+      body: bytes,
+      headers: {
+        'Content-Type': artifactMimeType,
+        'X-Filename': path.basename(artifactPath),
+      },
+    );
+
+    final responseMap = Map<String, dynamic>.from(jsonDecode(response.body));
+    artifactUrl = responseMap['url'];
+
+    if (response.statusCode != 200 || artifactHash != responseMap['sha256']) {
+      throw 'Error uploading $artifactPath: status code ${response.statusCode}, hash: $artifactHash, server hash: ${responseMap['sha256']}';
+    }
+  }
+  return artifactUrl;
 }
 
 extension R2 on Future<http.Response> {
