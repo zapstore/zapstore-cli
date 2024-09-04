@@ -20,7 +20,27 @@ dart compile exe lib/main.dart -o zapstore
 
 ## Publishing package usage
 
-Run `zapstore publish myapp` in a folder with a `zapstore.yaml` file like:
+Run `zapstore publish myapp` in a folder with a `zapstore.yaml` file.
+
+Artifacts should be listed in `artifacts`, either as a list or as keys of a map for further options. It supports regular expressions to describe package paths.
+For convenience, use `%v` as placeholder for a version. It will be replaced by `\d+\.\d+(\.\d+)?`. You can write any regex that matches your files.
+
+### Android package
+
+Example:
+
+```yaml
+go:
+  android:
+    identifier: com.getalby.mobile
+    name: Alby Go
+    description: A simple lightning mobile wallet interface that works great with Alby Hub.
+    repository: https://github.com/getAlby/go
+    artifacts:
+      - alby-go-v%v-rc2-android.apk
+```
+
+### CLI package
 
 ```yaml
 myapp:
@@ -36,9 +56,6 @@ myapp:
       nak-v%v-linux-amd64:
         platform: linux-x86_64
 ```
-
-The artifacts map has regular expressions to package paths in releases.
-For convenience, use `%v` as placeholder for a version. It will be replaced by `\d+\.\d+(\.\d+)?`. You can write any regex that matches your files.
 
 Inside the map, use the `platform` key to specify the target platform. Formats are included as `f` tags in file metadata events and valid strings at this time are:
 
@@ -65,4 +82,4 @@ phoenixd:
         executables: [phoenix-%v-macos-arm64/phoenixd, phoenix-%v-macos-arm64/phoenix-cli]
 ```
 
-Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Let us know.
+Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Get in touch!
