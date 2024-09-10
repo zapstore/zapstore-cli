@@ -37,8 +37,22 @@ go:
     description: A simple lightning mobile wallet interface that works great with Alby Hub.
     repository: https://github.com/getAlby/go
     artifacts:
-      - alby-go-v%v-rc2-android.apk
+      - alby-go-v%v-android.apk
 ```
+
+In the terminal, run `publish` and optionally specify the name of the app:
+
+```bash
+zapstore publish go
+```
+
+This will pull APKs from Github releases. If you would like to upload an APK (that will be stored at `cdn.zap.store` Blossom server) instead, use `-a` and `-r` like:
+
+```bash
+zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -r 1.4.1
+```
+
+Note that `apktool` is required to extract APK information. If you don't have it in your path, you can install it via `zapstore install apktool`.
 
 ### CLI package
 
