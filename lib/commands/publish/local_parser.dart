@@ -19,7 +19,7 @@ class LocalParser {
       required this.version,
       required this.relay});
 
-  Future<(Release, Set<FileMetadata>)> process({
+  Future<(App, Release, Set<FileMetadata>)> process({
     required String os,
     required Map<String, dynamic> yamlArtifacts,
   }) async {
@@ -33,9 +33,10 @@ class LocalParser {
           artifacts.firstWhereOrNull((a) => r.hasMatch(path.basename(a)));
 
       if (artifactPath == null) {
-        final continueWithout =
-            Confirm(prompt: 'No artifact matching $regexpKey. Continue?')
-                .interact();
+        final continueWithout = Confirm(
+                prompt:
+                    'No artifact matching $regexpKey. Edit zapstore.yaml if necessary. Continue?')
+            .interact();
         if (continueWithout) {
           continue;
         } else {
@@ -128,6 +129,6 @@ class LocalParser {
       zapTags: app.zapTags,
     );
 
-    return (release, fileMetadatas);
+    return (app, release, fileMetadatas);
   }
 }

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:cli_spin/cli_spin.dart';
+import 'package:html/parser.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:path/path.dart' as path;
@@ -24,21 +27,28 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
   }
 
   // TODO: Which apksigner
+  // print(whichSync('apksigner'));
   final rawSignatureHashes = await runInShell(
       'apksigner verify --print-certs $apkPath | grep SHA-256');
+  // TODO: Try to match with existing? Maybe allow in zapstore.yaml?
   final signatureHashes = [
     for (final sh in rawSignatureHashes.trim().split('\n'))
       sh.split(':').lastOrNull?.trim()
   ].nonNulls;
 
-  final appIdentifier = await runInShell(
-      "cat $apkFolder/AndroidManifest.xml | xq -q 'manifest' -a 'package'");
+  final rawAndroidManifest =
+      await File(path.join(apkFolder, 'AndroidManifest.xml')).readAsString();
+  final androidManifest = parse(rawAndroidManifest);
+
+  final appIdentifier =
+      androidManifest.querySelector('manifest')!.attributes['package'];
   if (appIdentifier != app.identifier) {
     throw 'Identifier mismatch: $appIdentifier != ${app.identifier}';
   }
 
-  final apkToolYaml = await runInShell("cat $apkFolder/apktool.yml | sed '1d'");
-  final yamlData = Map<String, dynamic>.from(loadYaml(apkToolYaml));
+  final rawApktoolYaml =
+      await File(path.join(apkFolder, 'apktool.yml')).readAsString();
+  final yamlData = Map<String, dynamic>.from(loadYaml(rawApktoolYaml));
 
   final apkVersion = yamlData['versionInfo']?['versionName'];
   final apkVersionCode = yamlData['versionInfo']?['versionCode'];
@@ -49,34 +59,43 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
   // TODO: Prevent XML image shit
   // TODO: Check appIcon, convert svg to png
 
-  try {
-    final iconPointer = await runInShell(
-        "cat $apkFolder/AndroidManifest.xml | xq -q 'manifest application' -a 'android:icon'");
-    if (iconPointer.startsWith('@mipmap')) {
-      // final mipmapFolders = await runInShell("ls $apkFolder/res | grep mipmap");
-      // final bestMipmapFolder = selectBestString(mipmapFolders.trim().split('\n'), [
-      //   [/xxxhdpi/, 5],
-      //   [/xxhdpi/, 4],
-      //   [/xhdpi/, 3],
-      //   [/hdpi/, 2],
-      //   [/mdpi/, 1],
-      // ]);
-      // final iconBasename = iconPointer.replaceAll('@mipmap/', '').trim();
-      // final iconFolder = path.join(apkFolder, 'res', 'xxxhdpi');
-      // final iconName = await runInShell('ls $iconFolder/$iconBasename.*');
-      // iconPath = join(iconFolder, _iconName.trim());
-    }
-  } catch (e) {
-    // ignore
-  }
+  String? iconBlossomUrl;
+  if (app.icons.isEmpty) {
+    try {
+      final iconPointer = androidManifest
+          .querySelector('manifest application')
+          ?.attributes['android:icon'];
+      if (iconPointer != null && iconPointer.startsWith('@mipmap')) {
+        Directory? iconFolder;
+        for (final s in ['xxxhdpi', 'xxhdpi', 'xhdpi', 'hdpi', 'mdpi']) {
+          final folder = Directory(path.join(apkFolder, 'res', 'mipmap-$s'));
+          if (await folder.exists()) {
+            iconFolder = folder;
+            break;
+          }
+        }
 
-  // final [_, iconHashName] = iconPath ? await renameToHash(iconPath) : [undefined, undefined];
+        if (iconFolder != null) {
+          final iconBasename = iconPointer.replaceAll('@mipmap/', '').trim();
+          final iconName =
+              await runInShell('ls ${iconFolder.path}/$iconBasename.*');
+          final iconPath = path.join(iconFolder.path, iconName);
+          final (iconHash, newIconPath, iconMimeType) =
+              await renameToHash(iconPath);
+          iconBlossomUrl =
+              await uploadToBlossom(newIconPath, iconHash, iconMimeType);
+        }
+      }
+    } catch (e) {
+      // Ignore, we'll move on without icon
+    }
+  }
 
   await runInShell('rm -fr $apkFolder');
 
   apkSpinner.success('Parsed APK');
 
-  return fileMetadata.copyWith(
+  fileMetadata = fileMetadata.copyWith(
     version: apkVersion,
     platforms: architectures.map((a) => 'android-$a').toSet(),
     mimeType: 'application/vnd.android.package-archive',
@@ -90,4 +109,10 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
       for (final a in architectures) ('arch', a),
     },
   );
+
+  if (iconBlossomUrl != null) {
+    fileMetadata.transientData['iconBlossomUrl'] = iconBlossomUrl;
+  }
+
+  return fileMetadata;
 }

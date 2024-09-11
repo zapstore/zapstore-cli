@@ -31,15 +31,19 @@ class PlayStoreParser {
       app = app.copyWith(content: markdownAppDescription);
     }
 
-    final iconUrls = document
-        .querySelectorAll('img[itemprop=image]')
-        .map((e) => e.attributes['src'])
-        .nonNulls;
-    final iconUrl = iconUrls.first;
-    final iconPath = await fetchFile(iconUrl);
-    final (iconHash, newIconPath, iconMimeType) = await renameToHash(iconPath);
-    final iconBlossomUrl =
-        await uploadToBlossom(newIconPath, iconHash, iconMimeType);
+    if (app.icons.isEmpty) {
+      final iconUrls = document
+          .querySelectorAll('img[itemprop=image]')
+          .map((e) => e.attributes['src'])
+          .nonNulls;
+      final iconUrl = iconUrls.first;
+      final iconPath = await fetchFile(iconUrl);
+      final (iconHash, newIconPath, iconMimeType) =
+          await renameToHash(iconPath);
+      final iconBlossomUrl =
+          await uploadToBlossom(newIconPath, iconHash, iconMimeType);
+      app = app.copyWith(icons: {iconBlossomUrl});
+    }
 
     final imageBlossomUrls = <String>{};
     final imageUrls = document
@@ -60,6 +64,6 @@ class PlayStoreParser {
 
     spinner?.success('Fetched metadata from Google Play Store');
 
-    return app.copyWith(icons: {iconBlossomUrl}, images: imageBlossomUrls);
+    return app.copyWith(images: imageBlossomUrls);
   }
 }

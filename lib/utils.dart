@@ -135,6 +135,7 @@ extension on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
 }
 
+/// Returns hash, hashed file path, mime type
 Future<(String, String, String)> renameToHash(String filePath) async {
   final ext = path.extension(filePath);
   final hash = await computeHash(filePath);

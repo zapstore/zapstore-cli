@@ -73,23 +73,22 @@ Future<void> publish(
         print('Publishing ${(app.name ?? yamlAppAlias).bold()} $os app...');
 
         try {
-          final repoUrl = Uri.parse(app.repository!);
-
           Release release;
           Set<FileMetadata> fileMetadatas;
 
           if (artifacts.isNotEmpty) {
-            (release, fileMetadatas) = await LocalParser(
+            (app, release, fileMetadatas) = await LocalParser(
                     app: app,
                     artifacts: artifacts,
                     version: version!,
                     relay: relay)
                 .process(os: os, yamlArtifacts: yamlArtifacts);
           } else {
+            final repoUrl = Uri.parse(app.repository!);
             if (repoUrl.host == 'github.com') {
-              final githubFetcher = GithubParser(relay: relay);
+              final githubParser = GithubParser(relay: relay);
               final repo = repoUrl.path.substring(1);
-              (app, release, fileMetadatas) = await githubFetcher.run(
+              (app, release, fileMetadatas) = await githubParser.run(
                 app: app,
                 os: os,
                 repoName: repo,
@@ -103,7 +102,12 @@ Future<void> publish(
           if (os == 'android') {
             final newFileMetadatas = <FileMetadata>{};
             for (var fileMetadata in fileMetadatas) {
-              newFileMetadatas.add(await parseApk(app, fileMetadata));
+              final newFileMetadata = await parseApk(app, fileMetadata);
+              final icon = newFileMetadata.transientData['iconBlossomUrl'];
+              if (icon != null) {
+                app = app.copyWith(icons: {icon});
+              }
+              newFileMetadatas.add(newFileMetadata);
             }
             fileMetadatas = newFileMetadatas;
 
