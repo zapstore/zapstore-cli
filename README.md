@@ -52,6 +52,8 @@ This will pull APKs from Github releases. If you would like to upload an APK (th
 zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -r 1.4.1
 ```
 
+If you have multiple artifacts, run this command once with multiple `-a` arguments.
+
 Note that `apktool` is required to extract APK information. If you don't have it in your path, you can install it via `zapstore install apktool`.
 
 ### CLI package
@@ -95,5 +97,7 @@ phoenixd:
         platform: darwin-arm64
         executables: [phoenix-%v-macos-arm64/phoenixd, phoenix-%v-macos-arm64/phoenix-cli]
 ```
+
+If the name of the executable inside the compressed file is equal to the identifier, there is no need to list `executables`.
 
 Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Get in touch!
