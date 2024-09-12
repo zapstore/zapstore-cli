@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:purplebase/purplebase.dart';
@@ -19,10 +20,13 @@ final fileRegex = RegExp(r'^[^\/<>|:&]*');
 Future<void> publish(
     {String? appAlias,
     List<String> artifacts = const [],
-    String? version}) async {
+    String? version,
+    required bool overwriteApp,
+    required bool overwriteRelease}) async {
   final yamlFile = File('zapstore.yaml');
   if (!await yamlFile.exists()) {
-    throw 'zapstore.yaml not found';
+    throw UsageException('zapstore.yaml not found',
+        'Please create a zapstore.yaml file in this directory. See https://zap.store for documentation.');
   }
   final doc =
       Map<String, dynamic>.from(loadYaml(await yamlFile.readAsString()));
@@ -72,18 +76,44 @@ Future<void> publish(
 
         print('Publishing ${(app.name ?? yamlAppAlias).bold()} $os app...');
 
+        if (overwriteApp == false) {
+          // We check for apps with this same identifier (of any author, for simplicity)
+          // NOTE: This logic is rerun during event signing once we know the author's pubkey
+          // This allows us to be roughly correct about the correct overwriteApp value,
+          // which will trigger fetching app information through the appropriate parser below.
+          final appsWithIdentifier = await relay.query<App>(
+            tags: {
+              '#d': [app.identifier]
+            },
+          );
+          // If none were found (first time publishing), we ignore the
+          // overwrite argument and set it to true
+          if (appsWithIdentifier.isEmpty) {
+            overwriteApp = true;
+          }
+        }
+
         try {
           Release release;
           Set<FileMetadata> fileMetadatas;
 
           if (artifacts.isNotEmpty) {
-            (app, release, fileMetadatas) = await LocalParser(
-                    app: app,
-                    artifacts: artifacts,
-                    version: version!,
-                    relay: relay)
-                .process(os: os, yamlArtifacts: yamlArtifacts);
+            final parser = LocalParser(
+                app: app,
+                artifacts: artifacts,
+                version: version!,
+                relay: relay);
+            (app, release, fileMetadatas) = await parser.process(
+              os: os,
+              overwriteRelease: overwriteRelease,
+              yamlArtifacts: yamlArtifacts,
+            );
           } else {
+            // TODO: Should be able to run both local AND Github/other parsers
+            if (app.repository == null) {
+              throw UsageException('No sources provided',
+                  'Use the -a option or configure a repository in zapstore.yaml');
+            }
             final repoUrl = Uri.parse(app.repository!);
             if (repoUrl.host == 'github.com') {
               final githubParser = GithubParser(relay: relay);
@@ -93,6 +123,8 @@ Future<void> publish(
                 os: os,
                 repoName: repo,
                 artifacts: yamlArtifacts,
+                overwriteApp: overwriteApp,
+                overwriteRelease: overwriteRelease,
               );
             } else {
               throw 'Unsupported repository; service: ${repoUrl.host}';
@@ -139,11 +171,14 @@ Future<void> publish(
             throw 'Bad nsec, or the input was cropped. Try again with a wider terminal.';
           }
 
-          (app, release, fileMetadatas) = await finalizeEvents(
+          var (signedApp, signedRelease, signedFileMetadatas) =
+              await finalizeEvents(
             app: app,
             release: release,
             fileMetadatas: fileMetadatas,
             nsec: nsec,
+            overwriteApp: overwriteApp,
+            relay: relay,
           );
 
           print('\n');
@@ -157,18 +192,20 @@ Future<void> publish(
 
           var publishEvents = true;
           if (viewEvents == 0) {
-            print('\n');
-            print('App event (kind 32267)'.bold().black().onWhite());
-            print('\n');
-            printJsonEncodeColored(app.toMap());
+            if (signedApp != null) {
+              print('\n');
+              print('App event (kind 32267)'.bold().black().onWhite());
+              print('\n');
+              printJsonEncodeColored(signedApp.toMap());
+            }
             print('\n');
             print('Release event (kind 30063)'.bold().black().onWhite());
             print('\n');
-            printJsonEncodeColored(release.toMap());
+            printJsonEncodeColored(signedRelease.toMap());
             print('\n');
             print('File metadata events (kind 1063)'.bold().black().onWhite());
             print('\n');
-            for (final m in fileMetadatas) {
+            for (final m in signedFileMetadatas) {
               printJsonEncodeColored(m.toMap());
               print('\n');
             }
@@ -182,7 +219,11 @@ Future<void> publish(
           if (publishEvents == false) {
             print('Events NOT published, exiting');
           } else {
-            for (final BaseEvent event in [app, release, ...fileMetadatas]) {
+            for (final BaseEvent event in [
+              if (signedApp != null) signedApp,
+              signedRelease,
+              ...signedFileMetadatas
+            ]) {
               try {
                 final spinner = CliSpin(
                   text: 'Publishing kind ${event.kind}...',
@@ -208,11 +249,4 @@ Future<void> publish(
     await relay.dispose();
     container.dispose();
   }
-}
-
-abstract class RepositoryParser {
-  Future<(App, Release, Set<FileMetadata>)> run({
-    required App app,
-    required String os,
-  });
 }

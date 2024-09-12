@@ -12,7 +12,7 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 
-const kVersion = '0.0.4';
+const kVersion = '0.0.4'; // (!) Also update pubspec.yaml (!)
 
 void main(List<String> args) async {
   var wasError = false;
@@ -39,6 +39,7 @@ void main(List<String> args) async {
     final rest = e.toString().split('\n').sublist(1).join('\n');
     print('\n${'ERROR'.white().onRed()} ${first.bold()}\n$rest');
     if (e is! UsageException) {
+      print('\n');
       print(stack.toString().gray());
     }
     wasError = true;
@@ -112,6 +113,10 @@ class PublishCommand extends Command {
     argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
     argParser.addOption('releaseVersion',
         abbr: 'r', help: 'Local release version.');
+    argParser.addFlag('overwrite-app',
+        help: 'Generate a new kind 32267 to publish.', defaultsTo: false);
+    argParser.addFlag('overwrite-release',
+        help: 'Generate a new kind 30063 to publish.', defaultsTo: false);
   }
   @override
   String get name => 'publish';
@@ -135,6 +140,8 @@ class PublishCommand extends Command {
       appAlias: value,
       artifacts: artifacts,
       version: version,
+      overwriteApp: argResults!.flag('overwrite-app'),
+      overwriteRelease: argResults!.flag('overwrite-release'),
     );
   }
 }

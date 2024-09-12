@@ -21,6 +21,7 @@ class LocalParser {
 
   Future<(App, Release, Set<FileMetadata>)> process({
     required String os,
+    required bool overwriteRelease,
     required Map<String, dynamic> yamlArtifacts,
   }) async {
     final releaseCreatedAt = DateTime.now();
@@ -65,7 +66,7 @@ class LocalParser {
       });
 
       if (metadataOnRelay.isNotEmpty) {
-        if (Platform.environment['OVERWRITE'] == null) {
+        if (!overwriteRelease) {
           uploadSpinner.fail(
               'Artifact with hash $artifactHash is already in relay, nothing to do');
           throw GracefullyAbortSignal();
