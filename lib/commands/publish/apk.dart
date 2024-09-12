@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:html/parser.dart';
+import 'package:process_run/process_run.dart';
+import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:path/path.dart' as path;
@@ -16,6 +18,9 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
   final apkFolder = path.setExtension(apkPath, '');
 
   await runInShell('rm -fr $apkFolder');
+  if (whichSync('apktool') == null) {
+    throw 'APK parsing requires apktool and it could not be found.\n\nTo install run ${'zapstore install apktool'.bold()}';
+  }
   await runInShell('apktool decode -s -f -o $apkFolder $apkPath');
 
   var architectures = ['arm64-v8a'];
@@ -26,10 +31,14 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
     // if lib/ is not present, leave default and do nothing else
   }
 
-  // TODO: Which apksigner
-  // print(whichSync('apksigner'));
+  var apksignerPath = Platform.environment['APKSIGNER_PATH'];
+  if (whichSync('apksigner') == null && apksignerPath == null) {
+    throw 'APK parsing requires apksigner (from Android Tools) and it could not be found.\n\nIt is likely installed in your system, find it and re-run specifying the full path:\n\n${'APKSIGNER_PATH=/path/to/apksigner zapstore publish myapp'.bold()}';
+  }
+  apksignerPath ??= 'apksigner';
+
   final rawSignatureHashes = await runInShell(
-      'apksigner verify --print-certs $apkPath | grep SHA-256');
+      '$apksignerPath verify --print-certs $apkPath | grep SHA-256');
   // TODO: Try to match with existing? Maybe allow in zapstore.yaml?
   final signatureHashes = [
     for (final sh in rawSignatureHashes.trim().split('\n'))
