@@ -89,8 +89,11 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath in meta.tagMap['executable'] ?? {identifier})
-          _installBinary(
+        // TODO: executable is deprecated
+        for (final binaryPath in meta.tagMap['executables'] ??
+            meta.tagMap['executable'] ??
+            {identifier})
+          _installBinaryCmd(
               path.join(extractDir, binaryPath),
               path.join(
                 versionPath,
@@ -108,12 +111,13 @@ class Package {
       await shell.run(cmd);
     } else {
       final binaryPath = path.join(versionPath, identifier);
-      final cmd = _installBinary(downloadPath, binaryPath, keepCopy: keepCopy);
+      final cmd =
+          _installBinaryCmd(downloadPath, binaryPath, keepCopy: keepCopy);
       await shell.run(cmd);
     }
   }
 
-  String _installBinary(String srcPath, String destPath,
+  String _installBinaryCmd(String srcPath, String destPath,
       {bool keepCopy = false}) {
     final cmd = '''
       ${keepCopy ? 'cp' : 'mv'} $srcPath $destPath

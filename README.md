@@ -82,9 +82,9 @@ Inside the map, use the `platform` key to specify the target platform. Formats a
 
 More will be added soon and will be specified in a NIP. These are based off `uname -sm`, lowercased and dashed.
 
-If your file is compressed (zip and tar.gz supported), uncompressing assumes it will find an executable with the exact name of your package.
+If your file is compressed (zip and tar.gz supported), uncompressing assumes it will find an executable with the exact identifier of your package.
 
-If the executable has a different name or path inside the compressed file, or has multiple executables, use the `executables` array. Example:
+Use the `executables` array only if the executable has a different name or path inside the compressed file, and/or it has multiple executables. Example:
 
 ```yaml
 phoenixd:
@@ -97,7 +97,5 @@ phoenixd:
         platform: darwin-arm64
         executables: [phoenix-%v-macos-arm64/phoenixd, phoenix-%v-macos-arm64/phoenix-cli]
 ```
-
-If the name of the executable inside the compressed file is equal to the identifier, there is no need to list `executables`.
 
 Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Get in touch!

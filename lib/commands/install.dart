@@ -11,6 +11,7 @@ import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 
 Future<void> install(String value, {bool skipWot = false}) async {
   final container = ProviderContainer();
@@ -79,7 +80,8 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     final meta = fileMetadatas[0];
 
-    spinner.success('Found ${app.identifier}@${meta.version}');
+    spinner.success(
+        'Found ${app.identifier}@${meta.version?.bold()} (released on ${meta.createdAt!.toIso8601String()})');
 
     final installedPackage = db[app.identifier];
 
@@ -205,6 +207,26 @@ Future<void> install(String value, {bool skipWot = false}) async {
       await authorRelays.dispose();
     }
 
+    // On first install, check if other executables are present in PATH
+    if (db[app.identifier!] == null) {
+      final presentInPath = (meta.tagMap['executables'] ??
+              meta.tagMap['executable'] ??
+              {app.identifier!})
+          .map((e) {
+        final p = whichSync(path.basename(e));
+        return p != null ? path.basename(e) : null;
+      }).nonNulls;
+
+      final installAnyway = Confirm(
+        prompt:
+            'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
+        defaultValue: true,
+      ).interact();
+      if (!installAnyway) {
+        exit(0);
+      }
+    }
+
     final installSpinner = CliSpin(
       text: 'Installing package ${app.identifier}...',
       spinner: CliSpinners.dots,
@@ -216,6 +238,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
             pubkey: meta.pubkey,
             versions: {meta.version!},
             enabledVersion: meta.version!);
+
     await package.installFromUrl(meta, spinner: installSpinner);
 
     installSpinner
