@@ -144,7 +144,7 @@ class GithubParser extends RepositoryParser {
           await http.get(Uri.parse(repoUrl), headers: headers).getJson();
 
       app = app.copyWith(
-        content: app.summary ?? repoJson['description'] ?? repoJson['name'],
+        content: app.content ?? repoJson['description'] ?? repoJson['name'],
         identifier: app.identifier ?? repoJson['name'],
         name: app.name ?? repoJson['name'],
         // summary: app.summary ?? repoJson['description'],
