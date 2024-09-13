@@ -111,7 +111,7 @@ class RemoveCommand extends Command {
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
-    argParser.addOption('releaseVersion',
+    argParser.addOption('release-version',
         abbr: 'r', help: 'Local release version.');
     argParser.addFlag('overwrite-app',
         help: 'Generate a new kind 32267 to publish.', defaultsTo: false);

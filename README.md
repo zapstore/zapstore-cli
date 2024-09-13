@@ -18,12 +18,26 @@ To build:
 dart compile exe lib/main.dart -o zapstore
 ```
 
-## Publishing package usage
+## Managing packages
+
+```bash
+zapstore install <package>
+zapstore remove <package>
+zapstore list
+```
+
+Run `zapstore --help` for more information.
+
+## Publishing a package
 
 Run `zapstore publish myapp` in a folder with a `zapstore.yaml` file.
 
 Artifacts should be listed in `artifacts`, either as a list or as keys of a map for further options. It supports regular expressions to describe package paths.
 For convenience, use `%v` as placeholder for a version. It will be replaced by `\d+\.\d+(\.\d+)?`. You can write any regex that matches your files.
+
+If you previously published your package, app (kind 32267) will not be published again by default - just the release (kind 30063, 1063). To change this, use `--overwrite-app` and `--overwrite-release`.
+
+For more run `zapstore help publish`.
 
 ### Android package
 
