@@ -13,7 +13,8 @@ class PlayStoreParser {
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 404) {
-      spinner?.fail();
+      spinner?.fail(
+          'No extra metadata added, ${app.identifier} was not found on Play Store');
       return app;
     }
 

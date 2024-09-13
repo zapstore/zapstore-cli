@@ -143,23 +143,32 @@ Future<void> publish(
             }
             fileMetadatas = newFileMetadatas;
 
-            final extraMetadata = Select(
-              prompt: 'Would you like to pull extra metadata?',
-              options: ['Play Store', 'F-Droid', 'None'],
-            ).interact();
+            if (overwriteApp) {
+              final extraMetadata = Select(
+                prompt: 'Would you like to pull extra metadata for this app?',
+                options: ['Play Store', 'F-Droid', 'None'],
+              ).interact();
 
-            if (extraMetadata == 0) {
-              final playStoreParser = PlayStoreParser();
-              app = await playStoreParser.run(app: app);
-            } else if (extraMetadata == 1) {
-              throw 'Not yet supported, sorry';
+              final extraMetadataSpinner = CliSpin(
+                text: 'Fetching extra metadata...',
+                spinner: CliSpinners.dots,
+              ).start();
+
+              if (extraMetadata == 0) {
+                final playStoreParser = PlayStoreParser();
+                app = await playStoreParser.run(
+                    app: app, spinner: extraMetadataSpinner);
+              } else if (extraMetadata == 1) {
+                extraMetadataSpinner
+                    .fail('F-Droid is not yet supported, sorry');
+              }
             }
           }
 
           // sign
 
           print(
-              'Please provide your nsec to sign the events, it will be discarded immediately after. You can also exit and run this program again with the NSEC env.'
+              'Please provide your nsec (or via the NSEC env var) to sign the events, it will be discarded IMMEDIATELY after.'
                   .bold());
           var nsec = Platform.environment['NSEC'] ??
               Password(prompt: 'nsec').interact();
