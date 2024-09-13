@@ -225,6 +225,7 @@ Future<void> publish(
             ).interact();
           }
 
+          var showWhitelistMessage = false;
           if (publishEvents == false) {
             print('Events NOT published, exiting');
           } else {
@@ -244,8 +245,16 @@ Future<void> publish(
               } catch (e) {
                 print(
                     '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');
+                if (e.toString().contains('not accepted')) {
+                  showWhitelistMessage = true;
+                }
               }
             }
+          }
+
+          if (showWhitelistMessage) {
+            print(
+                '\n${'Your npub is not whitelisted on the relay'.bold()}! If you want to self-publish your app, reach out.\n');
           }
         } on GracefullyAbortSignal {
           continue;
