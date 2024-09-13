@@ -55,6 +55,7 @@ String formatProfile(BaseUser user) {
   return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
 }
 
+/// Returns the downloaded file path
 Future<String> fetchFile(String url,
     {Map<String, String>? headers, CliSpin? spinner}) async {
   final file = File(path.join(Directory.systemTemp.path, path.basename(url)));
