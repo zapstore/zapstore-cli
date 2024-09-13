@@ -131,7 +131,7 @@ class PublishCommand extends Command {
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
     final artifacts = argResults!.multiOption('artifacts');
-    final version = argResults!.option('releaseVersion');
+    final version = argResults!.option('release-version');
     if (artifacts.isNotEmpty && version == null) {
       usageException(
           'Please provide a release version (-r option) along with artifacts');
