@@ -163,7 +163,7 @@ class GithubParser extends RepositoryParser {
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
       content: latestReleaseJson['body'],
-      identifier: '${app.name}@${latestReleaseJson['tag_name']}',
+      identifier: '${app.identifier}@${latestReleaseJson['tag_name']}',
       url: latestReleaseJson['html_url'],
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
