@@ -54,6 +54,8 @@ zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -r 1.4.1
 
 If you have multiple artifacts, run this command once with multiple `-a` arguments.
 
+You will be prompted for your nsec, but you can also pass it via the `NSEC` environment variable. This is the only available option for signing at the moment. NIP-46 and NIP-07 signing are planned.
+
 Note that `apktool` is required to extract APK information. If you don't have it in your path, you can install it via `zapstore install apktool`.
 
 ### CLI package

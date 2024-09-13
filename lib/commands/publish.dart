@@ -159,7 +159,7 @@ Future<void> publish(
           // sign
 
           print(
-              'Please provide your nsec to sign the events, it will be discarded immediately after.'
+              'Please provide your nsec to sign the events, it will be discarded immediately after. You can also exit and run this program again with the NSEC env.'
                   .bold());
           var nsec = Platform.environment['NSEC'] ??
               Password(prompt: 'nsec').interact();
