@@ -217,6 +217,7 @@ After that, open a new shell and re-run this program.
         keepCopy: true);
     await zapstorePackage.linkVersion(kVersion);
     // Try again with zapstore installed/updated
+    print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());
     return await loadPackages();
   }
 
