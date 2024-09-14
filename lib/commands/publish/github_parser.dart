@@ -147,9 +147,10 @@ class GithubParser extends RepositoryParser {
         content: app.content ?? repoJson['description'] ?? repoJson['name'],
         identifier: app.identifier ?? repoJson['name'],
         name: app.name ?? repoJson['name'],
-        // summary: app.summary ?? repoJson['description'],
         url: app.url ??
-            (repoJson['homepage'].isNotEmpty ? repoJson['homepage'] : null),
+            ((repoJson['homepage']?.isNotEmpty ?? false)
+                ? repoJson['homepage']
+                : null),
         repository: app.repository ?? 'https://github.com/$repoName',
         license: app.license ?? repoJson['license']?['spdx_id'],
         tags: app.tags.isEmpty
