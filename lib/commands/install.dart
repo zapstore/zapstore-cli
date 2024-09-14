@@ -81,7 +81,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
     final meta = fileMetadatas[0];
 
     spinner.success(
-        'Found ${app.identifier}@${meta.version?.bold()} (released on ${meta.createdAt!.toIso8601String()})');
+        'Found ${app.identifier}@${meta.version?.bold()} (released on ${meta.createdAt!.toIso8601String()})\n  ${app.summary ?? app.content}');
 
     final installedPackage = db[app.identifier];
 
