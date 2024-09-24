@@ -148,10 +148,18 @@ Future<void> install(String value, {bool skipWot = false}) async {
             spinner: CliSpinners.dots,
           ).start();
 
-          final trust = await http
-              .get(Uri.parse(
-                  'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
-              .getJson();
+          late final Map<String, dynamic> trust;
+
+          try {
+            trust = await http
+                .get(Uri.parse(
+                    'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
+                .getJson();
+          } catch (e) {
+            wotSpinner.fail(
+                'Error returned from web of trust service, please try again later or re-run with -t to skip this check.');
+            throw GracefullyAbortSignal();
+          }
 
           // Separate querying user from result
           final userFollows = trust.remove(user['npub']);
