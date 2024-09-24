@@ -80,7 +80,7 @@ class Package {
       'application/x-gtar'
     ].contains(meta.mimeType)) {
       final extractDir = path.join(Directory.systemTemp.path,
-          path.basenameWithoutExtension(downloadPath));
+          '${path.basenameWithoutExtension(downloadPath)}.tmp');
 
       final uncompress =
           ['application/gzip', 'application/x-gtar'].contains(meta.mimeType)

@@ -57,6 +57,7 @@ String formatProfile(BaseUser user) {
 Future<String> fetchFile(String url,
     {Map<String, String>? headers, CliSpin? spinner}) async {
   final file = File(path.join(Directory.systemTemp.path, path.basename(url)));
+  await shell.run('rm -fr ${file.path}');
   final initialText = spinner?.text;
   final completer = Completer<String>();
   StreamSubscription? sub;

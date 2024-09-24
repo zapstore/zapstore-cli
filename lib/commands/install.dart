@@ -217,13 +217,15 @@ Future<void> install(String value, {bool skipWot = false}) async {
         return p != null ? path.basename(e) : null;
       }).nonNulls;
 
-      final installAnyway = Confirm(
-        prompt:
-            'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
-        defaultValue: true,
-      ).interact();
-      if (!installAnyway) {
-        exit(0);
+      if (presentInPath.isNotEmpty) {
+        final installAnyway = Confirm(
+          prompt:
+              'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
+          defaultValue: true,
+        ).interact();
+        if (!installAnyway) {
+          exit(0);
+        }
       }
     }
 
