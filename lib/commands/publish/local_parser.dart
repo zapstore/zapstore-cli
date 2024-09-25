@@ -11,12 +11,12 @@ import 'package:path/path.dart' as path;
 class LocalParser {
   final App app;
   final List<String> artifacts;
-  final String version;
+  final String? suppliedVersion;
   final RelayMessageNotifier relay;
   LocalParser(
       {required this.app,
       required this.artifacts,
-      required this.version,
+      this.suppliedVersion,
       required this.relay});
 
   Future<(App, Release, Set<FileMetadata>)> process({
@@ -26,6 +26,8 @@ class LocalParser {
     required Map<String, dynamic> yamlArtifacts,
   }) async {
     final releaseCreatedAt = DateTime.now();
+
+    String? version;
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(key: regexpKey, :value) in yamlArtifacts.entries) {
@@ -84,10 +86,20 @@ class LocalParser {
         continue;
       }
 
-      final match = r.firstMatch(artifactPath);
-      final matchedVersion = (match?.groupCount ?? 0) > 0
-          ? r.firstMatch(artifactPath)?.group(1)
-          : version;
+      // Determine version
+      if (suppliedVersion != null) {
+        version = suppliedVersion;
+      } else {
+        final match = r.firstMatch(artifactPath);
+        final matchedVersion = (match?.groupCount ?? 0) > 0
+            ? r.firstMatch(artifactPath)?.group(1)
+            : null;
+
+        version ??= matchedVersion;
+        if (matchedVersion == null || matchedVersion != version) {
+          throw 'Unable to automatically extract version, please use the -r argument';
+        }
+      }
 
       // Validate platforms
       final platforms = {...?value['platforms'] as Iterable?};
@@ -111,12 +123,7 @@ class LocalParser {
           zapTags: app.zapTags,
           additionalEventTags: {
             for (final b in (value['executables'] ?? []))
-              (
-                'executable',
-                matchedVersion != null
-                    ? b.toString().replaceFirst('%v', matchedVersion)
-                    : b
-              ),
+              ('executable', b.toString().replaceFirst('%v', version!)),
           });
       fileMetadata.transientData['apkPath'] = newArtifactPath;
       fileMetadatas.add(fileMetadata);

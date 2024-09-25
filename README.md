@@ -61,13 +61,19 @@ In the terminal, run `publish` and optionally specify the name of the app:
 zapstore publish go
 ```
 
-This will pull APKs from Github releases. If you would like to upload an APK (that will be stored at `cdn.zap.store` Blossom server) instead, use `-a` and `-r` like:
+This will pull APKs from Github releases. If you would like to upload an APK (that will be stored at `cdn.zap.store` Blossom server) instead, use `-a` like:
 
 ```bash
-zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -r 1.4.1
+zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk
 ```
 
 If you have multiple artifacts, run this command once with multiple `-a` arguments.
+
+The version will be extracted from `%v`, if versions in all artifacts exist and match. Otherwise it will fail and can be supplied via the `-v` argument:
+
+```bash
+zapstore publish go -a ~/path/to/alby-go-android.apk -v 1.4.1
+```
 
 If you want to add release notes, provide the release notes Markdown file to `-n`.
 

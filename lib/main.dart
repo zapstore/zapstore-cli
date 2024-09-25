@@ -111,7 +111,7 @@ class PublishCommand extends Command {
   PublishCommand() {
     argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
     argParser.addOption('release-version',
-        abbr: 'r', help: 'Local release version.');
+        abbr: 'v', help: 'Local release version.');
     argParser.addOption('release-notes',
         abbr: 'n', help: 'File containing release notes.');
     argParser.addFlag('overwrite-app',
@@ -132,12 +132,8 @@ class PublishCommand extends Command {
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
     final artifacts = argResults!.multiOption('artifacts');
-    final version = argResults!.option('release-version');
+    final suppliedReleaseVersion = argResults!.option('release-version');
     final releaseNotesFile = argResults!.option('release-notes');
-    if (artifacts.isNotEmpty && version == null) {
-      usageException(
-          'Please provide a release version (-r option) along with artifacts');
-    }
 
     String? releaseNotes;
     if (releaseNotesFile != null) {
@@ -151,7 +147,7 @@ class PublishCommand extends Command {
     await publish(
       appAlias: value,
       artifacts: artifacts,
-      version: version,
+      suppliedVersion: suppliedReleaseVersion,
       releaseNotes: releaseNotes,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),

@@ -20,7 +20,7 @@ final fileRegex = RegExp(r'^[^\/<>|:&]*');
 Future<void> publish(
     {String? appAlias,
     List<String> artifacts = const [],
-    String? version,
+    String? suppliedVersion,
     String? releaseNotes,
     required bool overwriteApp,
     required bool overwriteRelease}) async {
@@ -103,7 +103,7 @@ Future<void> publish(
             final parser = LocalParser(
                 app: app,
                 artifacts: artifacts,
-                version: version!,
+                suppliedVersion: suppliedVersion,
                 relay: relay);
 
             (app, release, fileMetadatas) = await parser.process(
