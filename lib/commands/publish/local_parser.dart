@@ -22,6 +22,7 @@ class LocalParser {
   Future<(App, Release, Set<FileMetadata>)> process({
     required String os,
     required bool overwriteRelease,
+    String? releaseNotes,
     required Map<String, dynamic> yamlArtifacts,
   }) async {
     final releaseCreatedAt = DateTime.now();
@@ -124,7 +125,7 @@ class LocalParser {
 
     final release = Release(
       createdAt: releaseCreatedAt,
-      content: '${app.name} $version',
+      content: releaseNotes ?? '${app.name} $version',
       identifier: '${app.identifier}@$version',
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,

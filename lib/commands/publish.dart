@@ -59,6 +59,7 @@ Future<void> publish(
           name: yamlApp['name'],
           summary: yamlApp['summary'],
           repository: yamlApp['repository'],
+          license: yamlApp['license'],
           pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
           zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
         );
@@ -103,10 +104,19 @@ Future<void> publish(
                 artifacts: artifacts,
                 version: version!,
                 relay: relay);
+
+            final releaseDescription = Input(
+              prompt:
+                  'If you have release notes, you can add them now (or press Enter to ignore)',
+            ).interact();
+
             (app, release, fileMetadatas) = await parser.process(
               os: os,
               overwriteRelease: overwriteRelease,
               yamlArtifacts: yamlArtifacts,
+              releaseNotes: releaseDescription.trim().isNotEmpty
+                  ? releaseDescription.trim()
+                  : null,
             );
           } else {
             // TODO: Should be able to run both local AND Github/other parsers
