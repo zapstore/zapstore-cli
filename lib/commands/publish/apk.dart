@@ -58,11 +58,11 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
       await File(path.join(apkFolder, 'apktool.yml')).readAsString();
   final yamlData = Map<String, dynamic>.from(loadYaml(rawApktoolYaml));
 
-  final apkVersion = yamlData['versionInfo']?['versionName'];
-  final apkVersionCode = yamlData['versionInfo']?['versionCode'];
+  final apkVersion = yamlData['versionInfo']?['versionName']?.toString();
+  final apkVersionCode = yamlData['versionInfo']?['versionCode']?.toString();
 
-  final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion'];
-  final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion'];
+  final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion']?.toString();
+  final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion']?.toString();
 
   String? iconBlossomUrl;
   if (app.icons.isEmpty) {
