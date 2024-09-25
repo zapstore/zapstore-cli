@@ -1,6 +1,6 @@
 name: zapstore_cli
 description: The permissionless app store powered by your social network
-version: 0.0.5 # (!) Also update kVersion (!)
+version: 0.0.6 # (!) Also update kVersion (!)
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:

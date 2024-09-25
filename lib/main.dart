@@ -12,7 +12,7 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 
-const kVersion = '0.0.5'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.0.6'; // (!) Also update pubspec.yaml (!)
 
 void main(List<String> args) async {
   var wasError = false;
