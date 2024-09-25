@@ -39,7 +39,6 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
 
   final rawSignatureHashes = await runInShell(
       '$apksignerPath verify --print-certs $apkPath | grep SHA-256');
-  // TODO: Try to match with existing? Maybe allow in zapstore.yaml?
   final signatureHashes = [
     for (final sh in rawSignatureHashes.trim().split('\n'))
       sh.split(':').lastOrNull?.trim()
@@ -64,9 +63,6 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
 
   final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion'];
   final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion'];
-
-  // TODO: Prevent XML image shit
-  // TODO: Check appIcon, convert svg to png
 
   String? iconBlossomUrl;
   if (app.icons.isEmpty) {

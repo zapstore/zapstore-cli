@@ -21,6 +21,7 @@ Future<void> publish(
     {String? appAlias,
     List<String> artifacts = const [],
     String? version,
+    String? releaseNotes,
     required bool overwriteApp,
     required bool overwriteRelease}) async {
   final yamlFile = File('zapstore.yaml');
@@ -105,18 +106,11 @@ Future<void> publish(
                 version: version!,
                 relay: relay);
 
-            final releaseDescription = Input(
-              prompt:
-                  'If you have release notes, you can add them now (or press Enter to ignore)',
-            ).interact();
-
             (app, release, fileMetadatas) = await parser.process(
               os: os,
               overwriteRelease: overwriteRelease,
               yamlArtifacts: yamlArtifacts,
-              releaseNotes: releaseDescription.trim().isNotEmpty
-                  ? releaseDescription.trim()
-                  : null,
+              releaseNotes: releaseNotes,
             );
           } else {
             // TODO: Should be able to run both local AND Github/other parsers

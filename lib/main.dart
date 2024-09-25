@@ -39,7 +39,6 @@ void main(List<String> args) async {
     final rest = e.toString().split('\n').sublist(1).join('\n');
     print('\n${'ERROR'.white().onRed()} ${first.bold()}\n$rest');
     if (e is! UsageException) {
-      print('\n');
       print(stack.toString().gray());
     }
     wasError = true;
@@ -113,6 +112,8 @@ class PublishCommand extends Command {
     argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
     argParser.addOption('release-version',
         abbr: 'r', help: 'Local release version.');
+    argParser.addOption('release-notes',
+        abbr: 'n', help: 'File containing release notes.');
     argParser.addFlag('overwrite-app',
         help: 'Generate a new kind 32267 to publish.', defaultsTo: false);
     argParser.addFlag('overwrite-release',
@@ -132,14 +133,26 @@ class PublishCommand extends Command {
     final value = argResults!.rest.firstOrNull;
     final artifacts = argResults!.multiOption('artifacts');
     final version = argResults!.option('release-version');
+    final releaseNotesFile = argResults!.option('release-notes');
     if (artifacts.isNotEmpty && version == null) {
       usageException(
           'Please provide a release version (-r option) along with artifacts');
     }
+
+    String? releaseNotes;
+    if (releaseNotesFile != null) {
+      if (File(releaseNotesFile).existsSync()) {
+        releaseNotes = File(releaseNotesFile).readAsStringSync();
+      } else {
+        usageException('Please provide a valid release notes file');
+      }
+    }
+
     await publish(
       appAlias: value,
       artifacts: artifacts,
       version: version,
+      releaseNotes: releaseNotes,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
     );

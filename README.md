@@ -50,6 +50,7 @@ go:
     name: Alby Go
     description: A simple lightning mobile wallet interface that works great with Alby Hub.
     repository: https://github.com/getAlby/go
+    license: MIT
     artifacts:
       - alby-go-v%v-android.apk
 ```
@@ -67,6 +68,8 @@ zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -r 1.4.1
 ```
 
 If you have multiple artifacts, run this command once with multiple `-a` arguments.
+
+If you want to add release notes, provide the release notes Markdown file to `-n`.
 
 You will be prompted for your nsec, but you can also pass it via the `NSEC` environment variable. This is the only available option for signing at the moment. NIP-46 and NIP-07 signing are planned.
 

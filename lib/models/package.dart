@@ -89,7 +89,6 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        // TODO: executable is deprecated
         for (final binaryPath in meta.tagMap['executables'] ??
             meta.tagMap['executable'] ??
             {identifier})
