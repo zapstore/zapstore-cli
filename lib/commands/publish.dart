@@ -17,18 +17,22 @@ import 'package:zapstore_cli/utils.dart';
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
 
-Future<void> publish(
-    {String? requestedId,
-    List<String> artifacts = const [],
-    String? requestedVersion,
-    String? releaseNotes,
-    required bool overwriteApp,
-    required bool overwriteRelease}) async {
+Future<void> publish({
+  String? requestedId,
+  List<String> artifacts = const [],
+  String? requestedVersion,
+  String? releaseNotes,
+  required bool overwriteApp,
+  required bool overwriteRelease,
+  required bool daemon,
+}) async {
   final yamlFile = File('zapstore.yaml');
+
   if (!await yamlFile.exists()) {
     throw UsageException('zapstore.yaml not found',
         'Please create a zapstore.yaml file in this directory. See https://zap.store for documentation.');
   }
+
   final doc =
       Map<String, dynamic>.from(loadYaml(await yamlFile.readAsString()));
 
@@ -89,6 +93,7 @@ Future<void> publish(
           );
           // If none were found (first time publishing), we ignore the
           // overwrite argument and set it to true
+          print('First time publishing? Creating an app event (kind 32267)');
           if (appsWithIdentifier.isEmpty) {
             overwriteApp = true;
           }
@@ -151,15 +156,20 @@ Future<void> publish(
             fileMetadatas = newFileMetadatas;
 
             if (overwriteApp) {
-              final extraMetadata = Select(
-                prompt: 'Would you like to pull extra metadata for this app?',
-                options: ['Play Store', 'F-Droid', 'None'],
-              ).interact();
+              var extraMetadata = 0;
+              CliSpin? extraMetadataSpinner;
 
-              final extraMetadataSpinner = CliSpin(
-                text: 'Fetching extra metadata...',
-                spinner: CliSpinners.dots,
-              ).start();
+              if (!daemon) {
+                extraMetadata = Select(
+                  prompt: 'Would you like to pull extra metadata for this app?',
+                  options: ['Play Store', 'F-Droid', 'None'],
+                ).interact();
+
+                extraMetadataSpinner = CliSpin(
+                  text: 'Fetching extra metadata...',
+                  spinner: CliSpinners.dots,
+                ).start();
+              }
 
               if (extraMetadata == 0) {
                 final playStoreParser = PlayStoreParser();
@@ -167,20 +177,23 @@ Future<void> publish(
                     app: app, spinner: extraMetadataSpinner);
               } else if (extraMetadata == 1) {
                 extraMetadataSpinner
-                    .fail('F-Droid is not yet supported, sorry');
+                    ?.fail('F-Droid is not yet supported, sorry');
               }
             }
           }
 
           // sign
 
-          print(
-              'Please provide your nsec (or via the NSEC env var) to sign the events, it will be discarded IMMEDIATELY after. More signing options are coming soon. If unsure, run this program from source.'
-                  .bold());
-          var nsec = Platform.environment['NSEC'] ??
-              Password(prompt: 'nsec').interact();
+          var nsec = Platform.environment['NSEC'];
 
-          if (nsec.startsWith('nsec')) {
+          if (!daemon) {
+            print(
+                'Please provide your nsec (or via the NSEC env var) to sign the events, it will be discarded IMMEDIATELY after. More signing options are coming soon. If unsure, run this program from source.'
+                    .bold());
+            nsec ??= Password(prompt: 'nsec').interact();
+          }
+
+          if (nsec!.startsWith('nsec')) {
             nsec = bech32Decode(nsec);
           }
           if (!hexRegexp.hasMatch(nsec)) {
@@ -197,39 +210,43 @@ Future<void> publish(
             relay: relay,
           );
 
-          print('\n');
-          final viewEvents = Select(
-            prompt: 'Events signed! How do you want to proceed?',
-            options: [
-              'Inspect the events and confirm before publishing to relays',
-              'Publish the events to relays now'
-            ],
-          ).interact();
-
           var publishEvents = true;
-          if (viewEvents == 0) {
-            if (signedApp != null) {
-              print('\n');
-              print('App event (kind 32267)'.bold().black().onWhite());
-              print('\n');
-              printJsonEncodeColored(signedApp.toMap());
-            }
+
+          if (!daemon) {
             print('\n');
-            print('Release event (kind 30063)'.bold().black().onWhite());
-            print('\n');
-            printJsonEncodeColored(signedRelease.toMap());
-            print('\n');
-            print('File metadata events (kind 1063)'.bold().black().onWhite());
-            print('\n');
-            for (final m in signedFileMetadatas) {
-              printJsonEncodeColored(m.toMap());
-              print('\n');
-            }
-            publishEvents = Confirm(
-              prompt:
-                  'Scroll up to check the events and press `y` when you\'re ready to publish',
-              defaultValue: true,
+            final viewEvents = Select(
+              prompt: 'Events signed! How do you want to proceed?',
+              options: [
+                'Inspect the events and confirm before publishing to relays',
+                'Publish the events to relays now'
+              ],
             ).interact();
+
+            if (viewEvents == 0) {
+              if (signedApp != null) {
+                print('\n');
+                print('App event (kind 32267)'.bold().black().onWhite());
+                print('\n');
+                printJsonEncodeColored(signedApp.toMap());
+              }
+              print('\n');
+              print('Release event (kind 30063)'.bold().black().onWhite());
+              print('\n');
+              printJsonEncodeColored(signedRelease.toMap());
+              print('\n');
+              print(
+                  'File metadata events (kind 1063)'.bold().black().onWhite());
+              print('\n');
+              for (final m in signedFileMetadatas) {
+                printJsonEncodeColored(m.toMap());
+                print('\n');
+              }
+              publishEvents = Confirm(
+                prompt:
+                    'Scroll up to check the events and press `y` when you\'re ready to publish',
+                defaultValue: true,
+              ).interact();
+            }
           }
 
           var showWhitelistMessage = false;

@@ -114,11 +114,15 @@ class PublishCommand extends Command {
         abbr: 'v', help: 'Local release version.');
     argParser.addOption('release-notes',
         abbr: 'n', help: 'File containing release notes.');
+
     argParser.addFlag('overwrite-app',
         help: 'Generate a new kind 32267 to publish.', defaultsTo: false);
     argParser.addFlag('overwrite-release',
         help: 'Generate a new kind 30063 to publish.', defaultsTo: false);
+    argParser.addFlag('daemon',
+        abbr: 'd', help: 'Run publish non-interactively');
   }
+
   @override
   String get name => 'publish';
 
@@ -151,6 +155,7 @@ class PublishCommand extends Command {
       releaseNotes: releaseNotes,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
+      daemon: argResults!.flag('daemon'),
     );
   }
 }
