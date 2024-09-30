@@ -18,9 +18,9 @@ import 'package:zapstore_cli/utils.dart';
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
 
 Future<void> publish(
-    {String? appAlias,
+    {String? requestedId,
     List<String> artifacts = const [],
-    String? suppliedVersion,
+    String? requestedVersion,
     String? releaseNotes,
     required bool overwriteApp,
     required bool overwriteRelease}) async {
@@ -39,18 +39,17 @@ Future<void> publish(
         .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
     await relay.initialize();
 
-    for (final MapEntry(key: yamlAppAlias, value: appObj) in doc.entries) {
+    for (final MapEntry(key: id, value: appObj) in doc.entries) {
       for (final MapEntry(key: os, value: yamlApp) in appObj.entries) {
-        if (appAlias != null && appAlias != yamlAppAlias) {
+        if (requestedId != null && requestedId != id) {
           continue;
         }
 
-        final id = yamlApp['identifier']?.toString();
         final builderNpub = yamlApp['builder']?.toString();
         final builderPubkeyHex = builderNpub?.hexKey;
 
         // Ensure identifier can be included in a filesystem path
-        if (id == null || id.length > 255 || fileRegex.stringMatch(id) != id) {
+        if (id.length > 255 || fileRegex.stringMatch(id) != id) {
           throw 'Invalid identifier $id';
         }
 
@@ -76,7 +75,7 @@ Future<void> publish(
           throw 'Invalid artifacts format, it must be a list or a map:\n${yamlApp['artifacts']}';
         }
 
-        print('Publishing ${(app.name ?? yamlAppAlias).bold()} $os app...');
+        print('Publishing ${(app.name ?? id).bold()} $os app...');
 
         if (overwriteApp == false) {
           // We check for apps with this same identifier (of any author, for simplicity)
@@ -103,7 +102,7 @@ Future<void> publish(
             final parser = LocalParser(
                 app: app,
                 artifacts: artifacts,
-                suppliedVersion: suppliedVersion,
+                requestedVersion: requestedVersion,
                 relay: relay);
 
             (app, release, fileMetadatas) = await parser.process(
@@ -138,7 +137,11 @@ Future<void> publish(
           if (os == 'android') {
             final newFileMetadatas = <FileMetadata>{};
             for (var fileMetadata in fileMetadatas) {
-              final newFileMetadata = await parseApk(app, fileMetadata);
+              final (appFromApk, releaseFromApk, newFileMetadata) =
+                  await parseApk(app, release, fileMetadata);
+              // App from APK has the updated identifier
+              app = appFromApk;
+              release = releaseFromApk;
               final icon = newFileMetadata.transientData['iconBlossomUrl'];
               if (icon != null) {
                 app = app.copyWith(icons: {icon});

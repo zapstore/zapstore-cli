@@ -11,12 +11,12 @@ import 'package:path/path.dart' as path;
 class LocalParser {
   final App app;
   final List<String> artifacts;
-  final String? suppliedVersion;
+  final String? requestedVersion;
   final RelayMessageNotifier relay;
   LocalParser(
       {required this.app,
       required this.artifacts,
-      this.suppliedVersion,
+      this.requestedVersion,
       required this.relay});
 
   Future<(App, Release, Set<FileMetadata>)> process({
@@ -88,8 +88,8 @@ class LocalParser {
       }
 
       // Determine version
-      if (suppliedVersion != null) {
-        version = suppliedVersion;
+      if (requestedVersion != null) {
+        version = requestedVersion;
       } else {
         final match = r.firstMatch(artifactPath);
         final matchedVersion = (match?.groupCount ?? 0) > 0

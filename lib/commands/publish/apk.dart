@@ -9,7 +9,8 @@ import 'package:zapstore_cli/models/nostr.dart';
 import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
 
-Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
+Future<(App, Release, FileMetadata)> parseApk(
+    App app, Release release, FileMetadata fileMetadata) async {
   final apkSpinner = CliSpin(
     text: 'Parsing APK...',
     spinner: CliSpinners.dots,
@@ -50,9 +51,9 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
 
   final appIdentifier =
       androidManifest.querySelector('manifest')!.attributes['package'];
-  if (appIdentifier != app.identifier) {
-    throw 'Identifier mismatch: $appIdentifier != ${app.identifier}';
-  }
+  app = app.copyWith(identifier: appIdentifier);
+  release = release.copyWith(
+      identifier: '$appIdentifier@${release.identifier!.split('@').last}');
 
   final rawApktoolYaml =
       await File(path.join(apkFolder, 'apktool.yml')).readAsString();
@@ -119,5 +120,5 @@ Future<FileMetadata> parseApk(App app, FileMetadata fileMetadata) async {
     fileMetadata.transientData['iconBlossomUrl'] = iconBlossomUrl;
   }
 
-  return fileMetadata;
+  return (app, release, fileMetadata);
 }

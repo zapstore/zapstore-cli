@@ -145,9 +145,9 @@ class PublishCommand extends Command {
     }
 
     await publish(
-      appAlias: value,
+      requestedId: value,
       artifacts: artifacts,
-      suppliedVersion: suppliedReleaseVersion,
+      requestedVersion: suppliedReleaseVersion,
       releaseNotes: releaseNotes,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
