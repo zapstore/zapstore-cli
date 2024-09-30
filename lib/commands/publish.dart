@@ -81,22 +81,9 @@ Future<void> publish({
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
 
-        if (overwriteApp == false) {
-          // We check for apps with this same identifier (of any author, for simplicity)
-          // NOTE: This logic is rerun during event signing once we know the author's pubkey
-          // This allows us to be roughly correct about the correct overwriteApp value,
-          // which will trigger fetching app information through the appropriate parser below.
-          final appsWithIdentifier = await relay.query<App>(
-            tags: {
-              '#d': [app.identifier]
-            },
-          );
-          // If none were found (first time publishing), we ignore the
-          // overwrite argument and set it to true
-          print('First time publishing? Creating an app event (kind 32267)');
-          if (appsWithIdentifier.isEmpty) {
-            overwriteApp = true;
-          }
+        if (app.identifier != null) {
+          overwriteApp =
+              await ensureOverwriteApp(overwriteApp, relay, app.identifier!);
         }
 
         try {
@@ -144,7 +131,8 @@ Future<void> publish({
             for (var fileMetadata in fileMetadatas) {
               final (appFromApk, releaseFromApk, newFileMetadata) =
                   await parseApk(app, release, fileMetadata);
-              // App from APK has the updated identifier
+              // App from APK has the updated identifier (and release)
+              // TODO: Just return the identifier
               app = appFromApk;
               release = releaseFromApk;
               final icon = newFileMetadata.transientData['iconBlossomUrl'];
@@ -154,6 +142,11 @@ Future<void> publish({
               newFileMetadatas.add(newFileMetadata);
             }
             fileMetadatas = newFileMetadatas;
+
+            if (app.identifier != null) {
+              overwriteApp = await ensureOverwriteApp(
+                  overwriteApp, relay, app.identifier!);
+            }
 
             if (overwriteApp) {
               var extraMetadata = 0;
@@ -291,4 +284,24 @@ Future<void> publish({
     await relay.dispose();
     container.dispose();
   }
+}
+
+/// We check for apps with this same identifier (of any author, for simplicity)
+/// NOTE: This logic is rerun during event signing once we know the author's pubkey
+/// This allows us to be roughly correct about the correct overwriteApp value,
+/// which will trigger fetching app information through the appropriate parser below.
+Future<bool> ensureOverwriteApp(
+    bool overwriteApp, RelayMessageNotifier relay, String appIdentifier) async {
+  final appsWithIdentifier = await relay.query<App>(
+    tags: {
+      '#d': [appIdentifier]
+    },
+  );
+  // If none were found (first time publishing), we ignore the
+  // overwrite argument and set it to true
+  print('First time publishing? Creating an app event (kind 32267)');
+  if (appsWithIdentifier.isEmpty) {
+    overwriteApp = true;
+  }
+  return overwriteApp;
 }
