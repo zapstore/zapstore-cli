@@ -66,7 +66,7 @@ class GithubParser extends RepositoryParser {
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(key: regexpKey, :value) in artifacts!.entries) {
-      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(\.\d+)?)');
+      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(?:\.\d+)?)');
       final r = RegExp(regexpKey);
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
 

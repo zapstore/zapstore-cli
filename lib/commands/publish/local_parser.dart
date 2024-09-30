@@ -31,7 +31,8 @@ class LocalParser {
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(key: regexpKey, :value) in yamlArtifacts.entries) {
-      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(\.\d+)?)');
+      // TODO: Refactor this, also used in Github parser!
+      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(?:\.\d+)?)');
       final r = RegExp(regexpKey);
       final artifactPath =
           artifacts.firstWhereOrNull((a) => r.hasMatch(path.basename(a)));
@@ -123,6 +124,7 @@ class LocalParser {
           zapTags: app.zapTags,
           additionalEventTags: {
             for (final b in (value['executables'] ?? []))
+              // TODO: what if the string contains other regex?
               ('executable', b.toString().replaceFirst('%v', version!)),
           });
       fileMetadata.transientData['apkPath'] = newArtifactPath;
