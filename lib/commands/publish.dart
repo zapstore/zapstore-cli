@@ -107,14 +107,14 @@ Future<void> publish({
               throw UsageException('No sources provided',
                   'Use the -a option or configure a repository in zapstore.yaml');
             }
+
             final repoUrl = Uri.parse(app.repository!);
             if (repoUrl.host == 'github.com') {
               final githubParser = GithubParser(relay: relay);
-              final repo = repoUrl.path.substring(1);
               (app, release, fileMetadatas) = await githubParser.process(
                 app: app,
-                repoName: repo,
                 artifacts: yamlArtifacts,
+                releaseRepository: yamlApp['release_repository'],
                 overwriteRelease: overwriteRelease,
               );
             } else {

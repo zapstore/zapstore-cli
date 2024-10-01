@@ -18,10 +18,13 @@ class GithubParser extends RepositoryParser {
   Future<(App, Release, Set<FileMetadata>)> process({
     required App app,
     required bool overwriteRelease,
-    String? repoName,
+    String? releaseRepository,
     Map<String, dynamic>? artifacts,
     String? artifactContentType,
   }) async {
+    final repoName =
+        Uri.parse(app.repository ?? releaseRepository!).path.substring(1);
+
     final headers = env['GITHUB_TOKEN'] != null
         ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
         : <String, String>{};
@@ -152,7 +155,6 @@ class GithubParser extends RepositoryParser {
           ((repoJson['homepage']?.isNotEmpty ?? false)
               ? repoJson['homepage']
               : null),
-      repository: app.repository ?? 'https://github.com/$repoName',
       license: app.license ?? repoJson['license']?['spdx_id'],
       tags: app.tags.isEmpty
           ? (repoJson['topics'] as Iterable).toSet().cast()
