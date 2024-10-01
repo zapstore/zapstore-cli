@@ -81,9 +81,10 @@ Future<void> publish({
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
 
+        var localOverwriteApp = overwriteApp;
         if (app.identifier != null) {
-          overwriteApp =
-              await ensureOverwriteApp(overwriteApp, relay, app.identifier!);
+          localOverwriteApp = await ensureOverwriteApp(
+              localOverwriteApp, relay, app.identifier!);
         }
 
         try {
@@ -138,11 +139,11 @@ Future<void> publish({
             }
 
             if (app.identifier != null) {
-              overwriteApp = await ensureOverwriteApp(
-                  overwriteApp, relay, app.identifier!);
+              localOverwriteApp = await ensureOverwriteApp(
+                  localOverwriteApp, relay, app.identifier!);
             }
 
-            if (overwriteApp) {
+            if (localOverwriteApp) {
               var extraMetadata = 0;
               CliSpin? extraMetadataSpinner;
 
@@ -200,7 +201,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             release: release,
             fileMetadatas: fileMetadatas,
             nsec: nsec,
-            overwriteApp: overwriteApp,
+            overwriteApp: localOverwriteApp,
             relay: relay,
           );
 
