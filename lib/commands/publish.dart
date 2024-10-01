@@ -210,7 +210,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
               options: [
                 'Inspect the events and confirm before publishing to relays',
                 'Publish the events to relays now',
-                'Exit without publishing'
+                'Continue without publishing'
               ],
             ).interact();
 
@@ -239,7 +239,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
                 defaultValue: true,
               ).interact();
             } else if (viewEvents == 2) {
-              throw GracefullyAbortSignal();
+              continue;
             }
           }
 

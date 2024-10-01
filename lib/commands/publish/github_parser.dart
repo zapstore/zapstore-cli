@@ -75,16 +75,18 @@ class GithubParser extends RepositoryParser {
 
       final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
 
+      final packageSpinner = CliSpin(
+        text: 'Fetching package...',
+        spinner: CliSpinners.dots,
+      ).start();
+
       if (asset == null) {
-        throw 'No asset matching ${r.pattern}';
+        packageSpinner.fail('No asset matching ${r.pattern}');
+        continue;
       }
 
       final packageUrl = asset['browser_download_url'];
-
-      final packageSpinner = CliSpin(
-        text: 'Fetching package: $packageUrl...',
-        spinner: CliSpinners.dots,
-      ).start();
+      packageSpinner.text = 'Fetching package $packageUrl...';
 
       // Check if we already processed this release
       final metadataOnRelay =
