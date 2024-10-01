@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
@@ -22,8 +22,8 @@ class GithubParser extends RepositoryParser {
     Map<String, dynamic>? artifacts,
     String? artifactContentType,
   }) async {
-    final headers = Platform.environment['GITHUB_TOKEN'] != null
-        ? {'Authorization': 'Bearer ${Platform.environment['GITHUB_TOKEN']}'}
+    final headers = env['GITHUB_TOKEN'] != null
+        ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
         : <String, String>{};
 
     final metadataSpinner = CliSpin(

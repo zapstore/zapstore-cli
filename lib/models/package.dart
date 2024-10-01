@@ -143,7 +143,7 @@ class Package {
 
 Future<Map<String, Package>> loadPackages() async {
   final dir = Directory(kBaseDir);
-  final systemPath = Platform.environment['PATH']!;
+  final systemPath = env['PATH']!;
 
   if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
     print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');

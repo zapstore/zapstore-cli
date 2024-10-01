@@ -5,6 +5,7 @@ import 'package:html/parser.dart';
 import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
@@ -32,7 +33,7 @@ Future<(App, Release, FileMetadata)> parseApk(
     // if lib/ is not present, leave default and do nothing else
   }
 
-  var apksignerPath = Platform.environment['APKSIGNER_PATH'];
+  var apksignerPath = env['APKSIGNER_PATH'];
   if (whichSync('apksigner') == null && apksignerPath == null) {
     throw 'APK parsing requires apksigner (from Android Tools) and it could not be found.\n\nIt is likely installed in your system, find it and re-run specifying the full path:\n\n${'APKSIGNER_PATH=/path/to/apksigner zapstore publish myapp'.bold()}';
   }

@@ -10,8 +10,9 @@ import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
+import 'package:zapstore_cli/main.dart';
 
-final kBaseDir = path.join(Platform.environment['HOME']!, '.zapstore');
+final kBaseDir = path.join(env['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
@@ -156,8 +157,8 @@ Future<(String, String, String)> renameToHash(String filePath) async {
     }
   }
 
-  final destFilePath = Platform.environment['BLOSSOM_DIR'] != null
-      ? path.join(Platform.environment['BLOSSOM_DIR']!, hashName)
+  final destFilePath = env['BLOSSOM_DIR'] != null
+      ? path.join(env['BLOSSOM_DIR']!, hashName)
       : path.join(Directory.systemTemp.path, hashName);
   await run('mv $filePath $destFilePath', verbose: false);
   return (hash, destFilePath, mimeType);

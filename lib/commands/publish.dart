@@ -12,6 +12,7 @@ import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/commands/publish/playstore_parser.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 
@@ -167,7 +168,7 @@ Future<void> publish({
 
           // sign
 
-          var nsec = Platform.environment['NSEC'];
+          var nsec = env['NSEC'];
 
           if (!daemon && nsec == null) {
             print('''\n

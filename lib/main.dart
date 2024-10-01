@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:dotenv/dotenv.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/commands/install.dart';
@@ -14,7 +15,11 @@ import 'package:zapstore_cli/utils.dart';
 
 const kVersion = '0.0.6'; // (!) Also update pubspec.yaml (!)
 
+late final DotEnv env;
+
 void main(List<String> args) async {
+  env = DotEnv(includePlatformEnvironment: true)..load();
+
   var wasError = false;
   try {
     final runner = CommandRunner("zapstore",
