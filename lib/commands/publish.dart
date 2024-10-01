@@ -103,12 +103,13 @@ Future<void> publish({
               releaseNotes: releaseNotes,
             );
           } else {
-            if (app.repository == null) {
+            final repository = app.repository ?? yamlApp['release_repository'];
+            if (repository == null) {
               throw UsageException('No sources provided',
-                  'Use the -a option or configure a repository in zapstore.yaml');
+                  'Use the -a argument or add a repository in zapstore.yaml');
             }
 
-            final repoUrl = Uri.parse(app.repository!);
+            final repoUrl = Uri.parse(repository!);
             if (repoUrl.host == 'github.com') {
               final githubParser = GithubParser(relay: relay);
               (app, release, fileMetadatas) = await githubParser.process(
