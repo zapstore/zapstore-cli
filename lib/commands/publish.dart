@@ -222,17 +222,21 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
                 print('\n');
                 printJsonEncodeColored(signedApp.toMap());
               }
-              print('\n');
-              print('Release event (kind 30063)'.bold().black().onWhite());
-              print('\n');
-              printJsonEncodeColored(signedRelease.toMap());
-              print('\n');
-              print(
-                  'File metadata events (kind 1063)'.bold().black().onWhite());
-              print('\n');
-              for (final m in signedFileMetadatas) {
-                printJsonEncodeColored(m.toMap());
+              if (signedFileMetadatas.isNotEmpty) {
                 print('\n');
+                print('Release event (kind 30063)'.bold().black().onWhite());
+                print('\n');
+                printJsonEncodeColored(signedRelease.toMap());
+                print('\n');
+                print('File metadata events (kind 1063)'
+                    .bold()
+                    .black()
+                    .onWhite());
+                print('\n');
+                for (final m in signedFileMetadatas) {
+                  printJsonEncodeColored(m.toMap());
+                  print('\n');
+                }
               }
               publishEvents = Confirm(
                 prompt:
@@ -250,7 +254,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
           } else {
             for (final BaseEvent event in [
               if (signedApp != null) signedApp,
-              signedRelease,
+              if (signedFileMetadatas.isNotEmpty) signedRelease,
               ...signedFileMetadatas
             ]) {
               try {

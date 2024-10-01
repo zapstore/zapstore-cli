@@ -10,14 +10,10 @@ Future<(App?, Release, Set<FileMetadata>)> finalizeEvents({
   bool overwriteApp = false,
   required RelayMessageNotifier relay,
 }) async {
-  if (fileMetadatas.isEmpty) {
-    throw 'No artifacts to process';
-  }
-
   final signedFileMetadatas = fileMetadatas.map((fm) => fm.sign(nsec)).toSet();
 
-  // Get pubkey from any file metadata we just signed
-  final pubkey = signedFileMetadatas.first.pubkey;
+  final pubkey = BaseEvent.getPublicKey(nsec);
+
   // Find app with this identifier for this pubkey
   final appInRelay = (await relay.query<App>(
     tags: {
