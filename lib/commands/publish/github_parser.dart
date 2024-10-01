@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
@@ -37,16 +38,19 @@ class GithubParser extends RepositoryParser {
 
     // If there's a message it's an error
     if (latestReleaseJson['message'] != null) {
-      final rs = await http
-          .get(Uri.parse('https://api.github.com/repos/$repoName/releases'),
-              headers: headers)
-          .getJson();
-      if (rs['message'] != null || rs.isEmpty) {
-        throw 'Error ${rs['message']} for $repoName, I\'m done here';
+      final response = await http.get(
+          Uri.parse('https://api.github.com/repos/$repoName/releases'),
+          headers: headers);
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map && decoded['message'] != null || decoded.isEmpty) {
+        throw 'Error ${decoded['message']} for $repoName, I\'m done here';
       }
-      // TODO: Finish this
-      // rs.sort((a, b) => b.created_at.localeCompare(a.created_at));
-      // latestReleaseJson = rs.first;
+      decoded as List;
+      if (decoded.isEmpty) {
+        throw 'No releases available';
+      }
+      latestReleaseJson = decoded.first;
     }
 
     final version = latestReleaseJson['tag_name']!.toString();
