@@ -307,7 +307,6 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
 /// which will trigger fetching app information through the appropriate parser below.
 Future<bool> ensureOverwriteApp(
     bool overwriteApp, RelayMessageNotifier relay, String appIdentifier) async {
-  print('querying for $appIdentifier, overwrite app: $overwriteApp');
   final appsWithIdentifier = await relay.query<App>(
     tags: {
       '#d': [appIdentifier]
@@ -319,7 +318,6 @@ Future<bool> ensureOverwriteApp(
     print('First time publishing? Creating an app event (kind 32267)');
     overwriteApp = true;
   }
-  print('${appsWithIdentifier.length}, overwrite app: $overwriteApp');
   return overwriteApp;
 }
 

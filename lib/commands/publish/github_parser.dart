@@ -122,8 +122,8 @@ class GithubParser extends RepositoryParser {
           .firstWhereOrNull((m) => m.urls.firstOrNull == packageUrl);
       if (metadataOnRelayCheck != null) {
         if (!overwriteRelease) {
-          packageSpinner
-              .fail('Latest $repoName release already in relay, nothing to do');
+          packageSpinner.success(
+              'Latest $repoName release already in relay, nothing to do');
           throw GracefullyAbortSignal();
         }
       }
