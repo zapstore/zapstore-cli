@@ -2,9 +2,9 @@ import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 
-Future<(App?, Release, Set<FileMetadata>)> finalizeEvents({
+Future<(App?, Release?, Set<FileMetadata>)> finalizeEvents({
   required App app,
-  required Release release,
+  required Release? release,
   required Set<FileMetadata> fileMetadatas,
   required String nsec,
   bool overwriteApp = false,
@@ -34,7 +34,7 @@ Future<(App?, Release, Set<FileMetadata>)> finalizeEvents({
         .sign(nsec);
   }
 
-  final signedRelease = release.copyWith(
+  final signedRelease = release?.copyWith(
     linkedEvents: signedFileMetadatas.map((fm) => fm.id.toString()).toSet(),
     linkedReplaceableEvents: {
       (signedApp ?? appInRelay!).getReplaceableEventLink()

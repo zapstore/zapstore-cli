@@ -15,7 +15,7 @@ class GithubParser extends RepositoryParser {
   GithubParser({required this.relay});
 
   @override
-  Future<(App, Release, Set<FileMetadata>)> process({
+  Future<(App, Release?, Set<FileMetadata>)> process({
     required App app,
     required bool overwriteRelease,
     String? releaseRepository,
@@ -85,7 +85,7 @@ class GithubParser extends RepositoryParser {
 
       if (asset == null) {
         packageSpinner.fail('No asset matching ${r.pattern}');
-        continue;
+        return (app, null, <FileMetadata>{});
       }
 
       final packageUrl = asset['browser_download_url'];
@@ -177,7 +177,7 @@ class GithubParser extends RepositoryParser {
 }
 
 abstract class RepositoryParser {
-  Future<(App, Release, Set<FileMetadata>)> process({
+  Future<(App, Release?, Set<FileMetadata>)> process({
     required App app,
     required bool overwriteRelease,
   });

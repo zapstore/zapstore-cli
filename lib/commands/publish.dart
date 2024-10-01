@@ -87,7 +87,7 @@ Future<void> publish({
         }
 
         try {
-          Release release;
+          Release? release;
           Set<FileMetadata> fileMetadatas;
 
           if (artifacts.isNotEmpty) {
@@ -124,16 +124,18 @@ Future<void> publish({
           }
 
           if (os == SupportedOS.android) {
-            final newFileMetadatas = <FileMetadata>{};
-            for (var fileMetadata in fileMetadatas) {
-              final (appFromApk, releaseFromApk, newFileMetadata) =
-                  await parseApk(app, release, fileMetadata);
-              // App from APK has the updated identifier (and release)
-              app = appFromApk;
-              release = releaseFromApk;
-              newFileMetadatas.add(newFileMetadata);
+            if (release != null) {
+              final newFileMetadatas = <FileMetadata>{};
+              for (var fileMetadata in fileMetadatas) {
+                final (appFromApk, releaseFromApk, newFileMetadata) =
+                    await parseApk(app, release!, fileMetadata);
+                // App from APK has the updated identifier (and release)
+                app = appFromApk;
+                release = releaseFromApk;
+                newFileMetadatas.add(newFileMetadata);
+              }
+              fileMetadatas = newFileMetadatas;
             }
-            fileMetadatas = newFileMetadatas;
 
             if (app.identifier != null) {
               overwriteApp = await ensureOverwriteApp(
@@ -222,7 +224,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
                 print('\n');
                 printJsonEncodeColored(signedApp.toMap());
               }
-              if (signedFileMetadatas.isNotEmpty) {
+              if (signedRelease != null) {
                 print('\n');
                 print('Release event (kind 30063)'.bold().black().onWhite());
                 print('\n');
@@ -254,7 +256,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
           } else {
             for (final BaseEvent event in [
               if (signedApp != null) signedApp,
-              if (signedFileMetadatas.isNotEmpty) signedRelease,
+              if (signedRelease != null) signedRelease,
               ...signedFileMetadatas
             ]) {
               try {
@@ -298,6 +300,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
 /// which will trigger fetching app information through the appropriate parser below.
 Future<bool> ensureOverwriteApp(
     bool overwriteApp, RelayMessageNotifier relay, String appIdentifier) async {
+  print('querying for $appIdentifier, overwrite app: $overwriteApp');
   final appsWithIdentifier = await relay.query<App>(
     tags: {
       '#d': [appIdentifier]
@@ -309,6 +312,7 @@ Future<bool> ensureOverwriteApp(
     print('First time publishing? Creating an app event (kind 32267)');
     overwriteApp = true;
   }
+  print('${appsWithIdentifier.length}, overwrite app: $overwriteApp');
   return overwriteApp;
 }
 
