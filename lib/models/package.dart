@@ -89,9 +89,7 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath in meta.tagMap['executables'] ??
-            meta.tagMap['executable'] ??
-            {identifier})
+        for (final binaryPath in meta.tagMap['executables'] ?? {identifier})
           _installBinaryCmd(
               path.join(extractDir, binaryPath),
               path.join(

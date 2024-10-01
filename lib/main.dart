@@ -136,7 +136,12 @@ class PublishCommand extends Command {
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
     final artifacts = argResults!.multiOption('artifacts');
-    final suppliedReleaseVersion = argResults!.option('release-version');
+    final releaseVersion = argResults!.option('release-version');
+    if (artifacts.isNotEmpty && releaseVersion == null) {
+      usageException(
+          'Please provide a release version when you pass local artifacts');
+    }
+
     final releaseNotesFile = argResults!.option('release-notes');
 
     String? releaseNotes;
@@ -151,7 +156,7 @@ class PublishCommand extends Command {
     await publish(
       requestedId: value,
       artifacts: artifacts,
-      requestedVersion: suppliedReleaseVersion,
+      version: releaseVersion,
       releaseNotes: releaseNotes,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),

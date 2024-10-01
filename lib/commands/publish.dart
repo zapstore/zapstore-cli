@@ -20,7 +20,7 @@ final fileRegex = RegExp(r'^[^\/<>|:&]*');
 Future<void> publish({
   String? requestedId,
   List<String> artifacts = const [],
-  String? requestedVersion,
+  String? version,
   String? releaseNotes,
   required bool overwriteApp,
   required bool overwriteRelease,
@@ -34,7 +34,7 @@ Future<void> publish({
   }
 
   final doc =
-      Map<String, dynamic>.from(loadYaml(await yamlFile.readAsString()));
+      Map<String, YamlMap>.from(loadYaml(await yamlFile.readAsString()));
 
   final container = ProviderContainer();
   late final RelayMessageNotifier relay;
@@ -44,10 +44,11 @@ Future<void> publish({
     await relay.initialize();
 
     for (final MapEntry(key: id, value: appObj) in doc.entries) {
-      for (final MapEntry(key: os, value: yamlApp) in appObj.entries) {
+      for (final MapEntry(:key, value: yamlApp) in appObj.entries) {
         if (requestedId != null && requestedId != id) {
           continue;
         }
+        final os = SupportedOS.from(key);
 
         final builderNpub = yamlApp['builder']?.toString();
         final builderPubkeyHex = builderNpub?.hexKey;
@@ -58,7 +59,7 @@ Future<void> publish({
         }
 
         var app = App(
-          identifier: id,
+          identifier: os == SupportedOS.android ? null : id,
           content: yamlApp['description'] ?? yamlApp['summary'],
           name: yamlApp['name'],
           summary: yamlApp['summary'],
@@ -68,15 +69,13 @@ Future<void> publish({
           zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
         );
 
-        var yamlArtifacts = <String, dynamic>{};
+        var yamlArtifacts = <String, YamlMap>{};
         if (yamlApp['artifacts'] is YamlList) {
           for (final a in yamlApp['artifacts']) {
-            yamlArtifacts[a] = {};
+            yamlArtifacts[a] = YamlMap();
           }
         } else if (yamlApp['artifacts'] is YamlMap) {
-          yamlArtifacts = Map<String, dynamic>.from(yamlApp['artifacts']);
-        } else {
-          throw 'Invalid artifacts format, it must be a list or a map:\n${yamlApp['artifacts']}';
+          yamlArtifacts = Map<String, YamlMap>.from(yamlApp['artifacts']);
         }
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
@@ -94,17 +93,15 @@ Future<void> publish({
             final parser = LocalParser(
                 app: app,
                 artifacts: artifacts,
-                requestedVersion: requestedVersion,
+                version: version!,
                 relay: relay);
 
             (app, release, fileMetadatas) = await parser.process(
-              os: os,
               overwriteRelease: overwriteRelease,
               yamlArtifacts: yamlArtifacts,
               releaseNotes: releaseNotes,
             );
           } else {
-            // TODO: Should be able to run both local AND Github/other parsers
             if (app.repository == null) {
               throw UsageException('No sources provided',
                   'Use the -a option or configure a repository in zapstore.yaml');
@@ -113,12 +110,10 @@ Future<void> publish({
             if (repoUrl.host == 'github.com') {
               final githubParser = GithubParser(relay: relay);
               final repo = repoUrl.path.substring(1);
-              (app, release, fileMetadatas) = await githubParser.run(
+              (app, release, fileMetadatas) = await githubParser.process(
                 app: app,
-                os: os,
                 repoName: repo,
                 artifacts: yamlArtifacts,
-                overwriteApp: overwriteApp,
                 overwriteRelease: overwriteRelease,
               );
             } else {
@@ -126,7 +121,7 @@ Future<void> publish({
             }
           }
 
-          if (os == 'android') {
+          if (os == SupportedOS.android) {
             final newFileMetadatas = <FileMetadata>{};
             for (var fileMetadata in fileMetadatas) {
               final (appFromApk, releaseFromApk, newFileMetadata) =
@@ -180,9 +175,16 @@ Future<void> publish({
           var nsec = Platform.environment['NSEC'];
 
           if (!daemon) {
-            print(
-                'Please provide your nsec (or via the NSEC env var) to sign the events, it will be discarded IMMEDIATELY after. More signing options are coming soon. If unsure, run this program from source.'
-                    .bold());
+            print('''\n
+***********
+Please provide your nsec (in nsec or hex format) to sign the events.
+
+${' It will be discarded IMMEDIATELY after signing! '.bold().onYellow().black()}
+
+For non-interactive use, pass the NSEC environment variable. More signing options coming soon.
+If unsure, run this program from source. See https://github.com/zapstore/zapstore-cli'
+***********
+''');
             nsec ??= Password(prompt: 'nsec').interact();
           }
 
@@ -299,9 +301,28 @@ Future<bool> ensureOverwriteApp(
   );
   // If none were found (first time publishing), we ignore the
   // overwrite argument and set it to true
-  print('First time publishing? Creating an app event (kind 32267)');
   if (appsWithIdentifier.isEmpty) {
+    print('First time publishing? Creating an app event (kind 32267)');
     overwriteApp = true;
   }
   return overwriteApp;
+}
+
+enum SupportedOS {
+  cli,
+  android;
+
+  static SupportedOS from(dynamic value) {
+    return SupportedOS.values
+        .firstWhere((_) => _.toString() == value.toString());
+  }
+
+  static Iterable<String> get all {
+    return SupportedOS.values.map((_) => _.toString());
+  }
+
+  @override
+  String toString() {
+    return super.toString().split('.').last;
+  }
 }

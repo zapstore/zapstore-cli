@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
-import 'package:interact_cli/interact_cli.dart';
 import 'package:purplebase/purplebase.dart';
+import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
@@ -11,44 +11,23 @@ import 'package:path/path.dart' as path;
 class LocalParser {
   final App app;
   final List<String> artifacts;
-  final String? requestedVersion;
+  final String version;
   final RelayMessageNotifier relay;
   LocalParser(
       {required this.app,
       required this.artifacts,
-      this.requestedVersion,
+      required this.version,
       required this.relay});
 
   Future<(App, Release, Set<FileMetadata>)> process({
-    required String os,
     required bool overwriteRelease,
     String? releaseNotes,
-    required Map<String, dynamic> yamlArtifacts,
+    required Map<String, YamlMap> yamlArtifacts,
   }) async {
     final releaseCreatedAt = DateTime.now();
 
-    String? version;
-
     final fileMetadatas = <FileMetadata>{};
-    for (var MapEntry(key: regexpKey, :value) in yamlArtifacts.entries) {
-      // TODO: Refactor this, also used in Github parser!
-      regexpKey = regexpKey.replaceAll('%v', r'(\d+\.\d+(?:\.\d+)?)');
-      final r = RegExp(regexpKey);
-      final artifactPath =
-          artifacts.firstWhereOrNull((a) => r.hasMatch(path.basename(a)));
-
-      if (artifactPath == null) {
-        final continueWithout = Confirm(
-                prompt:
-                    'No artifact matching $regexpKey. Edit zapstore.yaml if necessary. Continue?')
-            .interact();
-        if (continueWithout) {
-          continue;
-        } else {
-          throw GracefullyAbortSignal();
-        }
-      }
-
+    for (final artifactPath in artifacts) {
       if (!await File(artifactPath).exists()) {
         throw 'No artifact file found at $artifactPath';
       }
@@ -87,23 +66,18 @@ class LocalParser {
         continue;
       }
 
-      // Determine version
-      if (requestedVersion != null) {
-        version = requestedVersion;
-      } else {
-        final match = r.firstMatch(artifactPath);
-        final matchedVersion = (match?.groupCount ?? 0) > 0
-            ? r.firstMatch(artifactPath)?.group(1)
-            : null;
-
-        version ??= matchedVersion;
-        if (matchedVersion == null || matchedVersion != version) {
-          throw 'Unable to automatically extract version, please use the -r argument';
-        }
-      }
-
       // Validate platforms
-      final platforms = {...?value['platforms'] as Iterable?};
+      print('-- ${path.basename(artifactPath)}');
+      print(yamlArtifacts);
+      final yamlArtifact = yamlArtifacts.entries.firstWhereOrNull(
+          (e) => regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
+      print('artif $yamlArtifact');
+
+      final match = yamlArtifact != null
+          ? regexpFromKey(yamlArtifact.key).firstMatch(artifactPath)
+          : null;
+
+      final platforms = {...?yamlArtifact?.value['platforms'] as Iterable?};
       if (!platforms
           .every((platform) => kSupportedPlatforms.contains(platform))) {
         throw 'Artifact $artifactPath has platforms $platforms but some are not in $kSupportedPlatforms';
@@ -112,21 +86,21 @@ class LocalParser {
       final size = await runInShell('wc -c < $newArtifactPath');
 
       final fileMetadata = FileMetadata(
-          content: '${app.name} $version',
-          createdAt: releaseCreatedAt,
-          urls: {artifactUrl},
-          mimeType: mimeType,
-          hash: artifactHash,
-          size: int.tryParse(size),
-          platforms: platforms.toSet().cast(),
-          version: version,
-          pubkeys: app.pubkeys,
-          zapTags: app.zapTags,
-          additionalEventTags: {
-            for (final b in (value['executables'] ?? []))
-              // TODO: what if the string contains other regex?
-              ('executable', b.toString().replaceFirst('%v', version!)),
-          });
+        content: '${app.name} $version',
+        createdAt: releaseCreatedAt,
+        urls: {artifactUrl},
+        mimeType: mimeType,
+        hash: artifactHash,
+        size: int.tryParse(size),
+        platforms: platforms.toSet().cast(),
+        version: version,
+        pubkeys: app.pubkeys,
+        zapTags: app.zapTags,
+        additionalEventTags: {
+          for (final e in (yamlArtifact?.value['executables'] ?? []))
+            ('executable', replaceInExecutable(e, match)),
+        },
+      );
       fileMetadata.transientData['apkPath'] = newArtifactPath;
       fileMetadatas.add(fileMetadata);
       uploadSpinner.success('Uploaded artifact: $artifactPath to $artifactUrl');
@@ -142,4 +116,18 @@ class LocalParser {
 
     return (app, release, fileMetadatas);
   }
+}
+
+String replaceInExecutable(String e, RegExpMatch? match) {
+  if (match == null) return e;
+  for (var i = 1; i <= match.groupCount; i++) {
+    e = e.replaceAll('\$$i', match.group(i)!);
+  }
+  return e;
+}
+
+RegExp regexpFromKey(String key) {
+  // %v matches 1.0 or 1.0.1, no groups are captured
+  key = key.replaceAll('%v', r'\d+\.\d+(?:\.\d+)?');
+  return RegExp(key);
 }
