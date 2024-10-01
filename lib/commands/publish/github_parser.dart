@@ -98,7 +98,8 @@ class GithubParser extends RepositoryParser {
     for (var MapEntry(:key, :value) in artifacts!.entries) {
       final r = regexpFromKey(key);
 
-      final asset = assets.firstWhereOrNull((a) => r.hasMatch(a['name']));
+      final asset =
+          assets.firstWhereOrNull((a) => r.hasMatch(a['label'] ?? a['name']));
 
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
