@@ -67,11 +67,8 @@ class LocalParser {
       }
 
       // Validate platforms
-      print('-- ${path.basename(artifactPath)}');
-      print(yamlArtifacts);
       final yamlArtifact = yamlArtifacts.entries.firstWhereOrNull(
           (e) => regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
-      print('artif $yamlArtifact');
 
       final match = yamlArtifact != null
           ? regexpFromKey(yamlArtifact.key).firstMatch(artifactPath)

@@ -209,7 +209,8 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
               prompt: 'Events signed! How do you want to proceed?',
               options: [
                 'Inspect the events and confirm before publishing to relays',
-                'Publish the events to relays now'
+                'Publish the events to relays now',
+                'Exit without publishing'
               ],
             ).interact();
 
@@ -237,6 +238,8 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
                     'Scroll up to check the events and press `y` when you\'re ready to publish',
                 defaultValue: true,
               ).interact();
+            } else if (viewEvents == 2) {
+              throw GracefullyAbortSignal();
             }
           }
 
