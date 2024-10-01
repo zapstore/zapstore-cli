@@ -72,6 +72,28 @@ class GithubParser extends RepositoryParser {
 
     metadataSpinner.success('Fetched metadata from Github');
 
+    final repoUrl = 'https://api.github.com/repos/$repoName';
+    final repoJson =
+        await http.get(Uri.parse(repoUrl), headers: headers).getJson();
+
+    app = app.copyWith(
+      content: (app.content ?? '').isNotEmpty
+          ? app.content
+          : repoJson['description'] ?? repoJson['name'],
+      identifier: app.identifier,
+      name: app.name ?? repoJson['name'],
+      url: app.url ??
+          ((repoJson['homepage']?.isNotEmpty ?? false)
+              ? repoJson['homepage']
+              : null),
+      license: app.license ?? repoJson['license']?['spdx_id'],
+      tags: app.tags.isEmpty
+          ? (repoJson['topics'] as Iterable).toSet().cast()
+          : app.tags,
+      pubkeys: app.pubkeys,
+      zapTags: app.zapTags,
+    );
+
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(:key, :value) in artifacts!.entries) {
       final r = regexpFromKey(key);
@@ -140,28 +162,6 @@ class GithubParser extends RepositoryParser {
       fileMetadatas.add(fileMetadata);
       packageSpinner.success('Fetched package: $packageUrl');
     }
-
-    final repoUrl = 'https://api.github.com/repos/$repoName';
-    final repoJson =
-        await http.get(Uri.parse(repoUrl), headers: headers).getJson();
-
-    app = app.copyWith(
-      content: (app.content ?? '').isNotEmpty
-          ? app.content
-          : repoJson['description'] ?? repoJson['name'],
-      identifier: app.identifier ?? repoJson['name'],
-      name: app.name ?? repoJson['name'],
-      url: app.url ??
-          ((repoJson['homepage']?.isNotEmpty ?? false)
-              ? repoJson['homepage']
-              : null),
-      license: app.license ?? repoJson['license']?['spdx_id'],
-      tags: app.tags.isEmpty
-          ? (repoJson['topics'] as Iterable).toSet().cast()
-          : app.tags,
-      pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
-    );
 
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),

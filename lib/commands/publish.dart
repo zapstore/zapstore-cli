@@ -137,7 +137,6 @@ Future<void> publish({
               }
               fileMetadatas = newFileMetadatas;
             }
-
             if (app.identifier != null) {
               localOverwriteApp = await ensureOverwriteApp(
                   localOverwriteApp, relay, app.identifier!);
@@ -208,6 +207,13 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
           var publishEvents = true;
 
           if (!daemon) {
+            final hasApp = signedApp != null && signedApp.identifier != null;
+            final hasRelease = signedRelease != null;
+
+            if (!hasApp && !hasRelease) {
+              continue;
+            }
+
             print('\n');
             final viewEvents = Select(
               prompt: 'Events signed! How do you want to proceed?',
@@ -219,13 +225,13 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             ).interact();
 
             if (viewEvents == 0) {
-              if (signedApp != null) {
+              if (hasApp) {
                 print('\n');
                 print('App event (kind 32267)'.bold().black().onWhite());
                 print('\n');
                 printJsonEncodeColored(signedApp.toMap());
               }
-              if (signedRelease != null) {
+              if (hasRelease) {
                 print('\n');
                 print('Release event (kind 30063)'.bold().black().onWhite());
                 print('\n');
