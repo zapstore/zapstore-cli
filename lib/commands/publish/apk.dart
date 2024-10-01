@@ -65,7 +65,6 @@ Future<(App, Release, FileMetadata)> parseApk(
   final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion']?.toString();
   final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion']?.toString();
 
-  String? iconBlossomUrl;
   if (app.icons.isEmpty) {
     try {
       final iconPointer = androidManifest
@@ -88,8 +87,9 @@ Future<(App, Release, FileMetadata)> parseApk(
           final iconPath = path.join(iconFolder.path, iconName);
           final (iconHash, newIconPath, iconMimeType) =
               await renameToHash(iconPath);
-          iconBlossomUrl =
+          final iconBlossomUrl =
               await uploadToBlossom(newIconPath, iconHash, iconMimeType);
+          app = app.copyWith(icons: {iconBlossomUrl});
         }
       }
     } catch (e) {
@@ -102,7 +102,7 @@ Future<(App, Release, FileMetadata)> parseApk(
   apkSpinner.success('Parsed APK');
 
   fileMetadata = fileMetadata.copyWith(
-    // TODO: Should also copy with updated appIdentifier
+    content: '$appIdentifier ${release.identifier!.split('@').last}',
     version: apkVersion,
     platforms: architectures.map((a) => 'android-$a').toSet(),
     mimeType: 'application/vnd.android.package-archive',
@@ -116,10 +116,6 @@ Future<(App, Release, FileMetadata)> parseApk(
       for (final a in architectures) ('arch', a),
     },
   );
-
-  if (iconBlossomUrl != null) {
-    fileMetadata.transientData['iconBlossomUrl'] = iconBlossomUrl;
-  }
 
   return (app, release, fileMetadata);
 }

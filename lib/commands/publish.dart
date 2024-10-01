@@ -127,13 +127,8 @@ Future<void> publish({
               final (appFromApk, releaseFromApk, newFileMetadata) =
                   await parseApk(app, release, fileMetadata);
               // App from APK has the updated identifier (and release)
-              // TODO: Just return the identifier
               app = appFromApk;
               release = releaseFromApk;
-              final icon = newFileMetadata.transientData['iconBlossomUrl'];
-              if (icon != null) {
-                app = app.copyWith(icons: {icon});
-              }
               newFileMetadatas.add(newFileMetadata);
             }
             fileMetadatas = newFileMetadatas;
@@ -174,7 +169,7 @@ Future<void> publish({
 
           var nsec = Platform.environment['NSEC'];
 
-          if (!daemon) {
+          if (!daemon && nsec == null) {
             print('''\n
 ***********
 Please provide your nsec (in nsec or hex format) to sign the events.
