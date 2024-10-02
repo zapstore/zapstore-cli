@@ -99,7 +99,7 @@ class GithubParser extends RepositoryParser {
       final r = regexpFromKey(key);
 
       final asset =
-          assets.firstWhereOrNull((a) => r.hasMatch(a['label'] ?? a['name']));
+          assets.firstWhereOrNull((a) => r.hasMatch(a['name'] ?? a['label']));
 
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
