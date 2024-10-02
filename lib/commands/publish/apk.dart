@@ -103,7 +103,7 @@ Future<(App, Release, FileMetadata)> parseApk(
   apkSpinner.success('Parsed APK');
 
   fileMetadata = fileMetadata.copyWith(
-    content: '$appIdentifier ${release.identifier!.split('@').last}',
+    content: '${app.name} ${release.identifier!.split('@').last}',
     version: apkVersion,
     platforms: architectures.map((a) => 'android-$a').toSet(),
     mimeType: 'application/vnd.android.package-archive',
