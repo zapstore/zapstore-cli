@@ -63,7 +63,7 @@ class LocalParser {
             spinner: uploadSpinner);
       } catch (e) {
         uploadSpinner.fail(e.toString());
-        continue;
+        rethrow;
       }
 
       // Validate platforms
