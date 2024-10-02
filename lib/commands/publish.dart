@@ -112,8 +112,13 @@ Future<void> publish({
           } else {
             final repository = app.repository ?? yamlApp['release_repository'];
             if (repository == null) {
-              throw UsageException('No sources provided',
-                  'Use the -a argument or add a repository in zapstore.yaml');
+              if (daemon) {
+                print('No sources provided, skipping');
+                continue;
+              } else {
+                throw UsageException('No sources provided, ',
+                    'Use the -a argument or add a repository in zapstore.yaml');
+              }
             }
 
             final repoUrl = Uri.parse(repository!);
