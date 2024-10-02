@@ -87,10 +87,10 @@ Future<void> publish({
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
 
-        var localOverwriteApp = overwriteApp;
+        var _overwriteApp = overwriteApp;
         if (app.identifier != null) {
-          localOverwriteApp = await ensureOverwriteApp(
-              localOverwriteApp, relay, app.identifier!);
+          _overwriteApp =
+              await ensureOverwriteApp(_overwriteApp, relay, app.identifier!);
         }
 
         try {
@@ -144,11 +144,11 @@ Future<void> publish({
               fileMetadatas = newFileMetadatas;
             }
             if (app.identifier != null) {
-              localOverwriteApp = await ensureOverwriteApp(
-                  localOverwriteApp, relay, app.identifier!);
+              _overwriteApp = await ensureOverwriteApp(
+                  _overwriteApp, relay, app.identifier!);
             }
 
-            if (localOverwriteApp) {
+            if (_overwriteApp) {
               var extraMetadata = 0;
               CliSpin? extraMetadataSpinner;
 
@@ -206,7 +206,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             release: release,
             fileMetadatas: fileMetadatas,
             nsec: nsec,
-            overwriteApp: localOverwriteApp,
+            overwriteApp: _overwriteApp,
             relay: relay,
           );
 
@@ -231,7 +231,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             ).interact();
 
             if (viewEvents == 0) {
-              if (hasApp) {
+              if (hasApp && _overwriteApp) {
                 print('\n');
                 print('App event (kind 32267)'.bold().black().onWhite());
                 print('\n');
