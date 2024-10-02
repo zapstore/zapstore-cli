@@ -65,6 +65,6 @@ class PlayStoreParser {
 
     spinner?.success('Fetched metadata from Google Play Store');
 
-    return app.copyWith(images: imageBlossomUrls);
+    return app.copyWith(images: {...app.images, ...imageBlossomUrls});
   }
 }

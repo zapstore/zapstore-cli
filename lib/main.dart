@@ -33,7 +33,7 @@ void main(List<String> args) async {
 
     final version = argResults['version'];
     if (version) {
-      print('zap.store CLI $kVersion');
+      print('zap.store $kVersion');
       return;
     }
     await runner.run(args);
@@ -114,16 +114,18 @@ class RemoveCommand extends Command {
 
 class PublishCommand extends Command {
   PublishCommand() {
-    argParser.addMultiOption('artifacts', abbr: 'a', help: 'Local artifacts');
-    argParser.addOption('release-version',
-        abbr: 'v', help: 'Local release version.');
+    argParser.addMultiOption('artifact',
+        abbr: 'a', help: 'Artifact to be uploaded');
+    argParser.addOption('release-version', abbr: 'v', help: 'Release version');
     argParser.addOption('release-notes',
-        abbr: 'n', help: 'File containing release notes.');
+        abbr: 'n', help: 'File containing release notes');
+    argParser.addOption('icon', help: 'Icon file');
+    argParser.addMultiOption('image', abbr: 'i', help: 'Image file');
 
     argParser.addFlag('overwrite-app',
-        help: 'Generate a new kind 32267 to publish.', defaultsTo: false);
+        help: 'Generate a new kind 32267 to publish', defaultsTo: false);
     argParser.addFlag('overwrite-release',
-        help: 'Generate a new kind 30063 to publish.', defaultsTo: false);
+        help: 'Generate a new kind 30063 to publish', defaultsTo: false);
     argParser.addFlag('daemon',
         abbr: 'd', help: 'Run publish non-interactively');
   }
@@ -140,14 +142,15 @@ class PublishCommand extends Command {
   @override
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
-    final artifacts = argResults!.multiOption('artifacts');
+    final artifacts = argResults!.multiOption('artifact');
     final releaseVersion = argResults!.option('release-version');
     if (artifacts.isNotEmpty && releaseVersion == null) {
       usageException(
           'Please provide a release version when you pass local artifacts');
     }
-
     final releaseNotesFile = argResults!.option('release-notes');
+    final icon = argResults!.option('icon');
+    final images = argResults!.multiOption('image');
 
     String? releaseNotes;
     if (releaseNotesFile != null) {
@@ -163,6 +166,8 @@ class PublishCommand extends Command {
       artifacts: artifacts,
       version: releaseVersion,
       releaseNotes: releaseNotes,
+      icon: icon,
+      images: images,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
       daemon: argResults!.flag('daemon'),

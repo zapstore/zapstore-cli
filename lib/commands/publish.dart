@@ -20,12 +20,14 @@ final fileRegex = RegExp(r'^[^\/<>|:&]*');
 
 Future<void> publish({
   String? requestedId,
-  List<String> artifacts = const [],
+  required List<String> artifacts,
   String? version,
   String? releaseNotes,
   required bool overwriteApp,
   required bool overwriteRelease,
   required bool daemon,
+  String? icon,
+  required List<String> images,
 }) async {
   final yamlFile = File('zapstore.yaml');
 
@@ -65,6 +67,10 @@ Future<void> publish({
           name: yamlApp['name'],
           summary: yamlApp['summary'],
           repository: yamlApp['repository'],
+          icons: {
+            if (icon != null) ...await _processImages([icon])
+          },
+          images: await _processImages(images),
           license: yamlApp['license'],
           pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
           zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
@@ -338,4 +344,16 @@ enum SupportedOS {
   String toString() {
     return super.toString().split('.').last;
   }
+}
+
+Future<Set<String>> _processImages(List<String> imagePaths) async {
+  final imageBlossomUrls = <String>{};
+  for (final imagePath in imagePaths) {
+    final (imageHash, newImagePath, imageMimeType) =
+        await renameToHash(imagePath);
+    final imageBlossomUrl =
+        await uploadToBlossom(newImagePath, imageHash, imageMimeType);
+    imageBlossomUrls.add(imageBlossomUrl);
+  }
+  return imageBlossomUrls;
 }
