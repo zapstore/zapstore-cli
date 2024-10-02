@@ -76,13 +76,13 @@ zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -v 1.4.1
 
 If you have multiple artifacts, run this command once with multiple `-a` arguments and a version (`-v`). They all will be uploaded to `cdn.zap.store`.
 
-If you want to add release notes, provide the release notes Markdown file to `-n`.
+If you want to add release notes, provide the release notes Markdown file to `-n`. For icon and images, see `--icon` and `--image`.
 
 You will be prompted for your nsec, but you can also pass it via the `NSEC` environment variable. This is the only available option for signing at the moment. NIP-46 and NIP-07 signing are planned.
 
 For more run `zapstore help publish`.
 
-Note that `apktool` is required to extract APK information. If you don't have it in your path, you can install it via `zapstore install apktool`.
+Note that `apktool` is required to extract APK information. If you don't have it in your path, you can install it via `zapstore install apktool` or with other package managers (brew, apt, etc).
 
 ### CLI package
 

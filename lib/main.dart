@@ -1,5 +1,3 @@
-// ignore_for_file: unnecessary_string_escapes
-
 import 'dart:async';
 import 'dart:io';
 
@@ -13,7 +11,7 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 
-const kVersion = '0.0.6'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.1.0'; // (!) Also update pubspec.yaml (!)
 
 late final DotEnv env;
 

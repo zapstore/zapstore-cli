@@ -1,3 +1,15 @@
+## 0.1.0
+
+ - Bugfix: Stringify versions to generate valid nostr tags
+ - Bugfix: Do not require identifier
+ - Bugfix: Do not capture %v, always require version argument
+ - Bugfix: Failing with pre-releases
+ - Other minor bugfixes
+ - Feature: Run in daemon mode (zap.store indexing is now done with this program)
+ - Feature: Support `.env` file
+ - Feature: Introduce `release_repository` attribute for closed-source apps
+ - Feature: Allow passing icon and images as arguments
+
 ## 0.0.6
 
  - Fix issue installing apktool
