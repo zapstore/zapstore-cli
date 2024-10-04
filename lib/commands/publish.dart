@@ -110,13 +110,13 @@ Future<void> publish({
               yamlArtifacts: yamlArtifacts,
               releaseNotes: releaseNotes,
             );
-          } else if (yamlApp['web'] != null) {
-            await WebParser(relay: relay).run(
-                app: app,
-                url: yamlApp['web'],
-                overwriteApp: overwriteApp,
-                overwriteRelease: overwriteRelease);
-            exit(0);
+          } else if (yamlApp['version'] != null) {
+            (app, release, fileMetadatas) = await WebParser(relay: relay)
+                .process(
+                    app: app,
+                    versionSpec: yamlApp['version'],
+                    artifacts: yamlArtifacts,
+                    overwriteRelease: overwriteRelease);
           } else {
             final repository = app.repository ?? yamlApp['release_repository'];
             if (repository == null) {
