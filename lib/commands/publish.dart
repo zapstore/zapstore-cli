@@ -26,7 +26,6 @@ Future<void> publish({
   String? releaseNotes,
   required bool overwriteApp,
   required bool overwriteRelease,
-  required bool daemon,
   String? icon,
   required List<String> images,
 }) async {
@@ -113,7 +112,7 @@ Future<void> publish({
           } else {
             final repository = app.repository ?? yamlApp['release_repository'];
             if (repository == null) {
-              if (daemon) {
+              if (isDaemonMode) {
                 print('No sources provided, skipping');
                 continue;
               } else {
@@ -158,7 +157,7 @@ Future<void> publish({
               var extraMetadata = 0;
               CliSpin? extraMetadataSpinner;
 
-              if (!daemon) {
+              if (!isDaemonMode) {
                 extraMetadata = Select(
                   prompt: 'Would you like to pull extra metadata for this app?',
                   options: ['Play Store', 'F-Droid', 'None'],
@@ -185,7 +184,7 @@ Future<void> publish({
 
           var nsec = env['NSEC'];
 
-          if (!daemon && nsec == null) {
+          if (!isDaemonMode && nsec == null) {
             print('''\n
 ***********
 Please provide your nsec (in nsec or hex format) to sign the events.
@@ -218,7 +217,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
 
           var publishEvents = true;
 
-          if (!daemon) {
+          if (!isDaemonMode) {
             final hasApp = signedApp != null && signedApp.identifier != null;
             final hasRelease = signedRelease != null;
 
@@ -282,10 +281,14 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
                 final spinner = CliSpin(
                   text: 'Publishing kind ${event.kind}...',
                   spinner: CliSpinners.dots,
+                  isSilent: isDaemonMode,
                 ).start();
                 await relay.publish(event);
                 spinner.success(
                     '${'Published'.bold()}: ${event.id.toString()} (kind ${event.kind})');
+                if (isDaemonMode) {
+                  print('Published kind ${event.kind}');
+                }
               } catch (e) {
                 print(
                     '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');

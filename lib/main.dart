@@ -110,6 +110,8 @@ class RemoveCommand extends Command {
   }
 }
 
+late final bool isDaemonMode;
+
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',
@@ -126,8 +128,10 @@ class PublishCommand extends Command {
         help: 'Generate a new kind 32267 to publish', defaultsTo: false);
     argParser.addFlag('overwrite-release',
         help: 'Generate a new kind 30063 to publish', defaultsTo: false);
-    argParser.addFlag('daemon',
-        abbr: 'd', help: 'Run publish non-interactively');
+    argParser.addFlag('daemon-mode',
+        abbr: 'd',
+        help:
+            'Run publish in daemon mode (non-interactively and without spinners)');
   }
 
   @override
@@ -165,6 +169,9 @@ class PublishCommand extends Command {
     // Load env next to config file
     env.load([path.join(path.dirname(configFile!), '.env')]);
 
+    // Set daemon mode
+    isDaemonMode = argResults!.flag('daemon-mode');
+
     await publish(
       configFile: configFile,
       requestedId: value,
@@ -175,7 +182,6 @@ class PublishCommand extends Command {
       images: images,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
-      daemon: argResults!.flag('daemon'),
     );
   }
 }

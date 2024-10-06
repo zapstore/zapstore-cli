@@ -32,6 +32,7 @@ class GithubParser extends RepositoryParser {
     final metadataSpinner = CliSpin(
       text: 'Fetching metadata...',
       spinner: CliSpinners.dots,
+      isSilent: isDaemonMode,
     ).start();
 
     final latestReleaseUrl =
@@ -66,7 +67,11 @@ class GithubParser extends RepositoryParser {
         : assets;
 
     if (packageAssetArray.isEmpty) {
-      metadataSpinner.fail('No packages in $repoName, I\'m done here');
+      final message = 'No packages in $repoName, I\'m done here';
+      if (isDaemonMode) {
+        print(message);
+      }
+      metadataSpinner.fail(message);
       throw GracefullyAbortSignal();
     }
 
@@ -105,10 +110,15 @@ class GithubParser extends RepositoryParser {
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
         spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
       ).start();
 
       if (asset == null) {
-        packageSpinner.fail('No asset matching ${r.pattern}');
+        final message = 'No asset matching ${r.pattern}';
+        if (isDaemonMode) {
+          print(message);
+        }
+        packageSpinner.fail(message);
         return (app, null, <FileMetadata>{});
       }
 
@@ -124,6 +134,9 @@ class GithubParser extends RepositoryParser {
           .firstWhereOrNull((m) => m.urls.firstOrNull == packageUrl);
       if (metadataOnRelayCheck != null) {
         if (!overwriteRelease) {
+          if (isDaemonMode) {
+            print('$repoName OK, skip');
+          }
           packageSpinner.success(
               'Latest $repoName release already in relay, nothing to do');
           throw GracefullyAbortSignal();
