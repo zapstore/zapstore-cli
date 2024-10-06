@@ -198,8 +198,9 @@ After that, open a new shell and re-run this program.
 
   // If zapstore not in db, auto-install/update
   if (db['zapstore'] == null ||
-      db['zapstore']!.enabledVersion != null &&
-          compareVersions(db['zapstore']!.enabledVersion!, kVersion) == -1) {
+      db['zapstore']!.enabledVersion == null ||
+      (db['zapstore']!.enabledVersion != null &&
+          compareVersions(db['zapstore']!.enabledVersion!, kVersion) == -1)) {
     final zapstorePackage = Package(
         identifier: 'zapstore',
         pubkey: kZapstorePubkey,
