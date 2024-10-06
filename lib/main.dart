@@ -10,14 +10,13 @@ import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
+import 'package:path/path.dart' as path;
 
 const kVersion = '0.1.0'; // (!) Also update pubspec.yaml (!)
 
 late final DotEnv env;
 
 void main(List<String> args) async {
-  env = DotEnv(includePlatformEnvironment: true)..load();
-
   var wasError = false;
   try {
     final runner = CommandRunner("zapstore",
@@ -162,8 +161,12 @@ class PublishCommand extends Command {
       }
     }
 
+    // Load env next to config file, silent if none
+    env = DotEnv(includePlatformEnvironment: true, quiet: true)
+      ..load([path.join(path.dirname(configFile!), '.env')]);
+
     await publish(
-      configFile: configFile!,
+      configFile: configFile,
       requestedId: value,
       artifacts: artifacts,
       version: releaseVersion,
