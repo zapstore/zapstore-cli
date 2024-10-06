@@ -15,6 +15,7 @@ Future<(App, Release, FileMetadata)> parseApk(
   final apkSpinner = CliSpin(
     text: 'Parsing APK...',
     spinner: CliSpinners.dots,
+    isSilent: isDaemonMode,
   ).start();
   final apkPath = fileMetadata.transientData['apkPath'];
   final apkFolder = path.setExtension(apkPath, '');
