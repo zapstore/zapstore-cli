@@ -12,7 +12,7 @@ import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
-const kVersion = '0.1.0'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.1.1'; // (!) Also update pubspec.yaml (!)
 
 late final DotEnv env;
 
