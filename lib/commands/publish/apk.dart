@@ -20,10 +20,11 @@ Future<(App, Release, FileMetadata)> parseApk(
   final apkFolder = path.setExtension(apkPath, '');
 
   await runInShell('rm -fr $apkFolder');
-  if (whichSync('apktool') == null) {
+  final apktoolPath = whichSync('apktool');
+  if (apktoolPath == null) {
     throw 'APK parsing requires apktool and it could not be found.\n\nTo install run ${'zapstore install apktool'.bold()}';
   }
-  await runInShell('apktool decode -s -f -o $apkFolder $apkPath');
+  await runInShell('$apktoolPath decode -s -f -o $apkFolder $apkPath');
 
   var architectures = ['arm64-v8a'];
   try {
