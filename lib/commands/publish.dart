@@ -19,6 +19,7 @@ import 'package:zapstore_cli/utils.dart';
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
 
 Future<void> publish({
+  required String configFile,
   String? requestedId,
   required List<String> artifacts,
   String? version,
@@ -29,11 +30,11 @@ Future<void> publish({
   String? icon,
   required List<String> images,
 }) async {
-  final yamlFile = File('zapstore.yaml');
+  final yamlFile = File(configFile);
 
   if (!await yamlFile.exists()) {
-    throw UsageException('zapstore.yaml not found',
-        'Please create a zapstore.yaml file in this directory. See https://zap.store for documentation.');
+    throw UsageException('Config not found at $configFile',
+        'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zap.store for documentation.');
   }
 
   final doc =

@@ -112,6 +112,8 @@ class RemoveCommand extends Command {
 
 class PublishCommand extends Command {
   PublishCommand() {
+    argParser.addOption('config',
+        abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
     argParser.addMultiOption('artifact',
         abbr: 'a', help: 'Artifact to be uploaded');
     argParser.addOption('release-version', abbr: 'v', help: 'Release version');
@@ -140,6 +142,7 @@ class PublishCommand extends Command {
   @override
   Future<void> run() async {
     final value = argResults!.rest.firstOrNull;
+    final configFile = argResults!.option('config');
     final artifacts = argResults!.multiOption('artifact');
     final releaseVersion = argResults!.option('release-version');
     if (artifacts.isNotEmpty && releaseVersion == null) {
@@ -160,6 +163,7 @@ class PublishCommand extends Command {
     }
 
     await publish(
+      configFile: configFile!,
       requestedId: value,
       artifacts: artifacts,
       version: releaseVersion,
