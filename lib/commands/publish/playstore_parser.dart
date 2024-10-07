@@ -25,7 +25,7 @@ class PlayStoreParser {
       app = app.copyWith(name: appName);
     }
 
-    if (app.content == null || app.content!.isEmpty) {
+    if (app.content.isEmpty) {
       final appDescription =
           document.querySelector('div[data-g-id=description]')!.text.trim();
       final markdownAppDescription = convert(appDescription);
