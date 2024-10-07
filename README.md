@@ -1,21 +1,34 @@
 # zapstore-cli
 
-To install dependencies:
+The permissionless package manager.
+
+## Download binaries
+
+https://github.com/zapstore/zapstore-cli/releases/
+
+## From source
+
+Download and select release:
+
+```bash
+git clone https://github.com/zapstore/zapstore-cli.git
+cd zapstore-cli
+git checkout <tag> # select a release from here: https://github.com/zapstore/zapstore-cli/tags
+```
+
+Please do not run it from `master` or any other feature branch.
+
+Install dependencies:
 
 ```bash
 dart pub get
 ```
 
-To run:
-
-```bash
-dart lib/main.dart
-```
-
-To build:
+Build and run:
 
 ```bash
 dart compile exe lib/main.dart -o zapstore
+./zapstore
 ```
 
 ## Managing packages
