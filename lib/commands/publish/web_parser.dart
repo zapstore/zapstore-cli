@@ -32,17 +32,23 @@ class WebParser extends RepositoryParser {
     final [endpoint, selector, attribute, ...rest] = versionSpec!;
     final response = await http.get(Uri.parse(endpoint));
 
-    late final String version;
+    late final String? version;
     if (rest.isEmpty) {
       // If versionSpec has 3 positions, it's a JSON endpoint
       final raw = jsonDecode(response.body)[selector].toString();
-      version = regexpFromKey(attribute).firstMatch(raw)!.group(0)!;
+      final match = regexpFromKey(attribute).firstMatch(raw);
+      version = match?.group(1) ?? match?.group(0);
     } else {
       // If versionSpec has 4 positions, it's an HTML endpoint
       final elem = parse(response.body).querySelectorAll(selector).first;
       final raw = attribute.isEmpty ? elem.text : elem.attributes[attribute]!;
-      // print('raw $raw - $rest');
-      version = regexpFromKey(rest.first).firstMatch(raw)!.group(0)!;
+
+      final match = regexpFromKey(rest.first).firstMatch(raw);
+      version = match?.group(1) ?? match?.group(0);
+    }
+
+    if (version == null) {
+      throw 'could not match version for $selector';
     }
 
     metadataSpinner.success('Fetched metadata from $version');
