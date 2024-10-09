@@ -13,6 +13,7 @@ import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/commands/publish/playstore_parser.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/commands/publish/web_parser.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 
@@ -109,6 +110,13 @@ Future<void> publish({
               yamlArtifacts: yamlArtifacts,
               releaseNotes: releaseNotes,
             );
+          } else if (yamlApp['version'] != null) {
+            (app, release, fileMetadatas) = await WebParser(relay: relay)
+                .process(
+                    app: app,
+                    versionSpec: yamlApp['version'],
+                    artifacts: yamlArtifacts,
+                    overwriteRelease: overwriteRelease);
           } else {
             final repository = app.repository ?? yamlApp['release_repository'];
             if (repository == null) {
