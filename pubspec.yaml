@@ -24,10 +24,10 @@ dependencies:
 
 dependency_overrides:
   purplebase:
-    path: ../purplebase
-    # git:
-    #   url: https://github.com/purplebase/purplebase
-    #   ref: 0cf11e9a96e57f5c11982102bafd58285c984d58
+    # path: ../purplebase
+    git:
+      url: https://github.com/purplebase/purplebase
+      ref: f3f0d56a42fb629c4d09829c8fafb3d77ea73474
 
 dev_dependencies:
   lints: ^3.0.0
