@@ -20,7 +20,6 @@ class GithubParser extends RepositoryParser {
     required bool overwriteRelease,
     String? releaseRepository,
     Map<String, dynamic>? artifacts,
-    String? artifactContentType,
   }) async {
     final repoName =
         Uri.parse(app.repository ?? releaseRepository!).path.substring(1);
@@ -37,36 +36,32 @@ class GithubParser extends RepositoryParser {
 
     final latestReleaseUrl =
         'https://api.github.com/repos/$repoName/releases/latest';
-    var latestReleaseJson =
+    Map<String, dynamic>? latestReleaseJson =
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
+    var assets = latestReleaseJson['assets'] as Iterable;
+    final hasAsset = assets.any((a) => artifacts!.entries
+        .any((e) => regexpFromKey(e.key).hasMatch(a['name'])));
 
-    // If there's a message it's an error
-    if (latestReleaseJson['message'] != null) {
+    // If there's a message it's an error (or no matching assets were found)
+    if (latestReleaseJson['message'] != null || !hasAsset) {
       final response = await http.get(
           Uri.parse('https://api.github.com/repos/$repoName/releases'),
           headers: headers);
-      final decoded = jsonDecode(response.body);
+      final releases = jsonDecode(response.body);
 
-      if (decoded is Map && decoded['message'] != null || decoded.isEmpty) {
-        throw 'Error ${decoded['message']} for $repoName, I\'m done here';
+      if (releases is Map && releases['message'] != null || releases.isEmpty) {
+        throw 'Error ${releases['message']} for $repoName, I\'m done here';
       }
-      decoded as List;
-      if (decoded.isEmpty) {
+      releases as Iterable;
+      if (releases.isEmpty) {
         throw 'No releases available';
       }
-      latestReleaseJson = decoded.first;
+
+      latestReleaseJson = _findRelease(releases, artifacts!);
+      assets = latestReleaseJson?['assets'];
     }
 
-    final version = latestReleaseJson['tag_name']!.toString();
-
-    final assets = latestReleaseJson['assets'] as Iterable;
-    final packageAssetArray = artifactContentType != null
-        ? assets.where((a) {
-            return a.content_type == artifactContentType;
-          })
-        : assets;
-
-    if (packageAssetArray.isEmpty) {
+    if (latestReleaseJson == null || assets.isEmpty) {
       final message = 'No packages in $repoName, I\'m done here';
       if (isDaemonMode) {
         print(message);
@@ -76,6 +71,8 @@ class GithubParser extends RepositoryParser {
     }
 
     metadataSpinner.success('Fetched metadata from Github');
+
+    final version = latestReleaseJson['tag_name']!.toString();
 
     final repoUrl = 'https://api.github.com/repos/$repoName';
     final repoJson =
@@ -144,7 +141,7 @@ class GithubParser extends RepositoryParser {
       }
 
       final tempPackagePath = await fetchFile(packageUrl,
-          headers: headers, spinner: packageSpinner, keepExtension: true);
+          headers: headers, spinner: packageSpinner);
 
       // Validate platforms
       final platforms = {...?value['platforms'] as Iterable?};
@@ -196,4 +193,20 @@ abstract class RepositoryParser {
     required App app,
     required bool overwriteRelease,
   });
+}
+
+Map<String, dynamic>? _findRelease(
+    Iterable releases, Map<String, dynamic> artifacts) {
+  for (final r in releases) {
+    for (final asset in r['assets']) {
+      for (final e in artifacts.entries) {
+// print(
+//                 'checking ${regexpFromKey(e.key)} match ${a['name']} - ${regexpFromKey(e.key).hasMatch(a['name'])}');
+        if (regexpFromKey(e.key).hasMatch(asset['name'])) {
+          return r;
+        }
+      }
+    }
+  }
+  return null;
 }

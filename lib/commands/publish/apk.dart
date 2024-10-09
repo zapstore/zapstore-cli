@@ -18,7 +18,7 @@ Future<(App, Release, FileMetadata)> parseApk(
     isSilent: isDaemonMode,
   ).start();
   final apkPath = fileMetadata.transientData['apkPath'];
-  final apkFolder = path.setExtension(apkPath, '');
+  final apkFolder = path.setExtension(apkPath, 'apktool');
 
   await runInShell('rm -fr $apkFolder');
   final apktoolPath = whichSync('apktool');
@@ -108,14 +108,14 @@ Future<(App, Release, FileMetadata)> parseApk(
     content: release.identifier,
     version: apkVersion,
     platforms: architectures.map((a) => 'android-$a').toSet(),
-    mimeType: 'application/vnd.android.package-archive',
+    mimeType: kAndroidMimeType,
     additionalEventTags: {
       ('version_code', apkVersionCode),
       ('min_sdk_version', minSdkVersion),
       ('target_sdk_version', targetSdkVersion),
       for (final signatureHash in signatureHashes)
         ('apk_signature_hash', signatureHash),
-      // TODO: Remove deprecated
+      // TODO: Remove deprecated when we consider 0.1.3 old
       for (final a in architectures) ('arch', a),
     },
   );

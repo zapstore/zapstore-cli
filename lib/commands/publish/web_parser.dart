@@ -89,8 +89,8 @@ class WebParser extends RepositoryParser {
 
     packageSpinner.text = 'Fetching package $packageUrl...';
 
-    final tempArtifactPath = await fetchFile(packageUrl,
-        spinner: packageSpinner, keepExtension: true);
+    final tempArtifactPath =
+        await fetchFile(packageUrl, spinner: packageSpinner);
     final (artifactHash, newArtifactPath, _) =
         await renameToHash(tempArtifactPath);
     final size = await runInShell('wc -c < $newArtifactPath');
