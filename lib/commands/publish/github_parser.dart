@@ -41,8 +41,12 @@ class GithubParser extends RepositoryParser {
 
     // If there's a message it's an error (or no matching assets were found)
     if (latestReleaseJson['message'] != null ||
-        !(latestReleaseJson['assets'] as Iterable).any((a) => artifacts!.entries
-            .any((e) => regexpFromKey(e.key).hasMatch(a['name'])))) {
+        !(latestReleaseJson['assets'] as Iterable)
+            .any((a) => artifacts!.entries.any((e) {
+                  final r = regexpFromKey(e.key);
+                  return r.hasMatch(a['name']) ||
+                      (a['label'] != null && r.hasMatch(a['label']));
+                }))) {
       final response = await http.get(
           Uri.parse('https://api.github.com/repos/$repoName/releases'),
           headers: headers);
