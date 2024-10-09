@@ -57,8 +57,11 @@ String formatProfile(BaseUser user) {
 
 /// Returns the downloaded file path
 Future<String> fetchFile(String url,
-    {Map<String, String>? headers, CliSpin? spinner}) async {
-  final file = File(path.join(Directory.systemTemp.path, path.basename(url)));
+    {Map<String, String>? headers,
+    CliSpin? spinner,
+    bool keepExtension = false}) async {
+  final file = File(path.join(Directory.systemTemp.path,
+      '${DateTime.now().microsecondsSinceEpoch.toString()}${keepExtension ? '.temp' : ''}'));
   await shell.run('rm -fr ${file.path}');
   final initialText = spinner?.text;
   final completer = Completer<String>();

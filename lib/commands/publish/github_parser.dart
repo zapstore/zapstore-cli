@@ -144,7 +144,7 @@ class GithubParser extends RepositoryParser {
       }
 
       final tempPackagePath = await fetchFile(packageUrl,
-          headers: headers, spinner: packageSpinner);
+          headers: headers, spinner: packageSpinner, keepExtension: true);
 
       // Validate platforms
       final platforms = {...?value['platforms'] as Iterable?};

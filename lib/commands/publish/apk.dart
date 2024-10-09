@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:html/parser.dart';
 import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
+import 'package:universal_html/parsing.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
@@ -50,7 +50,7 @@ Future<(App, Release, FileMetadata)> parseApk(
 
   final rawAndroidManifest =
       await File(path.join(apkFolder, 'AndroidManifest.xml')).readAsString();
-  final androidManifest = parse(rawAndroidManifest);
+  final androidManifest = parseHtmlDocument(rawAndroidManifest);
 
   final appIdentifier =
       androidManifest.querySelector('manifest')!.attributes['package'];
@@ -105,7 +105,7 @@ Future<(App, Release, FileMetadata)> parseApk(
   apkSpinner.success('Parsed APK');
 
   fileMetadata = fileMetadata.copyWith(
-    content: '${app.name} ${release.identifier!.split('@').last}',
+    content: release.identifier,
     version: apkVersion,
     platforms: architectures.map((a) => 'android-$a').toSet(),
     mimeType: 'application/vnd.android.package-archive',
@@ -115,7 +115,7 @@ Future<(App, Release, FileMetadata)> parseApk(
       ('target_sdk_version', targetSdkVersion),
       for (final signatureHash in signatureHashes)
         ('apk_signature_hash', signatureHash),
-      // Keep for backward compatibility
+      // TODO: Remove deprecated
       for (final a in architectures) ('arch', a),
     },
   );

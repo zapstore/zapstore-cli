@@ -1,5 +1,5 @@
 import 'package:cli_spin/cli_spin.dart';
-import 'package:html/parser.dart';
+import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:html2md/html2md.dart';
@@ -18,23 +18,24 @@ class PlayStoreParser {
       return app;
     }
 
-    final document = parse(response.body);
+    final document = parseHtmlDocument(response.body);
 
     if (app.name == null) {
-      final appName = document.querySelector('h1[itemprop=name]')!.text.trim();
+      final appName =
+          document.querySelector('[itemprop="name"]')!.innerText.trim();
       app = app.copyWith(name: appName);
     }
 
     if (app.content.isEmpty) {
       final appDescription =
-          document.querySelector('div[data-g-id=description]')!.text.trim();
+          document.querySelector('[data-g-id="description"]')!.innerText.trim();
       final markdownAppDescription = convert(appDescription);
       app = app.copyWith(content: markdownAppDescription);
     }
 
     if (app.icons.isEmpty) {
       final iconUrls = document
-          .querySelectorAll('img[itemprop=image]')
+          .querySelectorAll('img[itemprop="image"]')
           .map((e) => e.attributes['src'])
           .nonNulls;
       final iconUrl = iconUrls.first;

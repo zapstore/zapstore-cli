@@ -53,7 +53,8 @@ class Package {
   Future<bool> skeletonExists() => directory.exists();
 
   Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
-    final downloadPath = await fetchFile(meta.urls.first, spinner: spinner);
+    final downloadPath =
+        await fetchFile(meta.urls.first, spinner: spinner, keepExtension: true);
     await _installFromLocal(downloadPath, meta);
   }
 
