@@ -38,12 +38,11 @@ class GithubParser extends RepositoryParser {
         'https://api.github.com/repos/$repoName/releases/latest';
     Map<String, dynamic>? latestReleaseJson =
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
-    var assets = latestReleaseJson['assets'] as Iterable;
-    final hasAsset = assets.any((a) => artifacts!.entries
-        .any((e) => regexpFromKey(e.key).hasMatch(a['name'])));
 
     // If there's a message it's an error (or no matching assets were found)
-    if (latestReleaseJson['message'] != null || !hasAsset) {
+    if (latestReleaseJson['message'] != null ||
+        !(latestReleaseJson['assets'] as Iterable).any((a) => artifacts!.entries
+            .any((e) => regexpFromKey(e.key).hasMatch(a['name'])))) {
       final response = await http.get(
           Uri.parse('https://api.github.com/repos/$repoName/releases'),
           headers: headers);
@@ -58,10 +57,10 @@ class GithubParser extends RepositoryParser {
       }
 
       latestReleaseJson = _findRelease(releases, artifacts!);
-      assets = latestReleaseJson?['assets'];
     }
 
-    if (latestReleaseJson == null || assets.isEmpty) {
+    if (latestReleaseJson == null ||
+        (latestReleaseJson['assets'] as Iterable).isEmpty) {
       final message = 'No packages in $repoName, I\'m done here';
       if (isDaemonMode) {
         print(message);
@@ -100,9 +99,10 @@ class GithubParser extends RepositoryParser {
     for (var MapEntry(:key, :value) in artifacts!.entries) {
       final r = regexpFromKey(key);
 
-      final asset = assets.firstWhereOrNull((a) =>
-          r.hasMatch(a['name']) ||
-          (a['label'] != null && r.hasMatch(a['label'])));
+      final asset = (latestReleaseJson['assets'] as Iterable).firstWhereOrNull(
+          (a) =>
+              r.hasMatch(a['name']) ||
+              (a['label'] != null && r.hasMatch(a['label'])));
 
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
