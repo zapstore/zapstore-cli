@@ -56,7 +56,9 @@ Future<void> checkReleaseOnRelay(
     {required RelayMessageNotifier relay,
     required String appIdWithVersion,
     CliSpin? spinner}) async {
-  final releasesOnRelay = await relay.query<Release>(search: appIdWithVersion);
+  final releasesOnRelay = await relay.query<Release>(tags: {
+    '#d': [appIdWithVersion]
+  });
 
   // Search is full-text (not exact) so we double-check
   final releaseOnRelay =

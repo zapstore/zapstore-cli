@@ -237,7 +237,7 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
               options: [
                 'Inspect the events and confirm before publishing to relays',
                 'Publish the events to relays now',
-                'Continue without publishing'
+                'Skip without publishing'
               ],
             ).interact();
 
