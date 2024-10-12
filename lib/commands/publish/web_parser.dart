@@ -25,8 +25,8 @@ class WebParser extends RepositoryParser {
     String? artifactContentType,
     YamlList? versionSpec,
   }) async {
-    final packageSpinner = CliSpin(
-      text: 'Fetching package...',
+    final artifactSpinner = CliSpin(
+      text: 'Fetching artifact...',
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
@@ -38,7 +38,7 @@ class WebParser extends RepositoryParser {
     if (rest.isEmpty) {
       // If versionSpec has 3 positions, it's a JSON endpoint
       final raw = await runInShell(
-          "echo ''${jsonEncode(response.body)}'' | jq -r $selector");
+          "echo ''${jsonEncode(response.body).replaceAll('\n', ' ')}'' | jq -r '$selector'");
       match = regexpFromKey(attribute).firstMatch(raw);
     } else {
       // If versionSpec has 4 positions, it's an HTML endpoint
@@ -57,33 +57,37 @@ class WebParser extends RepositoryParser {
 
     if (version == null) {
       final message = 'could not match version for $selector';
-      packageSpinner.fail(message);
+      artifactSpinner.fail(message);
       if (isDaemonMode) {
         print(message);
       }
       throw GracefullyAbortSignal();
     }
 
-    final appIdWithVersion = app.identifierWithVersion(version);
+    final artifactUrl = artifacts!.keys.first.replaceAll('\$v', version);
 
     if (!overwriteRelease) {
       await checkReleaseOnRelay(
-          relay: relay, appIdWithVersion: appIdWithVersion);
+        relay: relay,
+        version: version,
+        artifactUrl: artifactUrl,
+        spinner: artifactSpinner,
+      );
     }
 
-    final packageUrl = artifacts!.keys.first.replaceAll('\$v', version);
-    packageSpinner.text = 'Fetching package $packageUrl...';
+    artifactSpinner.text = 'Fetching artifact $artifactUrl...';
 
     final tempArtifactPath =
-        await fetchFile(packageUrl, spinner: packageSpinner);
+        await fetchFile(artifactUrl, spinner: artifactSpinner);
     final (artifactHash, newArtifactPath, _) =
         await renameToHash(tempArtifactPath);
     final size = await runInShell('wc -c < $newArtifactPath');
+    final appIdWithVersion = app.identifierWithVersion(version);
 
     final fileMetadata = FileMetadata(
       content: appIdWithVersion,
       createdAt: DateTime.now(),
-      urls: {packageUrl},
+      urls: {artifactUrl},
       hash: artifactHash,
       size: int.tryParse(size),
       pubkeys: app.pubkeys,
@@ -92,7 +96,7 @@ class WebParser extends RepositoryParser {
 
     fileMetadata.transientData['apkPath'] = newArtifactPath;
 
-    packageSpinner.success('Fetched package: $packageUrl');
+    artifactSpinner.success('Fetched artifact: $artifactUrl');
 
     final release = Release(
       createdAt: DateTime.now(),
@@ -102,6 +106,10 @@ class WebParser extends RepositoryParser {
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
     );
+
+    if (appIdWithVersion == null) {
+      release.transientData['releaseVersion'] = version;
+    }
 
     return (app, release, {fileMetadata});
   }

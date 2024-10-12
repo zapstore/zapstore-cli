@@ -56,7 +56,8 @@ Future<(App, Release, FileMetadata)> parseApk(
       androidManifest.querySelector('manifest')!.attributes['package'];
   app = app.copyWith(identifier: appIdentifier);
   release = release.copyWith(
-      identifier: '$appIdentifier@${release.identifier!.split('@').last}');
+      identifier:
+          app.identifierWithVersion(release.transientData['releaseVersion']));
 
   final rawApktoolYaml =
       await File(path.join(apkFolder, 'apktool.yml')).readAsString();

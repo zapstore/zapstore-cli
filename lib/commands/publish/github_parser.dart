@@ -76,6 +76,7 @@ class GithubParser extends RepositoryParser {
     metadataSpinner.success('Fetched metadata from Github');
 
     final version = latestReleaseJson['tag_name']!.toString();
+    final appIdWithVersion = app.identifierWithVersion(version);
 
     final repoUrl = 'https://api.github.com/repos/$repoName';
     final repoJson =
@@ -123,17 +124,19 @@ class GithubParser extends RepositoryParser {
         return (app, null, <FileMetadata>{});
       }
 
-      final packageUrl = asset['browser_download_url'];
-      packageSpinner.text = 'Fetching package $packageUrl...';
-
-      final appIdWithVersion = app.identifierWithVersion(version);
+      final artifactUrl = asset['browser_download_url'];
+      packageSpinner.text = 'Fetching artifact $artifactUrl...';
 
       if (!overwriteRelease) {
         await checkReleaseOnRelay(
-            relay: relay, appIdWithVersion: appIdWithVersion);
+          relay: relay,
+          version: version,
+          artifactUrl: artifactUrl,
+          spinner: packageSpinner,
+        );
       }
 
-      final tempPackagePath = await fetchFile(packageUrl,
+      final tempPackagePath = await fetchFile(artifactUrl,
           headers: headers, spinner: packageSpinner);
 
       // Validate platforms
@@ -151,7 +154,7 @@ class GithubParser extends RepositoryParser {
       final fileMetadata = FileMetadata(
         content: appIdWithVersion,
         createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
-        urls: {packageUrl},
+        urls: {artifactUrl},
         mimeType: asset['content_type'],
         hash: fileHash,
         size: int.tryParse(size),
@@ -166,17 +169,21 @@ class GithubParser extends RepositoryParser {
       );
       fileMetadata.transientData['apkPath'] = filePath;
       fileMetadatas.add(fileMetadata);
-      packageSpinner.success('Fetched package: $packageUrl');
+      packageSpinner.success('Fetched package: $artifactUrl');
     }
 
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
       content: latestReleaseJson['body'],
-      identifier: '${app.identifier}@$version',
+      identifier: appIdWithVersion,
       url: latestReleaseJson['html_url'],
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
     );
+
+    if (appIdWithVersion == null) {
+      release.transientData['releaseVersion'] = version;
+    }
 
     return (app, release, fileMetadatas);
   }

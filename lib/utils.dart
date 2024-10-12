@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
@@ -54,21 +53,32 @@ Future<Map<String, dynamic>> checkUser() async {
 
 Future<void> checkReleaseOnRelay(
     {required RelayMessageNotifier relay,
-    required String appIdWithVersion,
+    required String version,
+    String? artifactUrl,
+    String? artifactHash,
     CliSpin? spinner}) async {
-  final releasesOnRelay = await relay.query<Release>(tags: {
-    '#d': [appIdWithVersion]
-  });
+  late final bool isReleaseOnRelay;
+  if (artifactHash != null) {
+    final artifacts = await relay.query<FileMetadata>(tags: {
+      '#x': [artifactHash]
+    });
+    isReleaseOnRelay = artifacts.isNotEmpty;
+  } else {
+    final artifacts = await relay.query<FileMetadata>(
+      search: artifactUrl!,
+    );
 
-  // Search is full-text (not exact) so we double-check
-  final releaseOnRelay =
-      releasesOnRelay.firstWhereOrNull((m) => m.identifier == appIdWithVersion);
-  if (releaseOnRelay != null) {
+    // Search is full-text (not exact) so we double-check
+    isReleaseOnRelay = artifacts.any((r) {
+      return r.urls.any((u) => u == artifactUrl);
+    });
+  }
+  if (isReleaseOnRelay) {
     if (isDaemonMode) {
-      print('$appIdWithVersion OK, skip');
+      print('  $version OK, skipping');
     }
     spinner?.success(
-        'Latest $appIdWithVersion release already in relay, nothing to do. Use --overwrite-release if you want to publish anyway.');
+        'Latest $version release already in relay, nothing to do. Use --overwrite-release if you want to publish anyway.');
     throw GracefullyAbortSignal();
   }
 }
@@ -193,7 +203,7 @@ Future<(String, String, String)> renameToHash(String filePath) async {
 
 Future<String> runInShell(String cmd,
     {String? workingDirectory, bool verbose = false}) async {
-  return (await run('sh -c "$cmd"',
+  return (await run('''sh -c '$cmd' ''',
           workingDirectory: workingDirectory, verbose: verbose))
       .outText;
 }

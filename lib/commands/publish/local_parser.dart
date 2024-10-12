@@ -46,7 +46,11 @@ class LocalParser {
 
       if (!overwriteRelease) {
         await checkReleaseOnRelay(
-            relay: relay, appIdWithVersion: appIdWithVersion);
+          relay: relay,
+          version: version,
+          artifactHash: artifactHash,
+          spinner: uploadSpinner,
+        );
       }
 
       String artifactUrl;
