@@ -25,6 +25,7 @@ class LocalParser {
     required Map<String, YamlMap> yamlArtifacts,
   }) async {
     final releaseCreatedAt = DateTime.now();
+    final appIdWithVersion = app.identifierWithVersion(version);
 
     final fileMetadatas = <FileMetadata>{};
     for (final artifactPath in artifacts) {
@@ -43,17 +44,9 @@ class LocalParser {
       final (artifactHash, newArtifactPath, mimeType) =
           await renameToHash(tempArtifactPath);
 
-      // Check if we already processed this release
-      final metadataOnRelay = await relay.query<FileMetadata>(tags: {
-        '#x': [artifactHash]
-      });
-
-      if (metadataOnRelay.isNotEmpty) {
-        if (!overwriteRelease) {
-          uploadSpinner.fail(
-              'Artifact with hash $artifactHash is already in relay, nothing to do');
-          throw GracefullyAbortSignal();
-        }
+      if (!overwriteRelease) {
+        await checkReleaseOnRelay(
+            relay: relay, appIdWithVersion: appIdWithVersion);
       }
 
       String artifactUrl;
@@ -83,7 +76,7 @@ class LocalParser {
       final size = await runInShell('wc -c < $newArtifactPath');
 
       final fileMetadata = FileMetadata(
-        content: '${app.name} $version',
+        content: appIdWithVersion,
         createdAt: releaseCreatedAt,
         urls: {artifactUrl},
         mimeType: mimeType,
@@ -106,7 +99,7 @@ class LocalParser {
     final release = Release(
       createdAt: releaseCreatedAt,
       content: releaseNotes ?? '${app.name} $version',
-      identifier: '${app.identifier}@$version',
+      identifier: appIdWithVersion,
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
     );

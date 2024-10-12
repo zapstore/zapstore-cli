@@ -126,22 +126,11 @@ class GithubParser extends RepositoryParser {
       final packageUrl = asset['browser_download_url'];
       packageSpinner.text = 'Fetching package $packageUrl...';
 
-      // Check if we already processed this release
-      final metadataOnRelay =
-          await relay.query<FileMetadata>(search: packageUrl);
+      final appIdWithVersion = app.identifierWithVersion(version);
 
-      // Search is full-text (not exact) so we double-check
-      final metadataOnRelayCheck = metadataOnRelay
-          .firstWhereOrNull((m) => m.urls.firstOrNull == packageUrl);
-      if (metadataOnRelayCheck != null) {
-        if (!overwriteRelease) {
-          if (isDaemonMode) {
-            print('$repoName OK, skip');
-          }
-          packageSpinner.success(
-              'Latest $repoName release already in relay, nothing to do');
-          throw GracefullyAbortSignal();
-        }
+      if (!overwriteRelease) {
+        await checkReleaseOnRelay(
+            relay: relay, appIdWithVersion: appIdWithVersion);
       }
 
       final tempPackagePath = await fetchFile(packageUrl,
@@ -158,8 +147,9 @@ class GithubParser extends RepositoryParser {
 
       final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
       final size = await runInShell('wc -c < $filePath');
+
       final fileMetadata = FileMetadata(
-        content: '${app.name} $version',
+        content: appIdWithVersion,
         createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
         urls: {packageUrl},
         mimeType: asset['content_type'],

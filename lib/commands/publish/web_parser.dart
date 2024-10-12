@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:yaml/yaml.dart';
@@ -65,30 +64,14 @@ class WebParser extends RepositoryParser {
       throw GracefullyAbortSignal();
     }
 
-    final packageUrl = artifacts!.keys.first.replaceAll('\$v', version);
+    final appIdWithVersion = app.identifierWithVersion(version);
 
-    // TODO: Extract this code to utility and reuse
-    // Check if we already processed this release
-    final metadataOnRelayList =
-        await relay.query<FileMetadata>(search: packageUrl);
-
-    // Search is full-text (not exact) so we double-check
-    // NOTE: We can't compare `version` to the `version` tag
-    // as one comes from site metadata and the other from the APK
-    // so we need to use `content`, where the version is always the site's
-    final metadataOnRelay = metadataOnRelayList
-        .firstWhereOrNull((m) => m.content.contains(version));
-    if (metadataOnRelay != null) {
-      if (!overwriteRelease) {
-        if (isDaemonMode) {
-          print('$version OK, skip');
-        }
-        packageSpinner
-            .success('Latest $version release already in relay, nothing to do');
-        throw GracefullyAbortSignal();
-      }
+    if (!overwriteRelease) {
+      await checkReleaseOnRelay(
+          relay: relay, appIdWithVersion: appIdWithVersion);
     }
 
+    final packageUrl = artifacts!.keys.first.replaceAll('\$v', version);
     packageSpinner.text = 'Fetching package $packageUrl...';
 
     final tempArtifactPath =
@@ -98,7 +81,7 @@ class WebParser extends RepositoryParser {
     final size = await runInShell('wc -c < $newArtifactPath');
 
     final fileMetadata = FileMetadata(
-      content: '${app.identifier} $version',
+      content: appIdWithVersion,
       createdAt: DateTime.now(),
       urls: {packageUrl},
       hash: artifactHash,
@@ -114,7 +97,7 @@ class WebParser extends RepositoryParser {
     final release = Release(
       createdAt: DateTime.now(),
       content: 'See $endpoint',
-      identifier: '${app.name}@$version',
+      identifier: appIdWithVersion,
       url: endpoint,
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,

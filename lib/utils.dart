@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
+import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
@@ -11,6 +12,7 @@ import 'package:purplebase/purplebase.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/models/nostr.dart';
 
 final kBaseDir = path.join(env['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
@@ -48,6 +50,25 @@ Future<Map<String, dynamic>> checkUser() async {
   }
 
   return user;
+}
+
+Future<void> checkReleaseOnRelay(
+    {required RelayMessageNotifier relay,
+    required String appIdWithVersion,
+    CliSpin? spinner}) async {
+  final releasesOnRelay = await relay.query<Release>(search: appIdWithVersion);
+
+  // Search is full-text (not exact) so we double-check
+  final releaseOnRelay =
+      releasesOnRelay.firstWhereOrNull((m) => m.identifier == appIdWithVersion);
+  if (releaseOnRelay != null) {
+    if (isDaemonMode) {
+      print('$appIdWithVersion OK, skip');
+    }
+    spinner?.success(
+        'Latest $appIdWithVersion release already in relay, nothing to do. Use --overwrite-release if you want to publish anyway.');
+    throw GracefullyAbortSignal();
+  }
 }
 
 String formatProfile(BaseUser user) {
