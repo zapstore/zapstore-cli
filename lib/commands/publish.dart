@@ -54,8 +54,8 @@ Future<void> publish({
         }
         final os = SupportedOS.from(key);
 
-        final builderNpub = yamlApp['builder']?.toString();
-        final builderPubkeyHex = builderNpub?.hexKey;
+        final developerNpub = yamlApp['developer']?.toString();
+        final developerPubkeyHex = developerNpub?.hexKey;
 
         // Ensure identifier can be included in a filesystem path
         if (id.length > 255 || fileRegex.stringMatch(id) != id) {
@@ -73,8 +73,8 @@ Future<void> publish({
           },
           images: await _processImages(images),
           license: yamlApp['license'],
-          pubkeys: {if (builderPubkeyHex != null) builderPubkeyHex},
-          zapTags: {if (builderPubkeyHex != null) builderPubkeyHex},
+          pubkeys: {if (developerPubkeyHex != null) developerPubkeyHex},
+          zapTags: {if (developerPubkeyHex != null) developerPubkeyHex},
         );
 
         var yamlArtifacts = <String, YamlMap>{};

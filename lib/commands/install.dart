@@ -129,8 +129,8 @@ Future<void> install(String value, {bool skipWot = false}) async {
       }
     }
 
-    final packageBuilder = app.pubkeys.firstOrNull ?? app.pubkey;
-    final builderNpub = packageBuilder.npub;
+    final packageDeveloper = app.pubkeys.firstOrNull ?? app.pubkey;
+    final developerNpub = packageDeveloper.npub;
     final packageSigner = app.pubkey;
     final signerNpub = packageSigner.npub;
 
@@ -166,7 +166,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
           final authors = {
             ...trust.keys.map((npub) => npub.hexKey),
-            packageBuilder,
+            packageDeveloper,
             packageSigner
           };
 
@@ -174,12 +174,12 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
           final signerUser =
               users.firstWhereOrNull((e) => e.npub == signerNpub)!;
-          final builderUser =
-              users.firstWhereOrNull((e) => e.npub == builderNpub)!;
+          final developerUser =
+              users.firstWhereOrNull((e) => e.npub == developerNpub)!;
 
           wotSpinner.success();
 
-          print('Package builder: ${formatProfile(builderUser)}');
+          print('Package developer: ${formatProfile(developerUser)}');
           print('Package signer: ${formatProfile(signerUser)}\n');
 
           if (userFollows != null) {
