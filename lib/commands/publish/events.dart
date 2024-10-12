@@ -16,13 +16,17 @@ Future<(App, Release, Set<FileMetadata>)> finalizeEvents({
 
   if (!overwriteApp) {
     // If we don't overwrite the app, get the latest copy from the relay
-    app = (await relay.query<App>(
+    final appInRelay = (await relay.query<App>(
       tags: {
         '#d': [app.identifier]
       },
       authors: {pubkey},
     ))
-        .first;
+        .firstOrNull;
+
+    if (appInRelay != null) {
+      app = appInRelay;
+    }
   }
 
   final signedApp = app.copyWith(
