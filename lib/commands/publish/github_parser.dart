@@ -163,6 +163,7 @@ class GithubParser extends RepositoryParser {
         pubkeys: app.pubkeys,
         zapTags: app.zapTags,
         additionalEventTags: {
+          // `executables` is the YAML array, `executable` the (multiple) tag
           for (final e in (value['executables'] ?? []))
             ('executable', replaceInExecutable(e, match)),
         },
