@@ -44,10 +44,12 @@ class WebParser extends RepositoryParser {
     } else {
       // If versionSpec has 4 positions, it's an HTML endpoint
       final elem =
-          parseHtmlDocument(response.body).querySelectorAll(selector).first;
-      final raw = attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
-
-      match = regexpFromKey(rest.first).firstMatch(raw);
+          parseHtmlDocument(response.body).querySelector(selector.toString());
+      if (elem != null) {
+        final raw =
+            attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
+        match = regexpFromKey(rest.first).firstMatch(raw);
+      }
     }
 
     final version = match != null
@@ -63,7 +65,7 @@ class WebParser extends RepositoryParser {
       throw GracefullyAbortSignal();
     }
 
-    final packageUrl = artifacts!.keys.first.replaceFirst('\$v', version);
+    final packageUrl = artifacts!.keys.first.replaceAll('\$v', version);
 
     // TODO: Extract this code to utility and reuse
     // Check if we already processed this release
