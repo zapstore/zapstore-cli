@@ -188,6 +188,11 @@ Future<void> publish({
             }
           }
 
+          if (release == null) {
+            print('No release, nothing to do');
+            throw GracefullyAbortSignal();
+          }
+
           // sign
 
           var nsec = env['NSEC'];
@@ -226,13 +231,6 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
           var publishEvents = true;
 
           if (!isDaemonMode) {
-            final hasApp = signedApp != null && signedApp.identifier != null;
-            final hasRelease = signedRelease != null;
-
-            if (!hasApp && !hasRelease) {
-              continue;
-            }
-
             print('\n');
             final viewEvents = Select(
               prompt: 'Events signed! How do you want to proceed?',
@@ -244,28 +242,24 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             ).interact();
 
             if (viewEvents == 0) {
-              if (hasApp && _overwriteApp) {
+              print('\n');
+              print('App event (kind 32267)'.bold().black().onWhite());
+              print('\n');
+              printJsonEncodeColored(signedApp.toMap());
+
+              print('\n');
+              print('Release event (kind 30063)'.bold().black().onWhite());
+              print('\n');
+              printJsonEncodeColored(signedRelease.toMap());
+              print('\n');
+              print(
+                  'File metadata events (kind 1063)'.bold().black().onWhite());
+              print('\n');
+              for (final m in signedFileMetadatas) {
+                printJsonEncodeColored(m.toMap());
                 print('\n');
-                print('App event (kind 32267)'.bold().black().onWhite());
-                print('\n');
-                printJsonEncodeColored(signedApp.toMap());
               }
-              if (hasRelease) {
-                print('\n');
-                print('Release event (kind 30063)'.bold().black().onWhite());
-                print('\n');
-                printJsonEncodeColored(signedRelease.toMap());
-                print('\n');
-                print('File metadata events (kind 1063)'
-                    .bold()
-                    .black()
-                    .onWhite());
-                print('\n');
-                for (final m in signedFileMetadatas) {
-                  printJsonEncodeColored(m.toMap());
-                  print('\n');
-                }
-              }
+
               publishEvents = Confirm(
                 prompt:
                     'Scroll up to check the events and press `y` when you\'re ready to publish',
@@ -281,8 +275,8 @@ If unsure, run this program from source. See https://github.com/zapstore/zapstor
             print('Events NOT published, exiting');
           } else {
             for (final BaseEvent event in [
-              if (signedApp != null) signedApp,
-              if (signedRelease != null) signedRelease,
+              signedApp,
+              signedRelease,
               ...signedFileMetadatas
             ]) {
               try {

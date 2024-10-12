@@ -2,43 +2,37 @@ import 'package:collection/collection.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 
-Future<(App?, Release?, Set<FileMetadata>)> finalizeEvents({
+Future<(App, Release, Set<FileMetadata>)> finalizeEvents({
   required App app,
-  required Release? release,
+  required Release release,
   required Set<FileMetadata> fileMetadatas,
   required String nsec,
   bool overwriteApp = false,
   required RelayMessageNotifier relay,
 }) async {
-  final signedFileMetadatas = fileMetadatas.map((fm) => fm.sign(nsec)).toSet();
-
   final pubkey = BaseEvent.getPublicKey(nsec);
 
-  // Find app with this identifier for this pubkey
-  final appInRelay = (await relay.query<App>(
-    tags: {
-      '#d': [app.identifier]
-    },
-    authors: {pubkey},
-  ))
-      .firstOrNull;
+  final signedFileMetadatas = fileMetadatas.map((fm) => fm.sign(nsec)).toSet();
 
-  App? signedApp;
-  // If not found (first time publishing), we ignore the
-  // overwrite argument and sign anyway
-  if (overwriteApp || appInRelay == null) {
-    signedApp = app
-        .copyWith(
-            platforms:
-                fileMetadatas.map((fm) => fm.platforms).flattened.toSet())
-        .sign(nsec);
+  if (!overwriteApp) {
+    // If we don't overwrite the app, get the latest copy from the relay
+    app = (await relay.query<App>(
+      tags: {
+        '#d': [app.identifier]
+      },
+      authors: {pubkey},
+    ))
+        .first;
   }
 
-  final signedRelease = release?.copyWith(
+  final signedApp = app.copyWith(
+    platforms: fileMetadatas.map((fm) => fm.platforms).flattened.toSet(),
+    linkedReplaceableEvents: {release.getReplaceableEventLink(pubkey: pubkey)},
+  ).sign(nsec);
+
+  final signedRelease = release.copyWith(
     linkedEvents: signedFileMetadatas.map((fm) => fm.id.toString()).toSet(),
-    linkedReplaceableEvents: {
-      (signedApp ?? appInRelay!).getReplaceableEventLink()
-    },
+    linkedReplaceableEvents: {signedApp.getReplaceableEventLink()},
   ).sign(nsec);
 
   return (signedApp, signedRelease, signedFileMetadatas);
