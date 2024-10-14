@@ -29,10 +29,16 @@ Future<(App, Release, Set<FileMetadata>)> finalizeEvents({
     }
   }
 
-  final signedApp = app.copyWith(
-    platforms: fileMetadatas.map((fm) => fm.platforms).flattened.toSet(),
-    linkedReplaceableEvents: {release.getReplaceableEventLink(pubkey: pubkey)},
-  ).sign(nsec);
+  final signedApp = app
+      .copyWith(
+        platforms: fileMetadatas.map((fm) => fm.platforms).flattened.toSet(),
+        linkedReplaceableEvents: {
+          release.getReplaceableEventLink(pubkey: pubkey)
+        },
+        // If this is not an overwrite, use the release timestamp
+        createdAt: overwriteApp ? app.createdAt : release.createdAt,
+      )
+      .sign(nsec);
 
   final signedRelease = release.copyWith(
     linkedEvents: signedFileMetadatas.map((fm) => fm.id.toString()).toSet(),
