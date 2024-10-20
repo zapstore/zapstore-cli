@@ -35,8 +35,8 @@ Future<(App, Release, Set<FileMetadata>)> finalizeEvents({
         linkedReplaceableEvents: {
           release.getReplaceableEventLink(pubkey: pubkey)
         },
-        // If this is not an overwrite, use the release timestamp
-        createdAt: overwriteApp ? app.createdAt : release.createdAt,
+        // Always use the latest release timestamp
+        createdAt: release.createdAt,
       )
       .sign(nsec);
 
