@@ -87,7 +87,7 @@ class GithubParser extends RepositoryParser {
           ? app.content
           : repoJson['description'] ?? repoJson['name'],
       identifier: app.identifier,
-      name: app.name ?? repoJson['name'],
+      name: app.name,
       url: app.url ??
           ((repoJson['homepage']?.isNotEmpty ?? false)
               ? repoJson['homepage']
