@@ -6,7 +6,8 @@ import 'package:html2md/html2md.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class PlayStoreParser {
-  Future<App> run({required App app, CliSpin? spinner}) async {
+  Future<App> run(
+      {required App app, String? originalName, CliSpin? spinner}) async {
     final url =
         'https://play.google.com/store/apps/details?id=${app.identifier}';
 
@@ -20,7 +21,8 @@ class PlayStoreParser {
 
     final document = parseHtmlDocument(response.body);
 
-    if (app.name == null) {
+    // If the name in YAML had taken precedence, leave as is, otherwise overwrite
+    if (app.name != originalName) {
       final appName =
           document.querySelector('[itemprop="name"]')!.innerText.trim();
       app = app.copyWith(name: appName);

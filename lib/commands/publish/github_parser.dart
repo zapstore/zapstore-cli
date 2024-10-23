@@ -85,7 +85,7 @@ class GithubParser extends RepositoryParser {
     app = app.copyWith(
       content: app.content.isNotEmpty ? app.content : repoJson['description'],
       identifier: app.identifier,
-      name: app.name,
+      name: app.name ?? repoJson['name'],
       url: app.url ??
           ((repoJson['homepage']?.isNotEmpty ?? false)
               ? repoJson['homepage']

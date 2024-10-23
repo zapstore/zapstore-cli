@@ -180,7 +180,10 @@ Future<void> publish({
               if (extraMetadata == 0) {
                 final playStoreParser = PlayStoreParser();
                 app = await playStoreParser.run(
-                    app: app, spinner: extraMetadataSpinner);
+                  app: app,
+                  originalName: yamlApp['name'],
+                  spinner: extraMetadataSpinner,
+                );
               } else if (extraMetadata == 1) {
                 extraMetadataSpinner
                     ?.fail('F-Droid is not yet supported, sorry');
