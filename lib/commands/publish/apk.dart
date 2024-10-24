@@ -118,8 +118,6 @@ Future<(App, Release, FileMetadata)> parseApk(
       ('target_sdk_version', targetSdkVersion),
       for (final signatureHash in signatureHashes)
         ('apk_signature_hash', signatureHash),
-      // TODO: Remove deprecated when we consider 0.1.3 old
-      for (final a in architectures) ('arch', a),
     },
   );
 

@@ -29,11 +29,10 @@ Future<void> install(String value, {bool skipWot = false}) async {
       spinner: CliSpinners.dots,
     ).start();
 
-    relay = container
-        .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    await relay!.initialize();
+    relay =
+        container.read(relayProviderFamily({'wss://relay.zap.store'}).notifier);
 
-    final apps = await relay.query<App>(search: value, tags: {
+    final apps = await relay!.query<App>(search: value, tags: {
       '#f': [hostPlatform]
     });
 
@@ -135,9 +134,8 @@ Future<void> install(String value, {bool skipWot = false}) async {
     final signerNpub = packageSigner.npub;
 
     if (!skipWot) {
-      final authorRelays = container.read(relayMessageNotifierProvider(
-          ['wss://relay.nostr.band', 'wss://relay.primal.net']).notifier);
-      await authorRelays.initialize();
+      final authorRelays = container.read(relayProviderFamily(
+          {'wss://relay.nostr.band', 'wss://relay.primal.net'}).notifier);
 
       if (!isAuthorTrusted) {
         final user = await checkUser();
@@ -216,10 +214,10 @@ Future<void> install(String value, {bool skipWot = false}) async {
     }
 
     // On first install, check if other executables are present in PATH
-    if (db[app.identifier!] == null) {
+    if (db[app.identifier] == null) {
       final presentInPath = (meta.tagMap['executables'] ??
               meta.tagMap['executable'] ??
-              {app.identifier!})
+              {app.identifier})
           .map((e) {
         final p = whichSync(path.basename(e));
         return p != null ? path.basename(e) : null;
@@ -244,7 +242,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
     final package = db[app.identifier] ??
         Package(
-            identifier: app.identifier!,
+            identifier: app.identifier,
             pubkey: meta.pubkey,
             versions: {meta.version!},
             enabledVersion: meta.version!);
@@ -252,7 +250,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
     await package.installFromUrl(meta, spinner: installSpinner);
 
     installSpinner
-        .success('Installed package ${app.identifier!.bold()}@${meta.version}');
+        .success('Installed package ${app.identifier.bold()}@${meta.version}');
   } catch (e) {
     rethrow;
   } finally {

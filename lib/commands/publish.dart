@@ -43,9 +43,8 @@ Future<void> publish({
   final container = ProviderContainer();
   late final RelayMessageNotifier relay;
   try {
-    relay = container
-        .read(relayMessageNotifierProvider(['wss://relay.zap.store']).notifier);
-    await relay.initialize();
+    relay =
+        container.read(relayProviderFamily({'wss://relay.zap.store'}).notifier);
 
     for (final MapEntry(key: id, value: appObj) in doc.entries) {
       for (final MapEntry(:key, value: yamlApp) in appObj.entries) {
@@ -88,11 +87,8 @@ Future<void> publish({
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
 
-        var _overwriteApp = overwriteApp;
-        if (app.identifier != null) {
-          _overwriteApp =
-              await ensureOverwriteApp(_overwriteApp, relay, app.identifier!);
-        }
+        var _overwriteApp =
+            await ensureOverwriteApp(overwriteApp, relay, app.identifier);
 
         try {
           Release? release;
@@ -156,10 +152,9 @@ Future<void> publish({
               }
               fileMetadatas = newFileMetadatas;
             }
-            if (app.identifier != null) {
-              _overwriteApp = await ensureOverwriteApp(
-                  _overwriteApp, relay, app.identifier!);
-            }
+
+            _overwriteApp =
+                await ensureOverwriteApp(_overwriteApp, relay, app.identifier);
 
             if (_overwriteApp) {
               var extraMetadata = 0;
