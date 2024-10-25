@@ -32,18 +32,27 @@ class WebParser extends RepositoryParser {
     ).start();
 
     final [endpoint, selector, attribute, ...rest] = versionSpec!;
-    final response = await http.get(Uri.parse(endpoint));
+    final request = http.Request('GET', Uri.parse(endpoint))
+      ..followRedirects = false;
+
+    final response = await http.Client().send(request);
 
     late final RegExpMatch? match;
     if (rest.isEmpty) {
-      // If versionSpec has 3 positions, it's a JSON endpoint
-      final raw = await runInShell(
-          "echo ''${jsonEncode(response.body).replaceAll('\n', ' ')}'' | jq -r '$selector'");
-      match = regexpFromKey(attribute).firstMatch(raw);
+      // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
+      if (response.isRedirect) {
+        final raw = response.headers[selector]!;
+        match = regexpFromKey(attribute).firstMatch(raw);
+      } else {
+        final body = await response.stream.bytesToString();
+        final raw = await runInShell(
+            "echo ''${jsonEncode(body).replaceAll('\n', ' ')}'' | jq -r '$selector'");
+        match = regexpFromKey(attribute).firstMatch(raw);
+      }
     } else {
       // If versionSpec has 4 positions, it's an HTML endpoint
-      final elem =
-          parseHtmlDocument(response.body).querySelector(selector.toString());
+      final body = await response.stream.bytesToString();
+      final elem = parseHtmlDocument(body).querySelector(selector.toString());
       if (elem != null) {
         final raw =
             attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
