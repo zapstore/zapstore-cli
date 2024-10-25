@@ -214,10 +214,10 @@ Future<void> install(String value, {bool skipWot = false}) async {
     }
 
     // On first install, check if other executables are present in PATH
-    if (db[app.identifier] == null) {
+    if (db[app.identifier!] == null) {
       final presentInPath = (meta.tagMap['executables'] ??
               meta.tagMap['executable'] ??
-              {app.identifier})
+              {app.identifier!})
           .map((e) {
         final p = whichSync(path.basename(e));
         return p != null ? path.basename(e) : null;
@@ -240,9 +240,9 @@ Future<void> install(String value, {bool skipWot = false}) async {
       spinner: CliSpinners.dots,
     ).start();
 
-    final package = db[app.identifier] ??
+    final package = db[app.identifier!] ??
         Package(
-            identifier: app.identifier,
+            identifier: app.identifier!,
             pubkey: meta.pubkey,
             versions: {meta.version!},
             enabledVersion: meta.version!);
@@ -250,7 +250,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
     await package.installFromUrl(meta, spinner: installSpinner);
 
     installSpinner
-        .success('Installed package ${app.identifier.bold()}@${meta.version}');
+        .success('Installed package ${app.identifier!.bold()}@${meta.version}');
   } catch (e) {
     rethrow;
   } finally {

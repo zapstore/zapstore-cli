@@ -87,8 +87,11 @@ Future<void> publish({
 
         print('Publishing ${(app.name ?? id).bold()} $os app...');
 
-        var _overwriteApp =
-            await ensureOverwriteApp(overwriteApp, relay, app.identifier);
+        var _overwriteApp = overwriteApp;
+        if (app.identifier != null) {
+          _overwriteApp =
+              await ensureOverwriteApp(_overwriteApp, relay, app.identifier!);
+        }
 
         try {
           Release? release;
@@ -153,8 +156,10 @@ Future<void> publish({
               fileMetadatas = newFileMetadatas;
             }
 
-            _overwriteApp =
-                await ensureOverwriteApp(_overwriteApp, relay, app.identifier);
+            if (app.identifier != null) {
+              _overwriteApp = await ensureOverwriteApp(
+                  _overwriteApp, relay, app.identifier!);
+            }
 
             if (_overwriteApp) {
               var extraMetadata = 0;

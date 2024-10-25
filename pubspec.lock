@@ -419,7 +419,7 @@ packages:
     description:
       path: "."
       ref: "0.2.0"
-      resolved-ref: "55b3ff48607db01b3672cc6821112dd1428d66c1"
+      resolved-ref: "7b8855d6ec2398416d9509186d028c37edf62cc2"
       url: "https://github.com/purplebase/purplebase"
     source: git
     version: "0.2.0"
