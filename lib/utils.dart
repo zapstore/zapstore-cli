@@ -216,11 +216,11 @@ Future<String> computeHash(String filePath) async {
 
 void printJsonEncodeColored(Object obj) {
   final prettyJson = JsonEncoder.withIndent('  ').convert(obj);
-
+  final separator = '": ';
   prettyJson.split('\n').forEach((line) {
-    if (line.contains('":')) {
-      final [prop, ...rest] = line.split('":');
-      print('${prop.green()}:${rest.join(':').cyan()}');
+    if (line.contains(separator)) {
+      final [prop, ...rest] = line.split(separator);
+      print('${prop.green()}$separator${rest.join(separator).cyan()}');
     } else {
       print(line.cyan());
     }

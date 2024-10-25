@@ -123,7 +123,7 @@ class GithubParser extends RepositoryParser {
       }
 
       final artifactUrl = asset['browser_download_url'];
-      packageSpinner.text = 'Fetching artifact $artifactUrl...';
+      packageSpinner.text = 'Fetching package $artifactUrl...';
 
       if (!overwriteRelease) {
         await checkReleaseOnRelay(
@@ -141,7 +141,7 @@ class GithubParser extends RepositoryParser {
       final platforms = {...?value['platforms'] as Iterable?};
       if (!platforms
           .every((platform) => kSupportedPlatforms.contains(platform))) {
-        throw 'Artifact ${asset['name']} has platforms $platforms but some are not in $kSupportedPlatforms';
+        throw 'Package ${asset['name']} has platforms $platforms but some are not in $kSupportedPlatforms';
       }
 
       final match = r.firstMatch(asset['name']);
@@ -200,8 +200,6 @@ Map<String, dynamic>? _findRelease(
   for (final r in releases) {
     for (final asset in r['assets']) {
       for (final e in artifacts.entries) {
-// print(
-//                 'checking ${regexpFromKey(e.key)} match ${a['name']} - ${regexpFromKey(e.key).hasMatch(a['name'])}');
         if (regexpFromKey(e.key).hasMatch(asset['name'])) {
           return r;
         }
