@@ -1,6 +1,6 @@
 zapstore:
   cli:
-    name: zap.store CLI
+    name: zap.store
     description: The permissionless package manager
     repository: https://github.com/zapstore/zapstore-cli
     license: MIT
