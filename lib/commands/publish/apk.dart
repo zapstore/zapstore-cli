@@ -55,11 +55,6 @@ Future<(App, Release, FileMetadata)> parseApk(
   final appIdentifier =
       androidManifest.querySelector('manifest')!.attributes['package'];
   app = app.copyWith(identifier: appIdentifier);
-  if (release.transientData.containsKey('releaseVersion')) {
-    release = release.copyWith(
-        identifier:
-            app.identifierWithVersion(release.transientData['releaseVersion']));
-  }
 
   final rawApktoolYaml =
       await File(path.join(apkFolder, 'apktool.yml')).readAsString();
@@ -70,6 +65,10 @@ Future<(App, Release, FileMetadata)> parseApk(
 
   final minSdkVersion = yamlData['sdkInfo']?['minSdkVersion']?.toString();
   final targetSdkVersion = yamlData['sdkInfo']?['targetSdkVersion']?.toString();
+
+  release = release.copyWith(
+      identifier: app.identifierWithVersion(
+          apkVersion ?? release.transientData['releaseVersion']));
 
   if (app.icons.isEmpty) {
     try {
