@@ -1,3 +1,13 @@
+## 0.1.1
+
+ - Feature: Add app pointer to latest release
+ - Feature: Allow passing config file via argument
+ - Feature: Web support
+ - Feature: Daemon mode
+ - Bugfix: Normalize identifiers
+ - Bugfix: Silent env loading
+ - Bugfix: Proper name parsing
+
 ## 0.1.0
 
  - Bugfix: Stringify versions to generate valid nostr tags
