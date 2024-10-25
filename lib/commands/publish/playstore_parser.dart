@@ -22,7 +22,7 @@ class PlayStoreParser {
     final document = parseHtmlDocument(response.body);
 
     // If the name in YAML had taken precedence, leave as is, otherwise overwrite
-    if (app.name != originalName) {
+    if (app.name == null || app.name != originalName) {
       final appName =
           document.querySelector('[itemprop="name"]')!.innerText.trim();
       app = app.copyWith(name: appName);
