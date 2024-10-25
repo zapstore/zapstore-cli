@@ -176,7 +176,8 @@ extension on int {
 
 /// Returns hash, hashed file path, mime type
 Future<(String, String, String)> renameToHash(String filePath) async {
-  final ext = path.extension(filePath);
+  // Get extension from an URI (helps removing bullshit URL params, etc)
+  final ext = path.extension(Uri.parse(filePath).path);
   final hash = await computeHash(filePath);
   var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
       .outText
