@@ -241,6 +241,3 @@ int compareVersions(String v1, String v2) {
 
   return 0;
 }
-
-const kZapstorePubkey =
-    '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';

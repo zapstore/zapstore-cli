@@ -67,6 +67,7 @@ Future<void> checkReleaseOnRelay(
     final artifacts = await relay.query<FileMetadata>(
       search: artifactUrl!,
     );
+    // print('checked $artifactUrl found ${artifacts.length}');
 
     // Search is full-text (not exact) so we double-check
     isReleaseOnRelay = artifacts.any((r) {
@@ -243,3 +244,8 @@ const kSupportedPlatforms = [
   'android-mips64',
   'android-x86_64',
 ];
+
+const kZapstorePubkey =
+    '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
+const kAppRelays = {'wss://relay.zap.store'};
+// const kAppRelays = {'ws://localhost:3000'};

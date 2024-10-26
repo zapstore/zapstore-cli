@@ -43,8 +43,7 @@ Future<void> publish({
   final container = ProviderContainer();
   late final RelayMessageNotifier relay;
   try {
-    relay =
-        container.read(relayProviderFamily({'wss://relay.zap.store'}).notifier);
+    relay = container.read(relayProviderFamily(kAppRelays).notifier);
 
     for (final MapEntry(key: id, value: appObj) in doc.entries) {
       for (final MapEntry(:key, value: yamlApp) in appObj.entries) {

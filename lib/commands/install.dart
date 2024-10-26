@@ -29,8 +29,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
       spinner: CliSpinners.dots,
     ).start();
 
-    relay =
-        container.read(relayProviderFamily({'wss://relay.zap.store'}).notifier);
+    relay = container.read(relayProviderFamily(kAppRelays).notifier);
 
     final apps = await relay!.query<App>(search: value, tags: {
       '#f': [hostPlatform]
