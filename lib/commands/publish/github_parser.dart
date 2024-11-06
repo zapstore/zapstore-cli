@@ -22,7 +22,7 @@ class GithubParser extends RepositoryParser {
     Map<String, dynamic>? artifacts,
   }) async {
     final repoName =
-        Uri.parse(app.repository ?? releaseRepository!).path.substring(1);
+        Uri.parse(releaseRepository ?? app.repository!).path.substring(1);
 
     final headers = env['GITHUB_TOKEN'] != null
         ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}

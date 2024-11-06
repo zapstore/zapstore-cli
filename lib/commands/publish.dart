@@ -116,13 +116,13 @@ Future<void> publish({
                     artifacts: yamlArtifacts,
                     overwriteRelease: overwriteRelease);
           } else {
-            final repository = app.repository ?? yamlApp['release_repository'];
+            final repository = yamlApp['release_repository'] ?? app.repository;
             if (repository == null) {
               if (isDaemonMode) {
                 print('No sources provided, skipping');
                 continue;
               } else {
-                throw UsageException('No sources provided, ',
+                throw UsageException('No sources provided',
                     'Use the -a argument or add a repository in zapstore.yaml');
               }
             }
