@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:purplebase/purplebase.dart';
@@ -9,6 +9,7 @@ import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
 
 class WebParser extends RepositoryParser {
@@ -45,8 +46,10 @@ class WebParser extends RepositoryParser {
         match = regexpFromKey(attribute).firstMatch(raw);
       } else {
         final body = await response.stream.bytesToString();
-        final raw = await runInShell(
-            "echo ''${jsonEncode(body).replaceAll('\n', ' ')}'' | jq -r '$selector'");
+        final file = File(path.join(
+            Directory.systemTemp.path, path.basename(app.hashCode.toString())));
+        await file.writeAsString(body);
+        final raw = await runInShell("cat ${file.path} | jq -r '$selector'");
         match = regexpFromKey(attribute).firstMatch(raw);
       }
     } else {
