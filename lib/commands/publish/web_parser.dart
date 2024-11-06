@@ -37,7 +37,7 @@ class WebParser extends RepositoryParser {
 
     final response = await http.Client().send(request);
 
-    late final RegExpMatch? match;
+    RegExpMatch? match;
     if (rest.isEmpty) {
       // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
       if (response.isRedirect) {
