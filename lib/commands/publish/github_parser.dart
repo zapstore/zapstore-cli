@@ -52,7 +52,7 @@ class GithubParser extends RepositoryParser {
           headers: headers);
       final releases = jsonDecode(response.body);
 
-      if (releases is Map && releases['message'] != null || releases.isEmpty) {
+      if (releases is Map && releases['message'] != null) {
         throw 'Error ${releases['message']} for $repoName, I\'m done here';
       }
       releases as Iterable;
