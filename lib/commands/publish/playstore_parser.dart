@@ -29,8 +29,10 @@ class PlayStoreParser {
     }
 
     if (app.content.isEmpty) {
-      final appDescription =
-          document.querySelector('[data-g-id="description"]')!.innerText.trim();
+      final appDescription = document
+          .querySelector('[data-g-id="description"]')!
+          .innerHtml!
+          .trim();
       final markdownAppDescription = convert(appDescription);
       app = app.copyWith(content: markdownAppDescription);
     }
