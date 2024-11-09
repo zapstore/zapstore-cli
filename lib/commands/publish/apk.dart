@@ -48,6 +48,10 @@ Future<(App, Release, FileMetadata)> parseApk(
       sh.split(':').lastOrNull?.trim()
   ].nonNulls;
 
+  if (signatureHashes.isEmpty) {
+    throw 'No APK certificate signatures found, to check run: $apksignerPath verify --print-certs $apkPath';
+  }
+
   final rawAndroidManifest =
       await File(path.join(apkFolder, 'AndroidManifest.xml')).readAsString();
   final androidManifest = parseHtmlDocument(rawAndroidManifest);
