@@ -34,7 +34,7 @@ Future<void> publish({
 
   if (!await yamlFile.exists()) {
     throw UsageException('Config not found at $configFile',
-        'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zap.store for documentation.');
+        'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zapstore.dev for documentation.');
   }
 
   final doc =

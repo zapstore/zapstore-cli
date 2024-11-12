@@ -15,7 +15,7 @@
  - Bugfix: Do not capture %v, always require version argument
  - Bugfix: Failing with pre-releases
  - Other minor bugfixes
- - Feature: Run in daemon mode (zap.store indexing is now done with this program)
+ - Feature: Run in daemon mode (zapstore indexing is now done with this program)
  - Feature: Support `.env` file
  - Feature: Introduce `release_repository` attribute for closed-source apps
  - Feature: Allow passing icon and images as arguments

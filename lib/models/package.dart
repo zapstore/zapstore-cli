@@ -146,7 +146,7 @@ Future<Map<String, Package>> loadPackages() async {
   final systemPath = env['PATH']!;
 
   if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
-    print('${'Welcome to zap.store!'.bold().white().onBlue()}\n');
+    print('${'Welcome to zapstore!'.bold().white().onBlue()}\n');
 
     if (!await dir.exists()) {
       final setUp = Confirm(
@@ -167,7 +167,7 @@ Future<Map<String, Package>> loadPackages() async {
 Make sure ${kBaseDir.bold()} is in your PATH
 
 You can run ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent.
-This will make programs installed by zap.store available in your system.
+This will make programs installed by zapstore available in your system.
 
 After that, open a new shell and re-run this program.
 ''');

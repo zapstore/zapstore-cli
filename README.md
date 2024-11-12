@@ -87,7 +87,7 @@ go:
 zapstore publish go -a ~/path/to/alby-go-v1.4.1-android.apk -v 1.4.1
 ```
 
-If you have multiple artifacts, run this command once with multiple `-a` arguments and a version (`-v`). They all will be uploaded to `cdn.zap.store`.
+If you have multiple artifacts, run this command once with multiple `-a` arguments and a version (`-v`). They all will be uploaded to `cdn.zapstore.dev`.
 
 If you want to add release notes, provide the release notes Markdown file to `-n`. For icon and images, see `--icon` and `--image`.
 
@@ -138,4 +138,4 @@ phoenixd:
 
 You can replace captured groups in `executables`.
 
-Publishing is hard-coded to `relay.zap.store` for now. Your pubkey must be whitelisted by zap.store in order for your events to be accepted. Get in touch!
+Publishing is hard-coded to `relay.zapstore.dev` for now. Your pubkey must be whitelisted by zapstore in order for your events to be accepted. Get in touch!
