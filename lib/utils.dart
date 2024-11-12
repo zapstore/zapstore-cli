@@ -142,12 +142,12 @@ Future<String> fetchFile(
 Future<String> uploadToBlossom(
     String artifactPath, String artifactHash, String artifactMimeType,
     {CliSpin? spinner}) async {
-  var artifactUrl = 'https://cdn.zap.store/$artifactHash';
+  var artifactUrl = 'https://cdn.zapstore.dev/$artifactHash';
   final headResponse = await http.head(Uri.parse(artifactUrl));
   if (headResponse.statusCode != 200) {
     final bytes = await File(artifactPath).readAsBytes();
     final response = await http.post(
-      Uri.parse('https://cdn.zap.store/upload'),
+      Uri.parse('https://cdn.zapstore.dev/upload'),
       body: bytes,
       headers: {
         'Content-Type': artifactMimeType,
@@ -247,5 +247,5 @@ const kSupportedPlatforms = [
 
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
-const kAppRelays = {'wss://relay.zap.store'};
+const kAppRelays = {'wss://relay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};

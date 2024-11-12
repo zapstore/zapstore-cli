@@ -31,7 +31,7 @@ void main(List<String> args) async {
 
     final version = argResults['version'];
     if (version) {
-      print('zap.store $kVersion');
+      print('zapstore-cli $kVersion');
       return;
     }
     await runner.run(args);
