@@ -1,3 +1,9 @@
+## 0.1.2
+
+ - Migration: zap.store to zapstore.dev
+ - Bugfix: Use innerHTML for app description scraped from Play Store
+ - Other minor bugfixes
+
 ## 0.1.1
 
  - Feature: Add app pointer to latest release
