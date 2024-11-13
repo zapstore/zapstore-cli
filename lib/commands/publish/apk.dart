@@ -18,7 +18,7 @@ Future<(App, Release, FileMetadata)> parseApk(
     isSilent: isDaemonMode,
   ).start();
   final apkPath = fileMetadata.transientData['apkPath'];
-  final apkFolder = path.setExtension(apkPath, 'apktool');
+  final apkFolder = path.setExtension(apkPath, '.apktool');
 
   await runInShell('rm -fr $apkFolder');
   final apktoolPath = whichSync('apktool');
