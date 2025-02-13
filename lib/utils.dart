@@ -13,7 +13,9 @@ import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 
-final kBaseDir = path.join(env['HOME']!, '.zapstore');
+final kBaseDir = Platform.isWindows
+    ? path.join(env['USERPROFILE']!, '.zapstore')
+    : path.join(env['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
@@ -205,12 +207,25 @@ Future<(String, String, String)> renameToHash(String filePath) async {
 
 Future<String> runInShell(String cmd,
     {String? workingDirectory, bool verbose = false}) async {
+  if (Platform.isWindows) {
+    return (await run(cmd,
+            runInShell: true,
+            workingDirectory: workingDirectory,
+            verbose: verbose))
+        .outText;
+  }
+
   return (await run('''sh -c '$cmd' ''',
           workingDirectory: workingDirectory, verbose: verbose))
       .outText;
 }
 
 Future<String> computeHash(String filePath) async {
+  if (Platform.isWindows) {
+    return await runInShell(
+        'certutil -hashfile "$filePath" SHA256 | findstr /v "CertUtil SHA256"');
+  }
+
   return await runInShell(
       'cat $filePath | ${Platform.isLinux ? 'sha256sum' : 'shasum -a 256'} | head -c 64');
 }
