@@ -67,11 +67,9 @@ Future<void> checkReleaseOnRelay(
     final artifacts = await relay.query<FileMetadata>(
       search: artifactUrl!,
     );
-    // print('checked $artifactUrl found ${artifacts.length}');
-
     // Search is full-text (not exact) so we double-check
     isReleaseOnRelay = artifacts.any((r) {
-      return r.urls.any((u) => u == artifactUrl);
+      return r.version! == version;
     });
   }
   if (isReleaseOnRelay) {

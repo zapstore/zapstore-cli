@@ -2,3 +2,6 @@
 .DS_Store
 .vscode/
 .env
+
+# FVM Version Cache
+.fvm/
