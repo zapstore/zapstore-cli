@@ -96,6 +96,16 @@ class WebParser extends RepositoryParser {
     final size = await runInShell('wc -c < $newArtifactPath');
     final appIdWithVersion = app.identifierWithVersion(version);
 
+    // Since previous check was done on URL, check again now against hash
+    if (!overwriteRelease) {
+      await checkReleaseOnRelay(
+        relay: relay,
+        version: version,
+        artifactHash: artifactHash,
+        spinner: artifactSpinner,
+      );
+    }
+
     final fileMetadata = FileMetadata(
       content: appIdWithVersion,
       createdAt: DateTime.now(),

@@ -71,7 +71,7 @@ Future<void> checkReleaseOnRelay(
     );
     // Search is full-text (not exact) so we double-check
     isReleaseOnRelay = artifacts.any((r) {
-      return r.version! == version;
+      return r.urls.any((u) => u == artifactUrl);
     });
   }
   if (isReleaseOnRelay) {

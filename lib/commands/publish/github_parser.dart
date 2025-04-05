@@ -149,6 +149,16 @@ class GithubParser extends RepositoryParser {
       final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
       final size = await runInShell('wc -c < $filePath');
 
+      // Since previous check was done on URL, check again now against hash
+      if (!overwriteRelease) {
+        await checkReleaseOnRelay(
+          relay: relay,
+          version: version,
+          artifactHash: fileHash,
+          spinner: packageSpinner,
+        );
+      }
+
       final fileMetadata = FileMetadata(
         content: appIdWithVersion,
         createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
