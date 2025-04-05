@@ -63,6 +63,15 @@ class LocalParser {
         rethrow;
       }
 
+      // Ensure the file was fully uploaded
+      // TODO: Test this
+      final tempPackagePath =
+          await fetchFile(artifactUrl, spinner: uploadSpinner);
+      final computedHash = await computeHash(tempPackagePath);
+      if (computedHash != artifactHash) {
+        throw 'File was not correctly uploaded as hashes mismatch. Try again with --overwrite-release';
+      }
+
       // Validate platforms
       final yamlArtifact = yamlArtifacts.entries.firstWhereOrNull(
           (e) => regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
