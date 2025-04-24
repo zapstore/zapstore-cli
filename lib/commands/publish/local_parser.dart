@@ -1,120 +1,102 @@
 import 'dart:io';
 
-import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
-import 'package:purplebase/purplebase.dart';
 import 'package:yaml/yaml.dart';
+import 'package:zapstore_cli/commands/publish.dart';
+import 'package:zapstore_cli/commands/publish/apk.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
 class LocalParser {
-  final App app;
-  final List<String> artifacts;
-  final String version;
-  final RelayMessageNotifier relay;
-  LocalParser(
-      {required this.app,
-      required this.artifacts,
-      required this.version,
-      required this.relay});
+  late final List<String> artifacts;
 
   Future<(App, Release, Set<FileMetadata>)> process({
+    required YamlMap appMap,
+    required List<String> artifacts,
     required bool overwriteRelease,
     String? releaseNotes,
-    required Map<String, YamlMap> yamlArtifacts,
+    required SupportedOS os,
   }) async {
-    final releaseCreatedAt = DateTime.now();
-    final appIdWithVersion = app.identifierWithVersion(version);
-
+    var identifier = appMap['id']?.toString();
+    var version = appMap['version']?.toString();
     final fileMetadatas = <FileMetadata>{};
+
+    final releaseCreatedAt = DateTime.now();
+
     for (final artifactPath in artifacts) {
       if (!await File(artifactPath).exists()) {
         throw 'No artifact file found at $artifactPath';
       }
 
-      final uploadSpinner = CliSpin(
-        text: 'Uploading artifact: $artifactPath...',
-        spinner: CliSpinners.dots,
-      ).start();
+      switch (os) {
+        case SupportedOS.android:
+          fileMetadatas.add(await parseApk(artifactPath));
+        case SupportedOS.cli:
+          if (!appMap.containsKey('artifacts')) {
+            throw 'CLI apps must contain artifacts in YAML config file';
+          }
+          // Check platforms are supported
+          final artifactsYamlMap = appMap['artifacts'] as YamlMap;
+          final artifactYaml = artifactsYamlMap.entries.firstWhereOrNull((e) =>
+              regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
 
-      final tempArtifactPath =
-          path.join(Directory.systemTemp.path, path.basename(artifactPath));
-      await File(artifactPath).copy(tempArtifactPath);
-      final (artifactHash, newArtifactPath, mimeType) =
-          await renameToHash(tempArtifactPath);
+          final match = artifactYaml != null
+              ? regexpFromKey(artifactYaml.key).firstMatch(artifactPath)
+              : null;
 
-      if (!overwriteRelease) {
-        await checkReleaseOnRelay(
-          relay: relay,
-          version: version,
-          artifactHash: artifactHash,
-          spinner: uploadSpinner,
-        );
+          final platforms = {...?artifactYaml?.value['platforms'] as Iterable?};
+          if (!platforms
+              .every((platform) => kSupportedPlatforms.contains(platform))) {
+            throw 'Artifact $artifactPath has platforms $platforms but some are not in $kSupportedPlatforms';
+          }
+
+          final tempArtifactPath =
+              path.join(Directory.systemTemp.path, path.basename(artifactPath));
+          await File(artifactPath).copy(tempArtifactPath);
+          final (artifactHash, newArtifactPath, mimeType) =
+              await renameToHash(tempArtifactPath);
+
+          final artifactUrl = 'https://cdn.zapstore.dev/$artifactHash';
+          final size = await runInShell('wc -c < $newArtifactPath');
+
+          final appIdWithVersion = '${identifier!}@${version!}';
+          final fileMetadata = FileMetadata(
+            content: appIdWithVersion,
+            createdAt: releaseCreatedAt,
+            urls: {artifactUrl},
+            mimeType: mimeType,
+            hash: artifactHash,
+            size: int.tryParse(size),
+            platforms: platforms.toSet().cast(),
+            version: version,
+            pubkeys: {appMap.developerPubkey}.nonNulls.toSet(),
+            additionalEventTags: {
+              for (final e in (artifactYaml?.value['executables'] ?? []))
+                ('executable', replaceInExecutable(e, match)),
+            },
+          );
+          fileMetadatas.add(fileMetadata);
       }
-
-      String artifactUrl;
-      try {
-        artifactUrl = await uploadToBlossom(
-            newArtifactPath, artifactHash, mimeType,
-            spinner: uploadSpinner);
-      } catch (e) {
-        uploadSpinner.fail(e.toString());
-        rethrow;
-      }
-
-      // Ensure the file was fully uploaded
-      // TODO: Test this
-      final tempPackagePath =
-          await fetchFile(artifactUrl, spinner: uploadSpinner);
-      final computedHash = await computeHash(tempPackagePath);
-      if (computedHash != artifactHash) {
-        throw 'File was not correctly uploaded as hashes mismatch. Try again with --overwrite-release';
-      }
-
-      // Validate platforms
-      final yamlArtifact = yamlArtifacts.entries.firstWhereOrNull(
-          (e) => regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
-
-      final match = yamlArtifact != null
-          ? regexpFromKey(yamlArtifact.key).firstMatch(artifactPath)
-          : null;
-
-      final platforms = {...?yamlArtifact?.value['platforms'] as Iterable?};
-      if (!platforms
-          .every((platform) => kSupportedPlatforms.contains(platform))) {
-        throw 'Artifact $artifactPath has platforms $platforms but some are not in $kSupportedPlatforms';
-      }
-
-      final size = await runInShell('wc -c < $newArtifactPath');
-
-      final fileMetadata = FileMetadata(
-        content: appIdWithVersion,
-        createdAt: releaseCreatedAt,
-        urls: {artifactUrl},
-        mimeType: mimeType,
-        hash: artifactHash,
-        size: int.tryParse(size),
-        platforms: platforms.toSet().cast(),
-        version: version,
-        pubkeys: app.pubkeys,
-        zapTags: app.zapTags,
-        additionalEventTags: {
-          for (final e in (yamlArtifact?.value['executables'] ?? []))
-            ('executable', replaceInExecutable(e, match)),
-        },
-      );
-      fileMetadata.transientData['apkPath'] = newArtifactPath;
-      fileMetadatas.add(fileMetadata);
-      uploadSpinner.success('Uploaded artifact: $artifactPath to $artifactUrl');
     }
+
+    if (os == SupportedOS.android) {
+      final versionsFromApk =
+          fileMetadatas.map((m) => m.content).nonNulls.toSet();
+      final hasOneVersionFromApk = versionsFromApk.length == 1;
+      if (!hasOneVersionFromApk) {
+        throw 'All APKs MUST coincide in identifier and version';
+      }
+      [identifier, version] = fileMetadatas.first.content.split('@');
+    }
+
+    final app = await appMap.toApp();
 
     final release = Release(
       createdAt: releaseCreatedAt,
       content: releaseNotes ?? '${app.name} $version',
-      identifier: appIdWithVersion,
+      identifier: fileMetadatas.first.content,
       pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
     );
 
     return (app, release, fileMetadatas);

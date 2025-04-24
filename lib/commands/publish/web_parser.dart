@@ -1,10 +1,8 @@
 import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:purplebase/purplebase.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
@@ -12,20 +10,17 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
 
-class WebParser extends RepositoryParser {
-  final RelayMessageNotifier relay;
-
-  WebParser({required this.relay});
-
-  @override
+class WebParser {
   Future<(App, Release?, Set<FileMetadata>)> process({
-    required App app,
     required bool overwriteRelease,
     String? releaseRepository,
     Map<String, dynamic>? artifacts,
     String? artifactContentType,
     YamlList? versionSpec,
+    required YamlMap appMap,
   }) async {
+    final app = await appMap.toApp();
+
     final artifactSpinner = CliSpin(
       text: 'Fetching artifact...',
       spinner: CliSpinners.dots,
@@ -80,7 +75,6 @@ class WebParser extends RepositoryParser {
 
     if (!overwriteRelease) {
       await checkReleaseOnRelay(
-        relay: relay,
         version: version,
         artifactUrl: artifactUrl,
         spinner: artifactSpinner,
@@ -94,12 +88,13 @@ class WebParser extends RepositoryParser {
     final (artifactHash, newArtifactPath, _) =
         await renameToHash(tempArtifactPath);
     final size = await runInShell('wc -c < $newArtifactPath');
-    final appIdWithVersion = app.identifierWithVersion(version);
+    // TODO: From APK or other
+    final appIdWithVersion =
+        'appid@1.1.1'; // app.identifierWithVersion(version);
 
     // Since previous check was done on URL, check again now against hash
     if (!overwriteRelease) {
       await checkReleaseOnRelay(
-        relay: relay,
         version: version,
         artifactHash: artifactHash,
         spinner: artifactSpinner,
@@ -128,10 +123,6 @@ class WebParser extends RepositoryParser {
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
     );
-
-    if (appIdWithVersion == null) {
-      release.transientData['releaseVersion'] = version;
-    }
 
     return (app, release, {fileMetadata});
   }

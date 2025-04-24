@@ -5,11 +5,13 @@ import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:mime/mime.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
+import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 
@@ -54,8 +56,7 @@ Future<Map<String, dynamic>> checkUser() async {
 }
 
 Future<void> checkReleaseOnRelay(
-    {required RelayMessageNotifier relay,
-    required String version,
+    {required String version,
     String? artifactUrl,
     String? artifactHash,
     CliSpin? spinner}) async {
@@ -87,6 +88,33 @@ Future<void> checkReleaseOnRelay(
 String formatProfile(BaseUser user) {
   final name = user.name ?? '';
   return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
+}
+
+extension YamlMapExt on YamlMap {
+  String? get developerPubkey => (this['developer']?.toString())?.hexKey;
+  Future<App> toApp() async {
+    return App(
+      content: this['description'] ?? this['summary'],
+      name: this['name'],
+      summary: this['summary'],
+      repository: this['repository'],
+      icons: {if (this['icon'] != null) ...await processImages(this['icon'])},
+      images: await processImages(this['images'] ?? []),
+      license: this['license'],
+      pubkeys: {if (developerPubkey != null) developerPubkey!},
+    );
+  }
+}
+
+Future<Set<String>> processImages(List<String> imagePaths) async {
+  final imageBlossomUrls = <String>{};
+  for (final imagePath in imagePaths) {
+    final (imageHash, newImagePath, imageMimeType) =
+        await renameToHash(imagePath);
+    final imageBlossomUrl = 'https://cdn.zapstore.dev/$imageHash';
+    imageBlossomUrls.add(imageBlossomUrl);
+  }
+  return imageBlossomUrls;
 }
 
 /// Returns the downloaded file path
@@ -184,6 +212,9 @@ Future<(String, String, String)> renameToHash(String filePath) async {
       .outText
       .split('\n')
       .first;
+  // TODO: Use new mime type
+  // var mimeType =
+  //     await getMimeType(File(filePath)) ?? 'application/octet-stream';
   var hashName = '$hash$ext';
   if (hash == hashName) {
     if (mimeType == 'application/octet-stream' &&
@@ -201,6 +232,17 @@ Future<(String, String, String)> renameToHash(String filePath) async {
       : path.join(Directory.systemTemp.path, hashName);
   await run('mv $filePath $destFilePath', verbose: false);
   return (hash, destFilePath, mimeType);
+}
+
+Future<String?> getMimeType(File file) async {
+  // Read the first 512 bytes of the file
+  final bytes = await file.openRead(0, 512).toList();
+  final headerBytes = bytes.expand((x) => x).toList();
+
+  // Detect the MIME type using the headerBytes
+  final mimeType = lookupMimeType(file.path, headerBytes: headerBytes);
+
+  return mimeType;
 }
 
 Future<String> runInShell(String cmd,

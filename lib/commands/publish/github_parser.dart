@@ -2,25 +2,21 @@ import 'dart:convert';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
-import 'package:purplebase/purplebase.dart';
+import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 
-class GithubParser extends RepositoryParser {
-  final RelayMessageNotifier relay;
-
-  GithubParser({required this.relay});
-
-  @override
+class GithubParser {
   Future<(App, Release?, Set<FileMetadata>)> process({
-    required App app,
     required bool overwriteRelease,
+    required YamlMap appMap,
     String? releaseRepository,
-    Map<String, dynamic>? artifacts,
   }) async {
+    var app = await appMap.toApp();
+
     final repoName =
         Uri.parse(releaseRepository ?? app.repository!).path.substring(1);
 
@@ -40,6 +36,7 @@ class GithubParser extends RepositoryParser {
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
     // If there's a message it's an error (or no matching assets were found)
+    final artifacts = appMap['artifacts'] as YamlMap?;
     if (latestReleaseJson['message'] != null ||
         !(latestReleaseJson['assets'] as Iterable)
             .any((a) => artifacts!.entries.any((e) {
@@ -76,7 +73,9 @@ class GithubParser extends RepositoryParser {
     metadataSpinner.success('Fetched metadata from Github');
 
     final version = latestReleaseJson['tag_name']!.toString();
-    final appIdWithVersion = app.identifierWithVersion(version);
+    // TODO: Get from  APK - what if its CLI app?
+    final appIdWithVersion =
+        'appid@1.1.1'; // app.identifierWithVersion(version);
 
     final repoUrl = 'https://api.github.com/repos/$repoName';
     final repoJson =
@@ -127,7 +126,6 @@ class GithubParser extends RepositoryParser {
 
       if (!overwriteRelease) {
         await checkReleaseOnRelay(
-          relay: relay,
           version: version,
           artifactUrl: artifactUrl,
           spinner: packageSpinner,
@@ -152,7 +150,6 @@ class GithubParser extends RepositoryParser {
       // Since previous check was done on URL, check again now against hash
       if (!overwriteRelease) {
         await checkReleaseOnRelay(
-          relay: relay,
           version: version,
           artifactHash: fileHash,
           spinner: packageSpinner,
@@ -190,23 +187,11 @@ class GithubParser extends RepositoryParser {
       zapTags: app.zapTags,
     );
 
-    if (appIdWithVersion == null) {
-      release.transientData['releaseVersion'] = version;
-    }
-
     return (app, release, fileMetadatas);
   }
 }
 
-abstract class RepositoryParser {
-  Future<(App, Release?, Set<FileMetadata>)> process({
-    required App app,
-    required bool overwriteRelease,
-  });
-}
-
-Map<String, dynamic>? _findRelease(
-    Iterable releases, Map<String, dynamic> artifacts) {
+Map<String, dynamic>? _findRelease(Iterable releases, YamlMap artifacts) {
   for (final r in releases) {
     for (final asset in r['assets']) {
       for (final e in artifacts.entries) {

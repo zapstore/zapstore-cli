@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dotenv/dotenv.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:purplebase/purplebase.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
@@ -12,14 +14,22 @@ import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
-const kVersion = '0.1.2'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)
 
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
 
+late final RelayMessageNotifier relay;
+late final RelayMessageNotifier authorRelays;
+
 void main(List<String> args) async {
+  final container = ProviderContainer();
   var wasError = false;
   try {
+    relay = container.read(relayProviderFamily(kAppRelays).notifier);
+    authorRelays = container.read(relayProviderFamily(
+        {'wss://relay.nostr.band', 'wss://relay.primal.net'}).notifier);
+
     final runner = CommandRunner("zapstore",
         "$figure\nThe permissionless app store powered by your social network")
       ..addCommand(InstallCommand())
@@ -47,6 +57,8 @@ void main(List<String> args) async {
     wasError = true;
     reset();
   } finally {
+    await relay.dispose();
+    container.dispose();
     exit(wasError ? 127 : 0);
   }
 }
@@ -117,12 +129,10 @@ class PublishCommand extends Command {
     argParser.addOption('config',
         abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
     argParser.addMultiOption('artifact',
-        abbr: 'a', help: 'Artifact to be uploaded');
-    argParser.addOption('release-version', abbr: 'v', help: 'Release version');
+        abbr: 'a',
+        help: 'Artifact to be uploaded (can be used multiple times)');
     argParser.addOption('release-notes',
         abbr: 'n', help: 'File containing release notes');
-    argParser.addOption('icon', help: 'Icon file');
-    argParser.addMultiOption('image', abbr: 'i', help: 'Image file');
 
     argParser.addFlag('overwrite-app',
         help: 'Generate a new kind 32267 to publish', defaultsTo: false);
@@ -145,17 +155,10 @@ class PublishCommand extends Command {
 
   @override
   Future<void> run() async {
-    final value = argResults!.rest.firstOrNull;
+    final onlyPublishAppId = argResults!.rest.firstOrNull;
     final configFile = argResults!.option('config');
     final artifacts = argResults!.multiOption('artifact');
-    final releaseVersion = argResults!.option('release-version');
-    if (artifacts.isNotEmpty && releaseVersion == null) {
-      usageException(
-          'Please provide a release version when you pass local artifacts');
-    }
     final releaseNotesFile = argResults!.option('release-notes');
-    final icon = argResults!.option('icon');
-    final images = argResults!.multiOption('image');
 
     String? releaseNotes;
     if (releaseNotesFile != null) {
@@ -173,13 +176,10 @@ class PublishCommand extends Command {
     isDaemonMode = argResults!.flag('daemon-mode');
 
     await publish(
-      configFile: configFile,
-      requestedId: value,
+      configPath: configFile,
+      onlyPublishAppId: onlyPublishAppId,
       artifacts: artifacts,
-      version: releaseVersion,
       releaseNotes: releaseNotes,
-      icon: icon,
-      images: images,
       overwriteApp: argResults!.flag('overwrite-app'),
       overwriteRelease: argResults!.flag('overwrite-release'),
     );
