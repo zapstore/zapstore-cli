@@ -9,16 +9,15 @@ import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 
-class GithubParser {
+class GithubParser extends ArtifactParser {
   Future<(App, Release?, Set<FileMetadata>)> process({
-    required bool overwriteRelease,
     required YamlMap appMap,
-    String? releaseRepository,
+    required bool overwriteRelease,
   }) async {
-    var app = await appMap.toApp();
-
-    final repoName =
-        Uri.parse(releaseRepository ?? app.repository!).path.substring(1);
+    final repositoryName =
+        Uri.parse(appMap.releaseRepository ?? appMap.sourceRepository!)
+            .path
+            .substring(1);
 
     final headers = env['GITHUB_TOKEN'] != null
         ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
@@ -31,7 +30,7 @@ class GithubParser {
     ).start();
 
     final latestReleaseUrl =
-        'https://api.github.com/repos/$repoName/releases/latest';
+        'https://api.github.com/repos/$repositoryName/releases/latest';
     Map<String, dynamic>? latestReleaseJson =
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
@@ -45,12 +44,12 @@ class GithubParser {
                       (a['label'] != null && r.hasMatch(a['label']));
                 }))) {
       final response = await http.get(
-          Uri.parse('https://api.github.com/repos/$repoName/releases'),
+          Uri.parse('https://api.github.com/repos/$repositoryName/releases'),
           headers: headers);
       final releases = jsonDecode(response.body);
 
       if (releases is Map && releases['message'] != null) {
-        throw 'Error ${releases['message']} for $repoName, I\'m done here';
+        throw 'Error ${releases['message']} for $repositoryName, I\'m done here';
       }
       releases as Iterable;
       if (releases.isEmpty) {
@@ -62,7 +61,7 @@ class GithubParser {
 
     if (latestReleaseJson == null ||
         (latestReleaseJson['assets'] as Iterable).isEmpty) {
-      final message = 'No packages in $repoName, I\'m done here';
+      final message = 'No packages in $repositoryName, I\'m done here';
       if (isDaemonMode) {
         print(message);
       }
@@ -73,29 +72,13 @@ class GithubParser {
     metadataSpinner.success('Fetched metadata from Github');
 
     final version = latestReleaseJson['tag_name']!.toString();
-    // TODO: Get from  APK - what if its CLI app?
-    final appIdWithVersion =
-        'appid@1.1.1'; // app.identifierWithVersion(version);
+    // // TODO: Get from  APK - what if its CLI app?
+    // final appIdWithVersion =
+    //     'appid@1.1.1'; // app.identifierWithVersion(version);
 
-    final repoUrl = 'https://api.github.com/repos/$repoName';
+    final repoUrl = 'https://api.github.com/repos/$repositoryName';
     final repoJson =
         await http.get(Uri.parse(repoUrl), headers: headers).getJson();
-
-    app = app.copyWith(
-      content: app.content.isNotEmpty ? app.content : repoJson['description'],
-      identifier: app.identifier,
-      name: app.name ?? repoJson['name'],
-      url: app.url ??
-          ((repoJson['homepage']?.isNotEmpty ?? false)
-              ? repoJson['homepage']
-              : null),
-      license: app.license ?? repoJson['license']?['spdx_id'],
-      tags: app.tags.isEmpty
-          ? (repoJson['topics'] as Iterable).toSet().cast()
-          : app.tags,
-      pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
-    );
 
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(:key, :value) in artifacts!.entries) {
@@ -118,7 +101,7 @@ class GithubParser {
           print(message);
         }
         packageSpinner.fail(message);
-        return (app, null, <FileMetadata>{});
+        throw GracefullyAbortSignal();
       }
 
       final artifactUrl = asset['browser_download_url'];
@@ -157,7 +140,7 @@ class GithubParser {
       }
 
       final fileMetadata = FileMetadata(
-        content: appIdWithVersion,
+        // content: appIdWithVersion, // TODO:
         createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
         urls: {artifactUrl},
         mimeType: asset['content_type'],
@@ -165,23 +148,37 @@ class GithubParser {
         size: int.tryParse(size),
         platforms: platforms.toSet().cast(),
         version: version,
-        pubkeys: app.pubkeys,
-        zapTags: app.zapTags,
+        pubkeys: {appMap.developerPubkey}.nonNulls.toSet(),
         additionalEventTags: {
           // `executables` is the YAML array, `executable` the (multiple) tag
           for (final e in (value['executables'] ?? []))
             ('executable', replaceInExecutable(e, match)),
         },
       );
-      fileMetadata.transientData['apkPath'] = filePath;
       fileMetadatas.add(fileMetadata);
       packageSpinner.success('Fetched package: $artifactUrl');
     }
 
+    var app = await appMap.toApp();
+    app = app.copyWith(
+      content: app.content.isNotEmpty ? app.content : repoJson['description'],
+      identifier: app.identifier,
+      name: app.name ?? repoJson['name'],
+      url: app.url ??
+          ((repoJson['homepage']?.isNotEmpty ?? false)
+              ? repoJson['homepage']
+              : null),
+      license: app.license ?? repoJson['license']?['spdx_id'],
+      tags: app.tags.isEmpty
+          ? (repoJson['topics'] as Iterable).toSet().cast()
+          : app.tags,
+      pubkeys: app.pubkeys,
+    );
+
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
       content: latestReleaseJson['body'],
-      identifier: appIdWithVersion,
+      identifier: fileMetadatas.first.content,
       url: latestReleaseJson['html_url'],
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,

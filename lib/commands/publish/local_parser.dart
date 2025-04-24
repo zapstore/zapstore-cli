@@ -8,9 +8,9 @@ import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
-class LocalParser {
-  late final List<String> artifacts;
+abstract class ArtifactParser {}
 
+class LocalParser extends ArtifactParser {
   Future<(App, Release, Set<FileMetadata>)> process({
     required YamlMap appMap,
     required List<String> artifacts,

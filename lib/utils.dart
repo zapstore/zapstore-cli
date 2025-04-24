@@ -92,12 +92,14 @@ String formatProfile(BaseUser user) {
 
 extension YamlMapExt on YamlMap {
   String? get developerPubkey => (this['developer']?.toString())?.hexKey;
+  String? get sourceRepository => this['repository'];
+  String? get releaseRepository => this['release_repository'];
   Future<App> toApp() async {
     return App(
       content: this['description'] ?? this['summary'],
       name: this['name'],
       summary: this['summary'],
-      repository: this['repository'],
+      repository: sourceRepository,
       icons: {if (this['icon'] != null) ...await processImages(this['icon'])},
       images: await processImages(this['images'] ?? []),
       license: this['license'],

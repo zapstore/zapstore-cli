@@ -10,17 +10,14 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
 
-class WebParser {
+class WebParser extends ArtifactParser {
   Future<(App, Release?, Set<FileMetadata>)> process({
-    required bool overwriteRelease,
-    String? releaseRepository,
     Map<String, dynamic>? artifacts,
     String? artifactContentType,
     YamlList? versionSpec,
+    required bool overwriteRelease,
     required YamlMap appMap,
   }) async {
-    final app = await appMap.toApp();
-
     final artifactSpinner = CliSpin(
       text: 'Fetching artifact...',
       spinner: CliSpinners.dots,
@@ -41,8 +38,8 @@ class WebParser {
         match = regexpFromKey(attribute).firstMatch(raw);
       } else {
         final body = await response.stream.bytesToString();
-        final file = File(path.join(
-            Directory.systemTemp.path, path.basename(app.hashCode.toString())));
+        final file = File(path.join(Directory.systemTemp.path,
+            path.basename('app'.hashCode.toString()))); // TODO: Use random
         await file.writeAsString(body);
         final raw = await runInShell("cat ${file.path} | jq -r '$selector'");
         match = regexpFromKey(attribute).firstMatch(raw);
@@ -107,13 +104,12 @@ class WebParser {
       urls: {artifactUrl},
       hash: artifactHash,
       size: int.tryParse(size),
-      pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
+      pubkeys: {appMap.developerPubkey}.nonNulls.toSet(),
     );
 
-    fileMetadata.transientData['apkPath'] = newArtifactPath;
-
     artifactSpinner.success('Fetched artifact: $artifactUrl');
+
+    final app = await appMap.toApp();
 
     final release = Release(
       createdAt: DateTime.now(),

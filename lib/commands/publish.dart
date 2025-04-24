@@ -140,7 +140,6 @@ Future<void> publish({
           overwriteRelease: overwriteRelease,
         ),
       PublishingMethod.github => await GithubParser().process(
-          releaseRepository: appMap['release_repository'],
           appMap: appMap,
           overwriteRelease: overwriteRelease,
         ),
