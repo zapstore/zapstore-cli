@@ -9,7 +9,6 @@ import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github_parser.dart';
-import 'package:zapstore_cli/commands/publish/local_parser.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/commands/publish/web_parser.dart';
@@ -64,7 +63,7 @@ class Publisher {
       if (newMap['artifacts'] is Iterable) {
         newMap['artifacts'] = {for (final a in newMap['artifacts']) a: {}};
       }
-      parser = LocalParser(newMap, os);
+      parser = ArtifactParser(newMap, os);
     } else {
       if (appMap.containsKey('version')) {
         // A version is needed to do web extraction, so assume web
@@ -168,9 +167,8 @@ class Publisher {
           if (isDaemonMode) {
             print('Published kind ${event.kind}');
           }
-          if (parser case LocalParser()) {
-            await _uploadToBlossom();
-          }
+
+          await _uploadToBlossom();
         } catch (e) {
           print(
               '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');
@@ -196,6 +194,7 @@ class Publisher {
 
     for (final artifactPath in artifacts) {
       // TODO: Check if its in filemetadata 'x' tag
+      // Check any url, image, etc that matches cdn.zapstore.dev (or other configurable?)
 
       final uploadSpinner = CliSpin(
         text: 'Uploading artifact: $artifactPath...',

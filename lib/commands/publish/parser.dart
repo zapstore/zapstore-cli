@@ -12,7 +12,7 @@ import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
 import 'package:zapstore_cli/parser/signatures.dart';
 
-abstract class ArtifactParser {
+class ArtifactParser {
   App app = App();
   Release? release = Release();
   final fileMetadatas = <FileMetadata>{};
@@ -62,6 +62,13 @@ abstract class ArtifactParser {
     // if (release == null) {
     //   print('No release, nothing to do');
     //   throw GracefullyAbortSignal();
+    // }
+    //     if (!overwriteRelease) {
+    //   await checkReleaseOnRelay(
+    //     version: version,
+    //     artifactUrl: artifactUrl,
+    //     spinner: packageSpinner,
+    //   );
     // }
     final [identifier, version] = fileMetadatas.first.content.split('@');
     app = App(
@@ -178,7 +185,6 @@ abstract class ArtifactParser {
       minSdkVersion = usesSdk.attributes['android:minSdkVersion'];
       targetSdkVersion = usesSdk.attributes['android:targetSdkVersion'];
     }
-    print('**** $identifier $version');
 
     // Check platforms are supported
     final artifactYaml = (appMap['artifacts'] as Map).entries.firstWhereOrNull(
@@ -204,10 +210,10 @@ abstract class ArtifactParser {
     final size = await File(newArtifactPath).length();
 
     final fm = FileMetadata(
-      content: version != null ? '$identifier:$version' : null,
+      content: version != null ? '$identifier@$version' : null,
       createdAt: DateTime.now(),
       urls: {artifactUrl},
-      mimeType: mimeType,
+      mimeType: os == SupportedOS.android ? kAndroidMimeType : mimeType,
       hash: artifactHash,
       size: size,
       platforms: platforms.toSet().cast(),
@@ -223,7 +229,7 @@ abstract class ArtifactParser {
           ('apk_signature_hash', signatureHash),
       },
     );
-    print(fm.toMap());
+    print(fm);
     return fm;
   }
 }

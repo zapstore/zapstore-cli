@@ -13,17 +13,16 @@ import 'package:zapstore_cli/utils.dart';
 class GithubParser extends ArtifactParser {
   GithubParser(super.appMap, super.os);
 
+  String get repositoryName =>
+      Uri.parse(releaseRepository ?? sourceRepository!).path.substring(1);
+
+  Map<String, String> get headers => env['GITHUB_TOKEN'] != null
+      ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
+      : <String, String>{};
+
   Future<(App, Release?, Set<FileMetadata>)> process({
     required YamlMap appMap,
-    required bool overwriteRelease,
   }) async {
-    final repositoryName =
-        Uri.parse(releaseRepository ?? sourceRepository!).path.substring(1);
-
-    final headers = env['GITHUB_TOKEN'] != null
-        ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
-        : <String, String>{};
-
     final metadataSpinner = CliSpin(
       text: 'Fetching metadata...',
       spinner: CliSpinners.dots,
@@ -136,26 +135,44 @@ class GithubParser extends ArtifactParser {
         );
       }
 
-      final fileMetadata = FileMetadata(
-        // content: appIdWithVersion, // TODO:
-        createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
-        urls: {artifactUrl},
-        mimeType: asset['content_type'],
-        hash: fileHash,
-        size: size,
-        platforms: platforms.toSet().cast(),
-        version: version,
-        pubkeys: {developerPubkey}.nonNulls.toSet(),
-        additionalEventTags: {
-          // `executables` is the YAML array, `executable` the (multiple) tag
-          for (final e in (value['executables'] ?? []))
-            ('executable', replaceInExecutable(e, match)),
-        },
-      );
       fileMetadatas.add(fileMetadata);
       packageSpinner.success('Fetched package: $artifactUrl');
     }
 
+    return (app, release, fileMetadatas);
+  }
+
+  @override
+  Future<void> applyMetadata() async {
+    //     platforms = architectures.map((a) => 'android-$a').toSet();
+    // if (appMap['artifacts'].isEmpty) {
+    //   appMap['artifacts'] = {
+    //     artifactPath: {'platforms': platforms}
+    //   };
+    // }
+
+    final fileMetadata = FileMetadata(
+      // content: appIdWithVersion, // TODO:
+      createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
+      urls: {artifactUrl},
+      mimeType: asset['content_type'],
+      hash: fileHash,
+      size: size,
+      platforms: platforms.toSet().cast(),
+      version: version,
+      pubkeys: {developerPubkey}.nonNulls.toSet(),
+      additionalEventTags: {
+        // `executables` is the YAML array, `executable` the (multiple) tag
+        for (final e in (value['executables'] ?? []))
+          ('executable', replaceInExecutable(e, match)),
+      },
+    );
+
+    return super.applyMetadata();
+  }
+
+  @override
+  Future<void> applyRemoteMetadata() async {
     final repoUrl = 'https://api.github.com/repos/$repositoryName';
     final repoJson =
         await http.get(Uri.parse(repoUrl), headers: headers).getJson();
@@ -177,15 +194,15 @@ class GithubParser extends ArtifactParser {
     // );
 
     final release = Release(
-      createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
-      content: latestReleaseJson['body'],
+      createdAt: fileMetadatas.first.createdAt,
+      // content: latestReleaseJson['body'],
       identifier: fileMetadatas.first.content,
-      url: latestReleaseJson['html_url'],
+      // url: latestReleaseJson['html_url'],
       pubkeys: app.pubkeys,
       zapTags: app.zapTags,
     );
 
-    return (app, release, fileMetadatas);
+    return super.applyRemoteMetadata();
   }
 }
 
