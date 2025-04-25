@@ -10,76 +10,39 @@ import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/local_parser.dart';
+import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/commands/publish/web_parser.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 
-/// Publish: a [configPath] may have multiple appIds,
-/// if the command specified `zapstore publish myapp`
-/// via [onlyPublishAppId] then only process myapp and ignore the rest
-Future<void> publish({
-  required String configPath,
-  required List<String> artifacts,
-  required bool overwriteApp,
-  required bool overwriteRelease,
-  String? onlyPublishAppId,
-  String? releaseNotes,
-}) async {
-  // - Load zapstore.yaml
-  // - Initialize relay
-  // - Loop through entries
-  //   - Determine publishing method
-  //   - Process with appropriate parser
-  //   - If Android
-  //     -
+class Publisher {
+  Future<void> initialize() async {
+    final configYaml = File(configPath);
 
-  // Upload Blossom
-  Future<void> _uploadToBlossom() async {
-    // TODO: Also upload images
-    // await uploadToBlossom(newImagePath, imageHash, imageMimeType);
+    if (!await configYaml.exists()) {
+      throw UsageException('Config not found at $configPath',
+          'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zapstore.dev for documentation.');
+    }
 
-    for (final artifactPath in artifacts) {
-      // TODO: Check if its in filemetadata x
+    final doc =
+        Map<String, YamlMap>.from(loadYaml(await configYaml.readAsString()));
 
-      final uploadSpinner = CliSpin(
-        text: 'Uploading artifact: $artifactPath...',
-        spinner: CliSpinners.dots,
-      ).start();
-
-      final tempArtifactPath =
-          path.join(Directory.systemTemp.path, path.basename(artifactPath));
-      await File(artifactPath).copy(tempArtifactPath);
-      final (artifactHash, newArtifactPath, mimeType) =
-          await renameToHash(tempArtifactPath);
-
-      if (!overwriteRelease) {
-        await checkReleaseOnRelay(
-          version: '1.1.1', // TODO: Version
-          artifactHash: artifactHash,
-          spinner: uploadSpinner,
-        );
-      }
-
-      String artifactUrl = '';
-      try {
-        artifactUrl = await uploadToBlossom(
-            newArtifactPath, artifactHash, mimeType,
-            spinner: uploadSpinner);
-        uploadSpinner
-            .success('Uploaded artifact: $artifactPath to $artifactUrl');
-      } catch (e) {
-        uploadSpinner.fail(e.toString());
-        rethrow;
-      }
-
-      // Ensure the file was fully uploaded
-      // TODO: Test this
-      final tempPackagePath =
-          await fetchFile(artifactUrl, spinner: uploadSpinner);
-      final computedHash = await computeHash(tempPackagePath);
-      if (computedHash != artifactHash) {
-        throw 'File was not correctly uploaded as hashes mismatch. Try again with --overwrite-release';
+    for (final MapEntry(key: id, value: appObj) in doc.entries) {
+      for (final MapEntry(key: osString, value: appMap as YamlMap)
+          in appObj.entries) {
+        if (onlyPublishAppId != null && onlyPublishAppId != id) {
+          // Skip if unspecified in CLI
+          continue;
+        }
+        try {
+          await processItem(
+            appMap: appMap,
+            os: SupportedOS.from(osString),
+          );
+        } on GracefullyAbortSignal {
+          continue;
+        }
       }
     }
   }
@@ -87,102 +50,55 @@ Future<void> publish({
   // Process item closure
   Future<void> processItem(
       {required YamlMap appMap, required SupportedOS os}) async {
-    // Normalize artifacts section as a YamlMap (it could be a List)
-    if (appMap['artifacts'] is YamlList) {
-      final map = YamlMap();
-      for (final a in appMap['artifacts']) {
-        map[a] = YamlMap();
-      }
-      appMap['artifacts'] = map;
-    }
-
-    print('Publishing ${(appMap['name']!.toString()).bold()} $os app...');
+    print(
+        'Publishing ${(appMap['name']!.toString()).bold()} ${os.name} app...');
 
     // TODO: Rethink "overwriting" app (only case would be re-pull from Play Store)
 
     // (1) Determine publishing method and ensure necessary data is okay
-    late final PublishingMethod method;
+    late final ArtifactParser parser;
     if (artifacts.isNotEmpty) {
-      method = PublishingMethod.local;
-    } else if (appMap.containsKey('version')) {
-      // A version is needed to do web extraction, so assume web
-      method = PublishingMethod.web;
+      // Normalize artifacts section as a Map (it could be a List)
+      final newMap = {...appMap.value};
+      newMap['artifacts'] ??= artifacts;
+      if (newMap['artifacts'] is Iterable) {
+        newMap['artifacts'] = {for (final a in newMap['artifacts']) a: {}};
+      }
+      parser = LocalParser(newMap, os);
     } else {
-      // If no artifacts and no version, try github
-      final repository = appMap['release_repository'] ?? appMap['repository'];
-      if (repository == null) {
-        if (isDaemonMode) {
-          print('No sources provided, skipping');
-          // Skips to the next entry in zapstore.yaml
-          throw GracefullyAbortSignal();
-        } else {
-          throw UsageException('No sources provided',
-              'Use the -a argument or add a repository in zapstore.yaml');
+      if (appMap.containsKey('version')) {
+        // A version is needed to do web extraction, so assume web
+        parser = WebParser(appMap, os);
+      } else {
+        // If no artifacts and no version, try github
+        final repository = appMap['release_repository'] ?? appMap['repository'];
+        if (repository == null) {
+          if (isDaemonMode) {
+            print('No sources provided, skipping');
+            // Skips to the next entry in zapstore.yaml
+            throw GracefullyAbortSignal();
+          } else {
+            throw UsageException('No sources provided',
+                'Use the -a argument or add a repository (or release_repository) in zapstore.yaml');
+          }
         }
+        final repositoryUri = Uri.parse(repository);
+        if (repositoryUri.host != 'github.com') {
+          throw 'Unsupported repository; service: ${repositoryUri.host}';
+        }
+        parser = GithubParser(appMap, os);
       }
-      final repositoryUri = Uri.parse(repository);
-      if (repositoryUri.host != 'github.com') {
-        throw 'Unsupported repository; service: ${repositoryUri.host}';
-      }
-      method = PublishingMethod.github;
     }
 
     // (2) Parse: Produces initial app, release, metadatas
-    final (app, release, fileMetadatas) = switch (method) {
-      PublishingMethod.local => await LocalParser().process(
-          artifacts: artifacts,
-          appMap: appMap,
-          overwriteRelease: overwriteRelease,
-          os: os,
-        ),
-      PublishingMethod.web => await WebParser().process(
-          appMap: appMap,
-          overwriteRelease: overwriteRelease,
-        ),
-      PublishingMethod.github => await GithubParser().process(
-          appMap: appMap,
-          overwriteRelease: overwriteRelease,
-        ),
-    };
 
-    // If release is absent, skip to next
-    if (release == null) {
-      print('No release, nothing to do');
-      throw GracefullyAbortSignal();
-    }
+    await parser.initialize();
+    await parser.applyMetadata();
+    await parser.applyRemoteMetadata();
+    final (app, release, fileMetadatas) =
+        (parser.app, parser.release!, parser.fileMetadatas);
 
-    // (3) If Android, check for extra metadata on Play Store, F-Droid, etc
-    // This may update the app
-    if (os == SupportedOS.android) {
-      var extraMetadata = 0;
-      CliSpin? extraMetadataSpinner;
-
-      if (!isDaemonMode) {
-        extraMetadata = Select(
-          prompt: 'Would you like to pull extra metadata for this app?',
-          options: ['Play Store', 'F-Droid', 'None'],
-        ).interact();
-
-        extraMetadataSpinner = CliSpin(
-          text: 'Fetching extra metadata...',
-          spinner: CliSpinners.dots,
-        ).start();
-      }
-
-      if (extraMetadata == 0) {
-        // TODO: Restore
-        // final playStoreParser = PlayStoreParser();
-        // app = await playStoreParser.run(
-        //   app: app,
-        //   originalName: appMap['name'],
-        //   spinner: extraMetadataSpinner,
-        // );
-      } else if (extraMetadata == 1) {
-        extraMetadataSpinner?.fail('F-Droid is not yet supported, sorry');
-      }
-    }
-
-    // (4) Sign
+    // (3) Sign
 
     var (signedApp, signedRelease, signedFileMetadatas) = await finalizeEvents(
       app: app,
@@ -190,7 +106,7 @@ Future<void> publish({
       fileMetadatas: fileMetadatas,
     );
 
-    // (5) Publish and upload
+    // (4) Publish and upload
 
     var publishEvents = true;
 
@@ -234,9 +150,7 @@ Future<void> publish({
     }
 
     var showWhitelistMessage = false;
-    if (publishEvents == false) {
-      print('No events published nor Blossom artifacts uploaded, exiting');
-    } else {
+    if (publishEvents) {
       for (final BaseEvent event in [
         signedApp,
         signedRelease,
@@ -254,7 +168,7 @@ Future<void> publish({
           if (isDaemonMode) {
             print('Published kind ${event.kind}');
           }
-          if (method == PublishingMethod.local) {
+          if (parser case LocalParser()) {
             await _uploadToBlossom();
           }
         } catch (e) {
@@ -265,6 +179,8 @@ Future<void> publish({
           }
         }
       }
+    } else {
+      print('No events published nor Blossom artifacts uploaded, exiting');
     }
 
     if (showWhitelistMessage) {
@@ -273,32 +189,52 @@ Future<void> publish({
     }
   }
 
-  // Now load YAML and loop
+  // Upload Blossom
+  Future<void> _uploadToBlossom() async {
+    // TODO: Also upload images
+    // await uploadToBlossom(newImagePath, imageHash, imageMimeType);
 
-  final configYaml = File(configPath);
+    for (final artifactPath in artifacts) {
+      // TODO: Check if its in filemetadata 'x' tag
 
-  if (!await configYaml.exists()) {
-    throw UsageException('Config not found at $configPath',
-        'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zapstore.dev for documentation.');
-  }
+      final uploadSpinner = CliSpin(
+        text: 'Uploading artifact: $artifactPath...',
+        spinner: CliSpinners.dots,
+      ).start();
 
-  final doc =
-      Map<String, YamlMap>.from(loadYaml(await configYaml.readAsString()));
+      final tempArtifactPath =
+          path.join(Directory.systemTemp.path, path.basename(artifactPath));
+      await File(artifactPath).copy(tempArtifactPath);
+      final (artifactHash, newArtifactPath, mimeType) =
+          await renameToHash(tempArtifactPath);
 
-  for (final MapEntry(key: id, value: appObj) in doc.entries) {
-    for (final MapEntry(key: osString, value: appMap as YamlMap)
-        in appObj.entries) {
-      if (onlyPublishAppId != null && onlyPublishAppId != id) {
-        // Skip if unspecified in CLI
-        continue;
-      }
-      try {
-        await processItem(
-          appMap: appMap,
-          os: SupportedOS.from(osString),
+      if (!overwriteRelease) {
+        await checkReleaseOnRelay(
+          version: '1.1.1', // TODO: Version
+          artifactHash: artifactHash,
+          spinner: uploadSpinner,
         );
-      } on GracefullyAbortSignal {
-        continue;
+      }
+
+      String artifactUrl = '';
+      try {
+        artifactUrl = await uploadToBlossom(
+            newArtifactPath, artifactHash, mimeType,
+            spinner: uploadSpinner);
+        uploadSpinner
+            .success('Uploaded artifact: $artifactPath to $artifactUrl');
+      } catch (e) {
+        uploadSpinner.fail(e.toString());
+        rethrow;
+      }
+
+      // Ensure the file was fully uploaded
+      // TODO: Test this
+      final tempPackagePath =
+          await fetchFile(artifactUrl, spinner: uploadSpinner);
+      final computedHash = await computeHash(tempPackagePath);
+      if (computedHash != artifactHash) {
+        throw 'File was not correctly uploaded as hashes mismatch. Try again with --overwrite-release';
       }
     }
   }
@@ -333,5 +269,3 @@ enum SupportedOS {
 }
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
-
-enum PublishingMethod { local, web, github }

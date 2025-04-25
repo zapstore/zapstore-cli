@@ -1,23 +1,24 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/commands/publish/local_parser.dart';
+import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 
 class GithubParser extends ArtifactParser {
+  GithubParser(super.appMap, super.os);
+
   Future<(App, Release?, Set<FileMetadata>)> process({
     required YamlMap appMap,
     required bool overwriteRelease,
   }) async {
     final repositoryName =
-        Uri.parse(appMap.releaseRepository ?? appMap.sourceRepository!)
-            .path
-            .substring(1);
+        Uri.parse(releaseRepository ?? sourceRepository!).path.substring(1);
 
     final headers = env['GITHUB_TOKEN'] != null
         ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
@@ -76,10 +77,6 @@ class GithubParser extends ArtifactParser {
     // final appIdWithVersion =
     //     'appid@1.1.1'; // app.identifierWithVersion(version);
 
-    final repoUrl = 'https://api.github.com/repos/$repositoryName';
-    final repoJson =
-        await http.get(Uri.parse(repoUrl), headers: headers).getJson();
-
     final fileMetadatas = <FileMetadata>{};
     for (var MapEntry(:key, :value) in artifacts!.entries) {
       final r = regexpFromKey(key);
@@ -128,7 +125,7 @@ class GithubParser extends ArtifactParser {
       final match = r.firstMatch(asset['name']);
 
       final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
-      final size = await runInShell('wc -c < $filePath');
+      final size = await File(filePath).length();
 
       // Since previous check was done on URL, check again now against hash
       if (!overwriteRelease) {
@@ -145,10 +142,10 @@ class GithubParser extends ArtifactParser {
         urls: {artifactUrl},
         mimeType: asset['content_type'],
         hash: fileHash,
-        size: int.tryParse(size),
+        size: size,
         platforms: platforms.toSet().cast(),
         version: version,
-        pubkeys: {appMap.developerPubkey}.nonNulls.toSet(),
+        pubkeys: {developerPubkey}.nonNulls.toSet(),
         additionalEventTags: {
           // `executables` is the YAML array, `executable` the (multiple) tag
           for (final e in (value['executables'] ?? []))
@@ -159,21 +156,25 @@ class GithubParser extends ArtifactParser {
       packageSpinner.success('Fetched package: $artifactUrl');
     }
 
-    var app = await appMap.toApp();
-    app = app.copyWith(
-      content: app.content.isNotEmpty ? app.content : repoJson['description'],
-      identifier: app.identifier,
-      name: app.name ?? repoJson['name'],
-      url: app.url ??
-          ((repoJson['homepage']?.isNotEmpty ?? false)
-              ? repoJson['homepage']
-              : null),
-      license: app.license ?? repoJson['license']?['spdx_id'],
-      tags: app.tags.isEmpty
-          ? (repoJson['topics'] as Iterable).toSet().cast()
-          : app.tags,
-      pubkeys: app.pubkeys,
-    );
+    final repoUrl = 'https://api.github.com/repos/$repositoryName';
+    final repoJson =
+        await http.get(Uri.parse(repoUrl), headers: headers).getJson();
+
+    // var app = await toApp();
+    // app = app.copyWith(
+    //   content: app.content.isNotEmpty ? app.content : repoJson['description'],
+    //   identifier: app.identifier,
+    //   name: app.name ?? repoJson['name'],
+    //   url: app.url ??
+    //       ((repoJson['homepage']?.isNotEmpty ?? false)
+    //           ? repoJson['homepage']
+    //           : null),
+    //   license: app.license ?? repoJson['license']?['spdx_id'],
+    //   tags: app.tags.isEmpty
+    //       ? (repoJson['topics'] as Iterable).toSet().cast()
+    //       : app.tags,
+    //   pubkeys: app.pubkeys,
+    // );
 
     final release = Release(
       createdAt: DateTime.tryParse(latestReleaseJson['created_at']),

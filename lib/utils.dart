@@ -11,7 +11,6 @@ import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
-import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 
@@ -88,24 +87,6 @@ Future<void> checkReleaseOnRelay(
 String formatProfile(BaseUser user) {
   final name = user.name ?? '';
   return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
-}
-
-extension YamlMapExt on YamlMap {
-  String? get developerPubkey => (this['developer']?.toString())?.hexKey;
-  String? get sourceRepository => this['repository'];
-  String? get releaseRepository => this['release_repository'];
-  Future<App> toApp() async {
-    return App(
-      content: this['description'] ?? this['summary'],
-      name: this['name'],
-      summary: this['summary'],
-      repository: sourceRepository,
-      icons: {if (this['icon'] != null) ...await processImages(this['icon'])},
-      images: await processImages(this['images'] ?? []),
-      license: this['license'],
-      pubkeys: {if (developerPubkey != null) developerPubkey!},
-    );
-  }
 }
 
 Future<Set<String>> processImages(List<String> imagePaths) async {

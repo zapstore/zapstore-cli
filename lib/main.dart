@@ -123,6 +123,12 @@ class RemoveCommand extends Command {
 }
 
 late final bool isDaemonMode;
+String? releaseNotes;
+late String configPath;
+late String? onlyPublishAppId;
+late List<String> artifacts;
+late bool overwriteApp;
+late bool overwriteRelease;
 
 class PublishCommand extends Command {
   PublishCommand() {
@@ -155,12 +161,11 @@ class PublishCommand extends Command {
 
   @override
   Future<void> run() async {
-    final onlyPublishAppId = argResults!.rest.firstOrNull;
-    final configFile = argResults!.option('config');
-    final artifacts = argResults!.multiOption('artifact');
+    onlyPublishAppId = argResults!.rest.firstOrNull;
+    configPath = argResults!.option('config')!;
+    artifacts = argResults!.multiOption('artifact');
     final releaseNotesFile = argResults!.option('release-notes');
 
-    String? releaseNotes;
     if (releaseNotesFile != null) {
       if (File(releaseNotesFile).existsSync()) {
         releaseNotes = File(releaseNotesFile).readAsStringSync();
@@ -170,19 +175,15 @@ class PublishCommand extends Command {
     }
 
     // Load env next to config file
-    env.load([path.join(path.dirname(configFile!), '.env')]);
+    env.load([path.join(path.dirname(configPath), '.env')]);
 
     // Set daemon mode
     isDaemonMode = argResults!.flag('daemon-mode');
 
-    await publish(
-      configPath: configFile,
-      onlyPublishAppId: onlyPublishAppId,
-      artifacts: artifacts,
-      releaseNotes: releaseNotes,
-      overwriteApp: argResults!.flag('overwrite-app'),
-      overwriteRelease: argResults!.flag('overwrite-release'),
-    );
+    overwriteApp = argResults!.flag('overwrite-app');
+    overwriteRelease = argResults!.flag('overwrite-release');
+
+    await Publisher().initialize();
   }
 }
 

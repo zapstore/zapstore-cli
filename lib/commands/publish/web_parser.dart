@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/commands/publish/local_parser.dart';
+import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
@@ -11,10 +11,11 @@ import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils.dart';
 
 class WebParser extends ArtifactParser {
+  WebParser(super.appMap, super.os);
+
   Future<(App, Release?, Set<FileMetadata>)> process({
     Map<String, dynamic>? artifacts,
     String? artifactContentType,
-    YamlList? versionSpec,
     required bool overwriteRelease,
     required YamlMap appMap,
   }) async {
@@ -23,6 +24,8 @@ class WebParser extends ArtifactParser {
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
+
+    final versionSpec = appMap['version'] as YamlList?;
 
     final [endpoint, selector, attribute, ...rest] = versionSpec!;
     final request = http.Request('GET', Uri.parse(endpoint))
@@ -38,8 +41,10 @@ class WebParser extends ArtifactParser {
         match = regexpFromKey(attribute).firstMatch(raw);
       } else {
         final body = await response.stream.bytesToString();
-        final file = File(path.join(Directory.systemTemp.path,
-            path.basename('app'.hashCode.toString()))); // TODO: Use random
+        final file = File(path.join(
+            Directory.systemTemp.path,
+            path.basename(
+                'RANDOM HERE'.hashCode.toString()))); // TODO: Use random
         await file.writeAsString(body);
         final raw = await runInShell("cat ${file.path} | jq -r '$selector'");
         match = regexpFromKey(attribute).firstMatch(raw);
@@ -84,7 +89,7 @@ class WebParser extends ArtifactParser {
         await fetchFile(artifactUrl, spinner: artifactSpinner);
     final (artifactHash, newArtifactPath, _) =
         await renameToHash(tempArtifactPath);
-    final size = await runInShell('wc -c < $newArtifactPath');
+    final size = await File(newArtifactPath).length();
     // TODO: From APK or other
     final appIdWithVersion =
         'appid@1.1.1'; // app.identifierWithVersion(version);
@@ -103,22 +108,22 @@ class WebParser extends ArtifactParser {
       createdAt: DateTime.now(),
       urls: {artifactUrl},
       hash: artifactHash,
-      size: int.tryParse(size),
-      pubkeys: {appMap.developerPubkey}.nonNulls.toSet(),
+      size: size,
+      pubkeys: {developerPubkey}.nonNulls.toSet(),
     );
 
     artifactSpinner.success('Fetched artifact: $artifactUrl');
 
-    final app = await appMap.toApp();
+    // final app = await appMap.toApp();
 
-    final release = Release(
-      createdAt: DateTime.now(),
-      content: 'See $endpoint',
-      identifier: appIdWithVersion,
-      url: endpoint,
-      pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
-    );
+    // final release = Release(
+    //   createdAt: DateTime.now(),
+    //   content: 'See $endpoint',
+    //   identifier: appIdWithVersion,
+    //   url: endpoint,
+    //   pubkeys: app.pubkeys,
+    //   zapTags: app.zapTags,
+    // );
 
     return (app, release, {fileMetadata});
   }
