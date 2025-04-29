@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:collection/collection.dart';
-import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/models/nostr.dart';
 import 'package:http/http.dart' as http;
+import 'package:zapstore_cli/models/nostr.dart';
+import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class GithubParser extends ArtifactParser {
-  GithubParser(super.appMap, super.os);
+  GithubParser(super.appMap);
 
   String get repositoryName =>
       Uri.parse(releaseRepository ?? sourceRepository!).path.substring(1);
@@ -20,11 +20,10 @@ class GithubParser extends ArtifactParser {
       ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
       : <String, String>{};
 
-  Future<(App, Release?, Set<FileMetadata>)> process({
-    required YamlMap appMap,
-  }) async {
+  @override
+  Future<void> initialize() async {
     final metadataSpinner = CliSpin(
-      text: 'Fetching metadata...',
+      text: 'Fetching release...',
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
@@ -34,12 +33,15 @@ class GithubParser extends ArtifactParser {
     Map<String, dynamic>? latestReleaseJson =
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
+    app.version =
+        appMap['version'] ?? latestReleaseJson['tag_name']!.toString();
+
     // If there's a message it's an error (or no matching assets were found)
-    final artifacts = appMap['artifacts'] as YamlMap?;
     if (latestReleaseJson['message'] != null ||
         !(latestReleaseJson['assets'] as Iterable)
-            .any((a) => artifacts!.entries.any((e) {
-                  final r = regexpFromKey(e.key);
+            .any((a) => (appMap['artifacts'] as Iterable).any((e) {
+                  final r =
+                      regexpFromKey(e.replaceAll('\$version', app.version!));
                   return r.hasMatch(a['name']) ||
                       (a['label'] != null && r.hasMatch(a['label']));
                 }))) {
@@ -49,19 +51,19 @@ class GithubParser extends ArtifactParser {
       final releases = jsonDecode(response.body);
 
       if (releases is Map && releases['message'] != null) {
-        throw 'Error ${releases['message']} for $repositoryName, I\'m done here';
+        throw 'Error ${releases['message']} for $repositoryName';
       }
       releases as Iterable;
       if (releases.isEmpty) {
         throw 'No releases available';
       }
 
-      latestReleaseJson = _findRelease(releases, artifacts!);
+      latestReleaseJson = _findRelease(releases);
     }
 
     if (latestReleaseJson == null ||
         (latestReleaseJson['assets'] as Iterable).isEmpty) {
-      final message = 'No packages in $repositoryName, I\'m done here';
+      final message = 'No packages in $repositoryName';
       if (isDaemonMode) {
         print(message);
       }
@@ -69,21 +71,17 @@ class GithubParser extends ArtifactParser {
       throw GracefullyAbortSignal();
     }
 
-    metadataSpinner.success('Fetched metadata from Github');
+    metadataSpinner.success('Fetched release from Github');
 
-    final version = latestReleaseJson['tag_name']!.toString();
-    // // TODO: Get from  APK - what if its CLI app?
-    // final appIdWithVersion =
-    //     'appid@1.1.1'; // app.identifierWithVersion(version);
+    for (final key in appMap['artifacts']) {
+      if (await File(key).exists()) {
+        print('skipping as file exists');
+        continue;
+      }
 
-    final fileMetadatas = <FileMetadata>{};
-    for (var MapEntry(:key, :value) in artifacts!.entries) {
-      final r = regexpFromKey(key);
-
-      final asset = (latestReleaseJson['assets'] as Iterable).firstWhereOrNull(
-          (a) =>
-              r.hasMatch(a['name']) ||
-              (a['label'] != null && r.hasMatch(a['label'])));
+      final assets = (latestReleaseJson['assets'] as Iterable).where((a) =>
+          regexpFromKey(key).hasMatch(a['name']) ||
+          (a['label'] != null && regexpFromKey(key).hasMatch(a['label'])));
 
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
@@ -91,8 +89,8 @@ class GithubParser extends ArtifactParser {
         isSilent: isDaemonMode,
       ).start();
 
-      if (asset == null) {
-        final message = 'No asset matching ${r.pattern}';
+      if (assets.isEmpty) {
+        final message = 'No asset matching $key';
         if (isDaemonMode) {
           print(message);
         }
@@ -100,75 +98,44 @@ class GithubParser extends ArtifactParser {
         throw GracefullyAbortSignal();
       }
 
-      final artifactUrl = asset['browser_download_url'];
-      packageSpinner.text = 'Fetching package $artifactUrl...';
+      for (final asset in assets) {
+        final artifactUrl = asset['browser_download_url'];
+        packageSpinner.text = 'Fetching package $artifactUrl...';
 
-      if (!overwriteRelease) {
-        await checkReleaseOnRelay(
-          version: version,
-          artifactUrl: artifactUrl,
-          spinner: packageSpinner,
-        );
+        // if (!overwriteRelease) {
+        //   await checkReleaseOnRelay(
+        //     version: version,
+        //     artifactUrl: artifactUrl,
+        //     spinner: packageSpinner,
+        //   );
+        // }
+
+        final tempPackagePath = await fetchFile(artifactUrl,
+            headers: headers, spinner: packageSpinner);
+        final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
+
+        final fm = PartialFileMetadata();
+        fm.path = filePath;
+        fm.hash = fileHash;
+        fm.mimeType = detectFileType(
+                Uint8List.fromList(File(filePath).readAsBytesSync())) ??
+            asset['content_type'];
+        app.artifacts.add(fm);
+
+        packageSpinner.success('Fetched package: $artifactUrl');
       }
 
-      final tempPackagePath = await fetchFile(artifactUrl,
-          headers: headers, spinner: packageSpinner);
-
-      // Validate platforms
-      final platforms = {...?value['platforms'] as Iterable?};
-      if (!platforms
-          .every((platform) => kSupportedPlatforms.contains(platform))) {
-        throw 'Package ${asset['name']} has platforms $platforms but some are not in $kSupportedPlatforms';
-      }
-
-      final match = r.firstMatch(asset['name']);
-
-      final (fileHash, filePath, _) = await renameToHash(tempPackagePath);
-      final size = await File(filePath).length();
+      temp['created_at'] = DateTime.tryParse(latestReleaseJson['created_at']);
 
       // Since previous check was done on URL, check again now against hash
-      if (!overwriteRelease) {
-        await checkReleaseOnRelay(
-          version: version,
-          artifactHash: fileHash,
-          spinner: packageSpinner,
-        );
-      }
-
-      fileMetadatas.add(fileMetadata);
-      packageSpinner.success('Fetched package: $artifactUrl');
+      // if (!overwriteRelease) {
+      //   await checkReleaseOnRelay(
+      //     version: version,
+      //     artifactHash: fileHash,
+      //     spinner: packageSpinner,
+      //   );
+      // }
     }
-
-    return (app, release, fileMetadatas);
-  }
-
-  @override
-  Future<void> applyMetadata() async {
-    //     platforms = architectures.map((a) => 'android-$a').toSet();
-    // if (appMap['artifacts'].isEmpty) {
-    //   appMap['artifacts'] = {
-    //     artifactPath: {'platforms': platforms}
-    //   };
-    // }
-
-    final fileMetadata = FileMetadata(
-      // content: appIdWithVersion, // TODO:
-      createdAt: DateTime.tryParse(latestReleaseJson['created_at']),
-      urls: {artifactUrl},
-      mimeType: asset['content_type'],
-      hash: fileHash,
-      size: size,
-      platforms: platforms.toSet().cast(),
-      version: version,
-      pubkeys: {developerPubkey}.nonNulls.toSet(),
-      additionalEventTags: {
-        // `executables` is the YAML array, `executable` the (multiple) tag
-        for (final e in (value['executables'] ?? []))
-          ('executable', replaceInExecutable(e, match)),
-      },
-    );
-
-    return super.applyMetadata();
   }
 
   @override
@@ -176,6 +143,8 @@ class GithubParser extends ArtifactParser {
     final repoUrl = 'https://api.github.com/repos/$repositoryName';
     final repoJson =
         await http.get(Uri.parse(repoUrl), headers: headers).getJson();
+
+    appMap['description'] ??= repoJson['description'];
 
     // var app = await toApp();
     // app = app.copyWith(
@@ -193,28 +162,28 @@ class GithubParser extends ArtifactParser {
     //   pubkeys: app.pubkeys,
     // );
 
-    final release = Release(
-      createdAt: fileMetadatas.first.createdAt,
-      // content: latestReleaseJson['body'],
-      identifier: fileMetadatas.first.content,
-      // url: latestReleaseJson['html_url'],
-      pubkeys: app.pubkeys,
-      zapTags: app.zapTags,
-    );
+    // final release = Release(
+    //   createdAt: fileMetadatas.first.createdAt,
+    //   // content: latestReleaseJson['body'],
+    //   identifier: fileMetadatas.first.content,
+    //   // url: latestReleaseJson['html_url'],
+    //   pubkeys: app.pubkeys,
+    //   zapTags: app.zapTags,
+    // );
 
     return super.applyRemoteMetadata();
   }
-}
 
-Map<String, dynamic>? _findRelease(Iterable releases, YamlMap artifacts) {
-  for (final r in releases) {
-    for (final asset in r['assets']) {
-      for (final e in artifacts.entries) {
-        if (regexpFromKey(e.key).hasMatch(asset['name'])) {
-          return r;
+  Map<String, dynamic>? _findRelease(Iterable releases) {
+    for (final r in releases) {
+      for (final asset in r['assets']) {
+        for (final e in appMap['artifacts']) {
+          if (regexpFromKey(e.key).hasMatch(asset['name'])) {
+            return r;
+          }
         }
       }
     }
+    return null;
   }
-  return null;
 }

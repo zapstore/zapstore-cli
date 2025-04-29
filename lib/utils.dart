@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
+import 'package:crypto/crypto.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:mime/mime.dart';
 import 'package:process_run/process_run.dart';
@@ -195,9 +196,10 @@ Future<(String, String, String)> renameToHash(String filePath) async {
       .outText
       .split('\n')
       .first;
-  // TODO: Use new mime type
+  // TODO: Use new mime type -- NO actually use magic.dart
   // var mimeType =
   //     await getMimeType(File(filePath)) ?? 'application/octet-stream';
+  // kAndroidMimeType
   var hashName = '$hash$ext';
   if (hash == hashName) {
     if (mimeType == 'application/octet-stream' &&
@@ -244,13 +246,10 @@ Future<String> runInShell(String cmd,
 }
 
 Future<String> computeHash(String filePath) async {
-  if (Platform.isWindows) {
-    return await runInShell(
-        'certutil -hashfile "$filePath" SHA256 | findstr /v "CertUtil SHA256"');
-  }
-
-  return await runInShell(
-      'cat $filePath | ${Platform.isLinux ? 'sha256sum' : 'shasum -a 256'} | head -c 64');
+  return sha256
+      .convert(await File(filePath).readAsBytes())
+      .toString()
+      .toLowerCase();
 }
 
 void printJsonEncodeColored(Object obj) {
@@ -280,6 +279,7 @@ const kSupportedPlatforms = [
   'android-armeabi-v7a',
   'android-mips',
   'android-mips64',
+  'android-x86',
   'android-x86_64',
 ];
 

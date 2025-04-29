@@ -1,3 +1,11 @@
+## 0.2.0
+
+ - publisher is now separate library, can be used from zapstore android (almost)
+ - drastically changed zapstore.yaml format, must specify artifacts, can use regex
+ - removed most external dependencies, barely runs shell (no apktool necessary) so should work better in all operating systems
+ - can mix and match remote & local
+ - much more understandable code & reuse
+
 ## 0.1.2
 
  - Migration: zap.store to zapstore.dev

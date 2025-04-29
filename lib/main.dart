@@ -123,10 +123,9 @@ class RemoveCommand extends Command {
 }
 
 late final bool isDaemonMode;
-String? releaseNotes;
+// TODO: Add pointer to CHANGELOG.md in config yaml
+// String? releaseNotes;
 late String configPath;
-late String? onlyPublishAppId;
-late List<String> artifacts;
 late bool overwriteApp;
 late bool overwriteRelease;
 
@@ -161,18 +160,7 @@ class PublishCommand extends Command {
 
   @override
   Future<void> run() async {
-    onlyPublishAppId = argResults!.rest.firstOrNull;
     configPath = argResults!.option('config')!;
-    artifacts = argResults!.multiOption('artifact');
-    final releaseNotesFile = argResults!.option('release-notes');
-
-    if (releaseNotesFile != null) {
-      if (File(releaseNotesFile).existsSync()) {
-        releaseNotes = File(releaseNotesFile).readAsStringSync();
-      } else {
-        usageException('Please provide a valid release notes file');
-      }
-    }
 
     // Load env next to config file
     env.load([path.join(path.dirname(configPath), '.env')]);

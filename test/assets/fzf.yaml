@@ -1,0 +1,6 @@
+name: fzf
+repository: https://github.com/junegunn/fzf
+artifacts:
+  - fzf-.*-darwin_arm64.tar.gz
+  # - fzf-.*-linux_amd64.tar.gz
+  # - fzf-.*-linux_arm64.tar.gz

@@ -1,0 +1,5 @@
+name: Keyman
+repository: https://github.com/keymanapp/keyman
+version: ['https://keyman.com/downloads/', 'a[href$="apk"]', 'href', '%v']
+artifacts:
+  - https://downloads.keyman.com/android/stable/$version/keyman-$version.apk

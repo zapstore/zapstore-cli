@@ -24,78 +24,67 @@ class Publisher {
           'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zapstore.dev for documentation.');
     }
 
-    final doc =
-        Map<String, YamlMap>.from(loadYaml(await configYaml.readAsString()));
-
-    for (final MapEntry(key: id, value: appObj) in doc.entries) {
-      for (final MapEntry(key: osString, value: appMap as YamlMap)
-          in appObj.entries) {
-        if (onlyPublishAppId != null && onlyPublishAppId != id) {
-          // Skip if unspecified in CLI
-          continue;
-        }
-        try {
-          await processItem(
-            appMap: appMap,
-            os: SupportedOS.from(osString),
-          );
-        } on GracefullyAbortSignal {
-          continue;
-        }
-      }
-    }
-  }
-
-  // Process item closure
-  Future<void> processItem(
-      {required YamlMap appMap, required SupportedOS os}) async {
-    print(
-        'Publishing ${(appMap['name']!.toString()).bold()} ${os.name} app...');
-
-    // TODO: Rethink "overwriting" app (only case would be re-pull from Play Store)
+    final yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
 
     // (1) Determine publishing method and ensure necessary data is okay
+    // (1a) Normalize artifacts section as a Map, convert if it was a List
+    final appMap = {...yamlAppMap.value};
+
     late final ArtifactParser parser;
-    if (artifacts.isNotEmpty) {
-      // Normalize artifacts section as a Map (it could be a List)
-      final newMap = {...appMap.value};
-      newMap['artifacts'] ??= artifacts;
-      if (newMap['artifacts'] is Iterable) {
-        newMap['artifacts'] = {for (final a in newMap['artifacts']) a: {}};
-      }
-      parser = ArtifactParser(newMap, os);
+
+    final hasRemoteArtifacts = appMap['artifacts'].any((k) {
+      return Uri.tryParse(k)?.hasScheme ?? false;
+    });
+    final hasLocalArtifacts = appMap['artifacts'].any((k) {
+      return k.toString().contains('/');
+    });
+
+    if (hasRemoteArtifacts) {
+      parser = WebParser(appMap);
+    } else if (hasLocalArtifacts) {
+      // We only check for cliArtifacts when repository == null, as GithubParser
+      // is able to deal with some local files (but needs a source repo)
+      parser = ArtifactParser(appMap);
     } else {
-      if (appMap.containsKey('version')) {
-        // A version is needed to do web extraction, so assume web
-        parser = WebParser(appMap, os);
-      } else {
-        // If no artifacts and no version, try github
-        final repository = appMap['release_repository'] ?? appMap['repository'];
-        if (repository == null) {
-          if (isDaemonMode) {
-            print('No sources provided, skipping');
-            // Skips to the next entry in zapstore.yaml
-            throw GracefullyAbortSignal();
-          } else {
-            throw UsageException('No sources provided',
-                'Use the -a argument or add a repository (or release_repository) in zapstore.yaml');
-          }
-        }
+      // If no artifacts supplied via CLI and no remote artifacts declared, try github
+      final repository = appMap['release_repository'] ?? appMap['repository'];
+      if (repository != null) {
         final repositoryUri = Uri.parse(repository);
         if (repositoryUri.host != 'github.com') {
           throw 'Unsupported repository; service: ${repositoryUri.host}';
         }
-        parser = GithubParser(appMap, os);
+        parser = GithubParser(appMap);
+      } else {
+        if (isDaemonMode) {
+          print('No sources provided, skipping');
+          // Skips to the next entry in zapstore.yaml
+          throw GracefullyAbortSignal();
+        } else {
+          // TODO: Wrong message
+          throw UsageException('No sources provided', '''Options:
+  - Pass local artifacts with the -a argument
+  - If artifacts are Github releases, add a repository (or release_repository if closed source) in zapstore.yaml
+  - If artifacts are elsewhere on the web, declare remote artifacts and a version spec in zapstore.yaml''');
+        }
       }
     }
+
+    print(
+        'Publishing ${(appMap['name']!.toString()).bold()} app with ${parser.runtimeType}...');
 
     // (2) Parse: Produces initial app, release, metadatas
 
     await parser.initialize();
     await parser.applyMetadata();
     await parser.applyRemoteMetadata();
-    final (app, release, fileMetadatas) =
-        (parser.app, parser.release!, parser.fileMetadatas);
+    // print(parser.app.toMap());
+    final (app, release, fileMetadatas) = parser.events;
+
+    print(app);
+
+    print(release);
+
+    print(fileMetadatas);
 
     // (3) Sign
 
@@ -192,7 +181,7 @@ class Publisher {
     // TODO: Also upload images
     // await uploadToBlossom(newImagePath, imageHash, imageMimeType);
 
-    for (final artifactPath in artifacts) {
+    for (final artifactPath in []) {
       // TODO: Check if its in filemetadata 'x' tag
       // Check any url, image, etc that matches cdn.zapstore.dev (or other configurable?)
 
@@ -229,6 +218,7 @@ class Publisher {
 
       // Ensure the file was fully uploaded
       // TODO: Test this
+      // TODO: Remove temp files
       final tempPackagePath =
           await fetchFile(artifactUrl, spinner: uploadSpinner);
       final computedHash = await computeHash(tempPackagePath);
@@ -258,13 +248,13 @@ Future<bool> ensureOverwriteApp(bool overwriteApp, String appIdentifier) async {
   return overwriteApp;
 }
 
-enum SupportedOS {
-  cli,
-  android;
+// enum SupportedOS {
+//   cli,
+//   android;
 
-  static SupportedOS from(dynamic value) {
-    return SupportedOS.values.firstWhere((os) => os.name == value.toString());
-  }
-}
+//   static SupportedOS from(dynamic value) {
+//     return SupportedOS.values.firstWhere((os) => os.name == value.toString());
+//   }
+// }
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');
