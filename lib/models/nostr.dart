@@ -16,8 +16,10 @@ class PartialApp {
   String? icon;
   String? repository;
   String? releaseRepository;
-  Set<String> images = {};
+  Set<String>? images;
+  Set<String>? tags;
   String? releaseNotes;
+  String? url;
   Set<PartialFileMetadata> artifacts = {};
 
   Map<String, dynamic> toMap() {
@@ -31,7 +33,9 @@ class PartialApp {
       'icon': icon,
       'repository': repository,
       'releaseRepository': releaseRepository,
-      'images': images.toList(),
+      'url': url,
+      'tags': tags?.toList(),
+      'images': images?.toList(),
       'releaseNotes': releaseNotes,
       'artifacts': artifacts.map((artifact) => artifact.toMap()).toList(),
     };
@@ -39,7 +43,8 @@ class PartialApp {
 }
 
 class PartialFileMetadata {
-  String? identifierWithVersion;
+  String? identifier;
+  String? version;
   String? path;
   Set<String>? platforms;
   Set<String>? signatureHashes;
@@ -54,7 +59,8 @@ class PartialFileMetadata {
 
   Map<String, dynamic> toMap() {
     return {
-      'identifierWithVersion': identifierWithVersion,
+      'identifier': identifier,
+      'version': version,
       'path': path,
       'platforms': platforms?.toList(),
       'signatureHashes': signatureHashes?.toList(),

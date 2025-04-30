@@ -70,7 +70,7 @@ class Publisher {
     }
 
     print(
-        'Publishing ${(appMap['name']!.toString()).bold()} app with ${parser.runtimeType}...');
+        'Publishing ${(appMap['name']?.toString())?.bold() ?? ''} app with ${parser.runtimeType}...');
 
     // (2) Parse: Produces initial app, release, metadatas
 

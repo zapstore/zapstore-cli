@@ -9,6 +9,7 @@ environment:
 dependencies:
   archive: ^4.0.7
   args: ^2.5.0
+  asn1lib: ^1.6.4
   cli_spin: ^1.0.1
   collection: ^1.18.0
   crypto: ^3.0.6

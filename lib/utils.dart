@@ -6,7 +6,6 @@ import 'dart:typed_data';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:crypto/crypto.dart';
 import 'package:interact_cli/interact_cli.dart';
-import 'package:mime/mime.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
@@ -94,7 +93,7 @@ Future<Set<String>> processImages(List<String> imagePaths) async {
   final imageBlossomUrls = <String>{};
   for (final imagePath in imagePaths) {
     final (imageHash, newImagePath, imageMimeType) =
-        await renameToHash(imagePath);
+        await renameToHash(imagePath, copy: true);
     final imageBlossomUrl = 'https://cdn.zapstore.dev/$imageHash';
     imageBlossomUrls.add(imageBlossomUrl);
   }
@@ -188,24 +187,20 @@ extension on int {
 }
 
 /// Returns hash, hashed file path, mime type
-Future<(String, String, String)> renameToHash(String filePath) async {
+Future<(String, String, String)> renameToHash(String filePath,
+    {bool copy = false}) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final ext = path.extension(Uri.parse(filePath).path);
   final hash = await computeHash(filePath);
+
+  // TODO: Replace with magic
   var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
       .outText
       .split('\n')
       .first;
-  // TODO: Use new mime type -- NO actually use magic.dart
-  // var mimeType =
-  //     await getMimeType(File(filePath)) ?? 'application/octet-stream';
-  // kAndroidMimeType
+
   var hashName = '$hash$ext';
   if (hash == hashName) {
-    if (mimeType == 'application/octet-stream' &&
-        filePath.endsWith('.tar.gz')) {
-      mimeType = 'application/gzip';
-    }
     final [t1, t2] = mimeType.split('/');
     if (t1.trim() == 'image') {
       hashName = '$hash.$t2';
@@ -215,19 +210,8 @@ Future<(String, String, String)> renameToHash(String filePath) async {
   final destFilePath = env['BLOSSOM_DIR'] != null
       ? path.join(env['BLOSSOM_DIR']!, hashName)
       : path.join(Directory.systemTemp.path, hashName);
-  await run('mv $filePath $destFilePath', verbose: false);
+  await run('${copy ? 'cp' : 'mv'} $filePath $destFilePath', verbose: false);
   return (hash, destFilePath, mimeType);
-}
-
-Future<String?> getMimeType(File file) async {
-  // Read the first 512 bytes of the file
-  final bytes = await file.openRead(0, 512).toList();
-  final headerBytes = bytes.expand((x) => x).toList();
-
-  // Detect the MIME type using the headerBytes
-  final mimeType = lookupMimeType(file.path, headerBytes: headerBytes);
-
-  return mimeType;
 }
 
 Future<String> runInShell(String cmd,

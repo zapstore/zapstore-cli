@@ -1,4 +1,0 @@
-name: Sample
-description: Just a sample APK
-artifacts:
-  - sample.*.apk

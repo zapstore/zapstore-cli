@@ -2,13 +2,13 @@ import 'package:meta/meta.dart';
 import 'package:purplebase/purplebase.dart';
 import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/parser/magic.dart';
+import 'package:zapstore_cli/parser/signatures.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
-import 'package:zapstore_cli/parser/signatures.dart';
 
 class ArtifactParser {
   final Map appMap;
@@ -17,17 +17,15 @@ class ArtifactParser {
   late final PartialApp app;
 
   ArtifactParser(this.appMap) {
-    app = PartialApp()
-      ..identifier =
-          appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
-    if (appMap['version'] is String) {
-      app.version = appMap['version']!;
-      var i = 0;
-      for (final artifact in appMap['artifacts'].toList()) {
-        appMap['artifacts'][i++] =
-            artifact.toString().replaceAll('\$version', app.version!);
-      }
-    }
+    app = PartialApp();
+    // TODO: Restore version replacement
+    // if (appMap['version'] is String) {
+    //   int i = 0;
+    //   for (final artifact in appMap['artifacts'].toList()) {
+    //     appMap['artifacts'][i++] =
+    //         artifact.toString().replaceAll('\$version', appMap['version']!);
+    //   }
+    // }
   }
 
   Future<void> initialize() async {
@@ -46,10 +44,36 @@ class ArtifactParser {
   /// including APK data in the case of Android
   @mustCallSuper
   Future<void> applyMetadata() async {
+    String? identifier = appMap['identifier'];
+    String? version = appMap['version'] is String ? appMap['version'] : null;
+
     for (final pfm in app.artifacts) {
       final fm = await parseFile(pfm);
+
+      identifier ??= fm.identifier;
+      if (identifier == null) {
+        throw 'Identifier is null';
+      } else if (fm.identifier != null && fm.identifier != identifier) {
+        throw '${fm.identifier} != $identifier - mismatching identifiers, abort';
+      }
+
+      version ??= fm.version;
+      if (version == null) {
+        throw 'Version is null';
+      } else if (fm.version != null && fm.version != version) {
+        throw '${fm.version} != $version - mismatching versions, abort';
+      }
+
       app.artifacts.add(fm);
     }
+
+    app.name ??= appMap['name']?.toString().toLowerCase();
+    app.identifier = identifier ?? app.name;
+    app.version = version;
+    print('got app ${app.identifier}@${app.version}');
+
+    app.url ??= appMap['homepage'];
+    app.tags ??= (appMap['tags'] as String?)?.trim().split(' ').toSet();
 
     // TODO: If release is absent, skip to next
     // if (release == null) {
@@ -63,17 +87,14 @@ class ArtifactParser {
     //     spinner: packageSpinner,
     //   );
     // }
-    final [identifier, version] =
-        app.artifacts.first.identifierWithVersion!.split('@');
+
     app
-      ..identifier = identifier
       ..description = appMap['description'] ?? appMap['summary']
-      ..name = appMap['name']
       ..summary = appMap['summary']
       ..repository = sourceRepository
       ..license = appMap['license'];
     if (appMap['icon'] != null) {
-      app.icon = (await processImages(appMap['icon'])).first;
+      app.icon = (await processImages([appMap['icon']])).first;
     }
     app.images = await processImages(appMap['images'] ?? []);
   }
@@ -122,6 +143,8 @@ class ArtifactParser {
 
   Future<PartialFileMetadata> parseFile(PartialFileMetadata metadata) async {
     final artifactPath = metadata.path!;
+    String? identifier;
+    String? version;
 
     if (!await File(artifactPath).exists()) {
       throw 'No artifact file found at $artifactPath';
@@ -129,11 +152,10 @@ class ArtifactParser {
 
     print('parsing $artifactPath');
 
-    // TODO: Check with magic library
-    if (artifactPath.endsWith('.apk')) {
-      final apkFile = File(artifactPath);
-      final apkBytes = apkFile.readAsBytesSync();
-      final archive = ZipDecoder().decodeBytes(apkBytes);
+    final fileType = detectFileType(artifactPath);
+    if (fileType == kAndroidMimeType) {
+      final artifactBytes = await File(artifactPath).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(artifactBytes);
 
       var architectures = {'arm64-v8a'};
       try {
@@ -147,7 +169,7 @@ class ArtifactParser {
 
       metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
-      metadata.signatureHashes = await getSignatures(archive);
+      metadata.signatureHashes = await getSignatures(artifactPath);
       if (metadata.signatureHashes!.isEmpty) {
         throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $artifactPath';
       }
@@ -157,23 +179,11 @@ class ArtifactParser {
       final rawAndroidManifest = AxmlParser.toXml(binaryManifestFile.content);
       final manifestDocument = parseHtmlDocument(rawAndroidManifest);
 
-      final apkIdentifier =
+      identifier =
           manifestDocument.querySelector('manifest')!.attributes['package']!;
 
-      // We do it this way because we are looping and use to check they all coincide
-      if (app.identifier == null) {
-        app.identifier = apkIdentifier;
-      } else if (app.identifier != apkIdentifier) {
-        throw 'Different identifier (${app.identifier} != $apkIdentifier), aborting';
-      }
-
       final manifest = manifestDocument.querySelector('manifest')!;
-      final apkVersion = manifest.attributes['android:versionName'];
-      if (app.version == null) {
-        app.version = apkVersion;
-      } else if (app.version != apkVersion) {
-        throw 'Different version (${app.version} != $apkVersion), aborting';
-      }
+      version = manifest.attributes['android:versionName'];
 
       metadata.versionCode = manifest.attributes['android:versionCode'];
 
@@ -181,19 +191,34 @@ class ArtifactParser {
       metadata.minSdkVersion = usesSdk.attributes['android:minSdkVersion'];
       metadata.targetSdkVersion =
           usesSdk.attributes['android:targetSdkVersion'];
-    } else {
-      // TODO: Also properly check with magic, else throw
-      if (metadata.mimeType!.contains('archive')) {
-        final z =
-            GZipDecoder().decodeBytes(File(metadata.path!).readAsBytesSync());
-        final archive = TarDecoder().decodeBytes(z);
-        // TODO: In this way detect executables!
-        // And then pass through executables regex filter from config
-        final w = archive.files.map((f) =>
-            f.isFile && f.size > 0 ? detectFileType(f.readBytes()!) : '');
-        print(w);
-      }
+
+      metadata.mimeType = kAndroidMimeType;
+      metadata.identifier = identifier;
+    } else if (fileType == 'application/gzip') {
+      final z =
+          GZipDecoder().decodeBytes(File(metadata.path!).readAsBytesSync());
+      final archive = TarDecoder().decodeBytes(z);
+      // TODO: In this way detect executables!
+      // And then pass through executables regex filter from config
+      final w = archive.files
+          .map((f) => f.isFile && f.size > 0 ? detectFileType(f.name) : '');
+      print(w);
     }
+
+    if (fileType != null && fileType.startsWith('')) {
+      metadata.platforms = {
+        switch (fileType) {
+          'application/x-mach-binary-arm64' => 'darwin-arm64',
+          'application/x-mach-binary-amd64' => 'darwin-x86_64',
+          'application/x-elf-aarch64' => 'linux-aarch64',
+          'application/x-elf-amd64' => 'linux-x86_64',
+          _ => ''
+        }
+      };
+    }
+
+    // Rename to generic mime type, in any way we query by platform
+    metadata.mimeType ??= 'application/octet-stream';
 
     // TODO: Check platforms are supported
     // final artifactEntry = artifacts.entries.firstWhereOrNull(
@@ -217,18 +242,11 @@ class ArtifactParser {
     final (artifactHash, newArtifactPath, mimeType) =
         await renameToHash(tempArtifactPath);
 
+    metadata.hash = artifactHash;
     metadata.url = 'https://cdn.zapstore.dev/$artifactHash';
     metadata.size = await File(newArtifactPath).length();
 
-    if (app.identifier == null) {
-      throw 'Cannot continue without identifier, use identifier or name in zapstore.yaml';
-    }
-
-    if (app.version == null) {
-      throw 'Cannot continue without version, use version in zapstore.yaml';
-    }
-
-    metadata.identifierWithVersion = '${app.identifier}@${app.version}';
+    metadata.version = version ?? appMap['version'];
 
     return metadata;
   }
@@ -249,15 +267,20 @@ class ArtifactParser {
           .toSet(),
       repository: app.repository,
       name: app.name,
+      url: app.url,
+      tags: app.tags,
     );
 
     final fFileMetadatas = app.artifacts.map((a) {
       return FileMetadata(
-        content: a.identifierWithVersion,
+        // Use app's identifier/version
+        content: '${app.identifier}@${app.version}',
         mimeType: a.mimeType,
         hash: a.hash,
         platforms: a.platforms,
         size: a.size,
+        version: a.version,
+        urls: {a.url}.nonNulls.toSet(),
         additionalEventTags: {
           // CLI-specific
           for (final e in a.executables) ('executable', e),
@@ -273,6 +296,7 @@ class ArtifactParser {
 
     final fRelease = Release(
       content: 'Release notes here',
+      identifier: fFileMetadatas.first.content,
       url: temp['url'],
       // TODO: Fix (need to get event ID)
       // linkedEvents: fFileMetadatas.map((f) => f.id.toString()).toSet(),

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
@@ -117,9 +116,8 @@ class GithubParser extends ArtifactParser {
         final fm = PartialFileMetadata();
         fm.path = filePath;
         fm.hash = fileHash;
-        fm.mimeType = detectFileType(
-                Uint8List.fromList(File(filePath).readAsBytesSync())) ??
-            asset['content_type'];
+        fm.url = artifactUrl;
+        fm.mimeType = detectFileType(filePath) ?? asset['content_type'];
         app.artifacts.add(fm);
 
         packageSpinner.success('Fetched package: $artifactUrl');

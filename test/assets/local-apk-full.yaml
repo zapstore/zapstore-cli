@@ -1,0 +1,10 @@
+name: Sample
+description: Just a sample APK
+summary: Sample summary
+homepage: https://zapstore.dev
+tags: zapstore repository blah
+icon: test/assets/icon.png
+license: MIT
+repository: https://github.com/zapstore/zapstore
+artifacts:
+  - test/assets/.*.apk
