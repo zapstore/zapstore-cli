@@ -6,13 +6,19 @@ import 'dart:typed_data';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:crypto/crypto.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:models/models.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
-import 'package:purplebase/purplebase.dart';
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/models/nostr.dart';
+import 'package:zapstore_cli/parser/magic.dart';
+
+final kTempDir = Directory.systemTemp.path;
+
+String getFileInTemp(String name) {
+  return path.join(kTempDir, path.basename(name));
+}
 
 final kBaseDir = Platform.isWindows
     ? path.join(env['USERPROFILE']!, '.zapstore')
@@ -39,7 +45,7 @@ Future<Map<String, dynamic>> checkUser() async {
             if (str.trim().isEmpty) {
               return true;
             }
-            str.trim().hexKey.npub;
+            Utils.npubFromHex(Utils.hexFromNpub(str.trim()));
             return true;
           } catch (e) {
             throw ValidationError('Invalid npub');
@@ -61,14 +67,18 @@ Future<void> checkReleaseOnRelay(
     CliSpin? spinner}) async {
   late final bool isReleaseOnRelay;
   if (artifactHash != null) {
-    final artifacts = await relay.query<FileMetadata>(tags: {
-      '#x': [artifactHash]
-    });
+    final artifacts =
+        await storage.query<FileMetadata>(RequestFilter(remote: true, tags: {
+      '#x': {artifactHash}
+    }));
+
     isReleaseOnRelay = artifacts.isNotEmpty;
   } else {
-    final artifacts = await relay.query<FileMetadata>(
+    final artifacts = await storage.query<FileMetadata>(RequestFilter(
+      remote: true,
       search: artifactUrl!,
-    );
+    ));
+
     // Search is full-text (not exact) so we double-check
     isReleaseOnRelay = artifacts.any((r) {
       return r.urls.any((u) => u == artifactUrl);
@@ -84,20 +94,18 @@ Future<void> checkReleaseOnRelay(
   }
 }
 
-String formatProfile(BaseUser user) {
-  final name = user.name ?? '';
-  return '${name.toString().bold()}${user.nip05?.isEmpty ?? false ? '' : ' (${user.nip05})'} - https://nostr.com/${user.npub}';
+String formatProfile(Profile profile) {
+  final name = profile.name ?? '';
+  return '${name.toString().bold()}${profile.nip05?.isEmpty ?? false ? '' : ' (${profile.nip05})'} - https://nostr.com/${profile.npub}';
 }
 
-Future<Set<String>> processImages(List<String> imagePaths) async {
-  final imageBlossomUrls = <String>{};
-  for (final imagePath in imagePaths) {
-    final (imageHash, newImagePath, imageMimeType) =
-        await renameToHash(imagePath, copy: true);
-    final imageBlossomUrl = 'https://cdn.zapstore.dev/$imageHash';
-    imageBlossomUrls.add(imageBlossomUrl);
+Future<Set<String>> renameToHashes(List<String> filePaths) async {
+  final hashes = <String>{};
+  for (final filePath in filePaths) {
+    final (hash, mimeType) = await renameToHash(filePath, copy: true);
+    hashes.add(hash);
   }
-  return imageBlossomUrls;
+  return hashes;
 }
 
 /// Returns the downloaded file path
@@ -106,7 +114,7 @@ Future<String> fetchFile(
   Map<String, String>? headers,
   CliSpin? spinner,
 }) async {
-  final file = File(path.join(Directory.systemTemp.path, path.basename(url)));
+  final file = File(getFileInTemp(url));
   await shell.run('rm -fr ${file.path}');
   final initialText = spinner?.text;
   final completer = Completer<String>();
@@ -150,18 +158,20 @@ Future<String> fetchFile(
   return completer.future;
 }
 
-Future<String> uploadToBlossom(
-    String artifactPath, String artifactHash, String artifactMimeType,
+Future<String> uploadToBlossom(BlossomAuthorization authorization,
     {CliSpin? spinner}) async {
-  var artifactUrl = 'https://cdn.zapstore.dev/$artifactHash';
-  final headResponse = await http.head(Uri.parse(artifactUrl));
+  var artifactUrl = '$kZapstoreBlossomUrl/${authorization.hashes.first}';
+  final artifactHash = authorization.hashes.first;
+  final headResponse = await http.head(Uri.parse(artifactUrl),
+      headers: {'Authorization': 'Nostr ${authorization.toBase64()}'});
   if (headResponse.statusCode != 200) {
+    final artifactPath = path.join(kTempDir, artifactHash);
     final bytes = await File(artifactPath).readAsBytes();
     final response = await http.post(
-      Uri.parse('https://cdn.zapstore.dev/upload'),
+      Uri.parse('$kZapstoreBlossomUrl/upload'),
       body: bytes,
       headers: {
-        'Content-Type': artifactMimeType,
+        'Content-Type': authorization.mimeType!,
         'X-Filename': path.basename(artifactPath),
       },
     );
@@ -186,18 +196,14 @@ extension on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
 }
 
-/// Returns hash, hashed file path, mime type
-Future<(String, String, String)> renameToHash(String filePath,
+/// Returns hash, mime type
+Future<(String, String)> renameToHash(String filePath,
     {bool copy = false}) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final ext = path.extension(Uri.parse(filePath).path);
   final hash = await computeHash(filePath);
 
-  // TODO: Replace with magic
-  var mimeType = (await run('file -b --mime-type $filePath', verbose: false))
-      .outText
-      .split('\n')
-      .first;
+  final mimeType = detectFileType(filePath)!;
 
   var hashName = '$hash$ext';
   if (hash == hashName) {
@@ -209,9 +215,9 @@ Future<(String, String, String)> renameToHash(String filePath,
 
   final destFilePath = env['BLOSSOM_DIR'] != null
       ? path.join(env['BLOSSOM_DIR']!, hashName)
-      : path.join(Directory.systemTemp.path, hashName);
+      : path.join(kTempDir, hash);
   await run('${copy ? 'cp' : 'mv'} $filePath $destFilePath', verbose: false);
-  return (hash, destFilePath, mimeType);
+  return (hash, mimeType);
 }
 
 Future<String> runInShell(String cmd,
@@ -242,9 +248,9 @@ void printJsonEncodeColored(Object obj) {
   prettyJson.split('\n').forEach((line) {
     if (line.contains(separator)) {
       final [prop, ...rest] = line.split(separator);
-      print('${prop.green()}$separator${rest.join(separator).cyan()}');
+      stderr.writeln('${prop.green()}$separator${rest.join(separator).cyan()}');
     } else {
-      print(line.cyan());
+      stderr.writeln(line.cyan());
     }
   });
 }
@@ -253,21 +259,16 @@ class GracefullyAbortSignal extends Error {}
 
 const kAndroidMimeType = 'application/vnd.android.package-archive';
 
-const kSupportedPlatforms = [
+const kZapstoreSupportedPlatforms = [
   'darwin-arm64',
-  'darwin-x86_64',
   'linux-aarch64',
   'linux-x86_64',
   'android-arm64-v8a',
-  'android-armeabi',
-  'android-armeabi-v7a',
-  'android-mips',
-  'android-mips64',
-  'android-x86',
-  'android-x86_64',
 ];
 
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
 const kAppRelays = {'wss://relay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};
+
+String kZapstoreBlossomUrl = 'https://cdn.zapstore.dev';

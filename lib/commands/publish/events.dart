@@ -1,74 +1,91 @@
-import 'package:collection/collection.dart';
-import 'package:purplebase/purplebase.dart';
-import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/models/nostr.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'dart:async';
+import 'dart:convert';
 
-Future<(App, Release, Set<FileMetadata>)> finalizeEvents({
-  required App app,
-  required Release release,
-  required Set<FileMetadata> fileMetadatas,
+import 'package:models/models.dart';
+import 'package:nip07_signer/main.dart';
+import 'package:process_run/process_run.dart';
+import 'package:riverpod/riverpod.dart';
+
+Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
+    signModels({
+  required List<PartialModel> partialModels,
   bool overwriteApp = false,
+  required String signWith,
 }) async {
-  var nsec = env['NSEC'];
+  final container = ProviderContainer();
+  final ref = container.read(refProvider);
+  final signer = switch (signWith) {
+    'NIP07' => NIP07Signer(ref),
+    _ when signWith.startsWith('bunker://') =>
+      NakNIP46Signer(ref, connectionString: signWith),
+    _ => Bip340PrivateKeySigner(signWith, ref),
+  };
 
-//           if (nsec == null) {
-//             print('''\n
-// ***********
-// Please provide your nsec (in nsec or hex format) to sign the events.
+  // TODO: Rethink the checking on relay, here signer.getPublicKey() is complex
+  // if (!overwriteApp) {
+  //   final pubkey = await signer.getPublicKey();
 
-// ${' It will be discarded IMMEDIATELY after signing! '.bold().onYellow().black()}
+  //   // If we don't overwrite the app, get the latest copy from the relay
+  //   final appsInRelay =
+  //       await storage.query<App>(RequestFilter(remote: true, tags: {
+  //     '#d': {app.identifier!},
+  //   }, authors: {
+  //     pubkey
+  //   }));
 
-// For non-interactive use, pass the NSEC environment variable. More signing options coming soon.
-// If unsure, run this program from source. See https://github.com/zapstore/zapstore-cli'
-// ***********
-// ''');
-//             nsec ??= Password(prompt: 'nsec').interact();
-//           }
-  if (nsec == null) {
-    // TODO: Allow no nsec and just output events for external signing
-    print('Here I will print out events for you to sign');
-    throw GracefullyAbortSignal();
-  }
+  //   if (appsInRelay.isNotEmpty) {
+  //     signedApp = appsInRelay.first;
+  //   }
+  // }
 
-  if (nsec.startsWith('nsec')) {
-    nsec = bech32Decode(nsec);
-  }
+  final signedEvents = await signer.sign(partialModels);
 
-  final pubkey = BaseEvent.getPublicKey(nsec);
+  final signedApp = signedEvents.whereType<App>().first;
+  final signedRelease = signedEvents.whereType<Release>().first;
+  final signedFileMetadatas = signedEvents.whereType<FileMetadata>().toSet();
+  final signedBlossomAuthorizations =
+      signedEvents.whereType<BlossomAuthorization>().toSet();
 
-  final signedFileMetadatas = fileMetadatas.map((fm) => fm.sign(nsec!)).toSet();
-
-  if (!overwriteApp) {
-    // If we don't overwrite the app, get the latest copy from the relay
-    final appInRelay = (await relay.query<App>(
-      tags: {
-        '#d': [app.identifier]
-      },
-      authors: {pubkey},
-    ))
-        .firstOrNull;
-
-    if (appInRelay != null) {
-      app = appInRelay;
-    }
-  }
-
-  final signedApp = app
-      .copyWith(
-        platforms: fileMetadatas.map((fm) => fm.platforms).flattened.toSet(),
-        linkedReplaceableEvents: {
-          release.getReplaceableEventLink(pubkey: pubkey)
-        },
-        // Always use the latest release timestamp
-        createdAt: release.createdAt,
-      )
-      .sign(nsec);
-
-  final signedRelease = release.copyWith(
-    linkedEvents: signedFileMetadatas.map((fm) => fm.id.toString()).toSet(),
-    linkedReplaceableEvents: {signedApp.getReplaceableEventLink()},
-  ).sign(nsec);
-
-  return (signedApp, signedRelease, signedFileMetadatas);
+  return (
+    signedApp,
+    signedRelease,
+    signedFileMetadatas,
+    signedBlossomAuthorizations
+  );
 }
+
+class NakNIP46Signer extends Signer {
+  final String connectionString;
+
+  NakNIP46Signer(super.ref, {required this.connectionString});
+
+  @override
+  Future<String> getPublicKey() async {
+    return '';
+  }
+
+  @override
+  Future<Signer> initialize() async {
+    return this;
+  }
+
+  @override
+  Future<List<E>> sign<E extends Model<dynamic>>(
+      List<PartialModel<dynamic>> partialModels,
+      {String? withPubkey}) async {
+    final result = await run('nak event --connect $connectionString',
+        runInShell: true,
+        stdin: Stream.value(utf8.encode(
+            partialModels.map((p) => jsonEncode(p.toMap())).join('\n'))));
+    return result.outText
+        .split('\n')
+        .map((line) {
+          final map = jsonDecode(line) as Map<String, dynamic>;
+          return Model.getConstructorForKind(map['kind'])!.call(map, ref);
+        })
+        .cast<E>()
+        .toList();
+  }
+}
+
+final refProvider = Provider((ref) => ref);

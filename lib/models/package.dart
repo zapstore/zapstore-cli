@@ -4,10 +4,10 @@ import 'dart:math';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:models/models.dart';
 import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:path/path.dart' as path;
 
@@ -79,8 +79,8 @@ class Package {
       'application/gzip',
       'application/x-gtar'
     ].contains(meta.mimeType)) {
-      final extractDir = path.join(Directory.systemTemp.path,
-          '${path.basenameWithoutExtension(downloadPath)}.tmp');
+      final extractDir =
+          getFileInTemp('${path.basenameWithoutExtension(downloadPath)}.tmp');
 
       final uncompress =
           ['application/gzip', 'application/x-gtar'].contains(meta.mimeType)
@@ -89,7 +89,8 @@ class Package {
 
       final mvs = {
         // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath in meta.tagMap['executable'] ?? {identifier})
+        for (final binaryPath
+            in meta.executables.isEmpty ? {identifier} : meta.executables)
           _installBinaryCmd(
               path.join(extractDir, binaryPath),
               path.join(
@@ -210,9 +211,10 @@ After that, open a new shell and re-run this program.
 
     final filePath = Platform.script.toFilePath();
     final hash = await computeHash(filePath);
-    await zapstorePackage._installFromLocal(
-        filePath, FileMetadata(version: kVersion, hash: hash),
-        keepCopy: true);
+    // TODO: Restore
+    // await zapstorePackage._installFromLocal(
+    //     filePath, FileMetadata(version: kVersion, hash: hash),
+    //     keepCopy: true);
     await zapstorePackage.linkVersion(kVersion);
     // Try again with zapstore installed/updated
     print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());

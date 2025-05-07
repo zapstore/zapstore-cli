@@ -3,8 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
-import 'package:path/path.dart' as path;
-import 'package:purplebase/purplebase.dart';
+import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
@@ -12,7 +11,6 @@ import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/commands/publish/web_parser.dart';
-import 'package:zapstore_cli/models/nostr.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class Publisher {
@@ -21,32 +19,33 @@ class Publisher {
 
     if (!await configYaml.exists()) {
       throw UsageException('Config not found at $configPath',
-          'Please create a zapstore.yaml file in this directory or pass it using `-c`. See https://zapstore.dev for documentation.');
+          'Please create a zapstore.yaml file in this directory or pass it using `-c`.');
     }
 
     final yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
 
-    // (1) Determine publishing method and ensure necessary data is okay
-    // (1a) Normalize artifacts section as a Map, convert if it was a List
+    // (1) Validate input and determine parser
     final appMap = {...yamlAppMap.value};
+    final artifacts = appMap['artifacts'] as List;
 
     late final ArtifactParser parser;
 
-    final hasRemoteArtifacts = appMap['artifacts'].any((k) {
+    final hasRemoteArtifacts = artifacts.any((k) {
+      // Paths with a scheme are fetched from the web
       return Uri.tryParse(k)?.hasScheme ?? false;
     });
-    final hasLocalArtifacts = appMap['artifacts'].any((k) {
+    final hasLocalArtifacts = artifacts.any((k) {
+      // Paths are considered local only when they have
+      // a forward slash, if needed write: ./file.apk
       return k.toString().contains('/');
     });
 
     if (hasRemoteArtifacts) {
       parser = WebParser(appMap);
     } else if (hasLocalArtifacts) {
-      // We only check for cliArtifacts when repository == null, as GithubParser
-      // is able to deal with some local files (but needs a source repo)
       parser = ArtifactParser(appMap);
     } else {
-      // If no artifacts supplied via CLI and no remote artifacts declared, try github
+      // If paths do not have a scheme and do not contain slashes, try Github
       final repository = appMap['release_repository'] ?? appMap['repository'];
       if (repository != null) {
         final repositoryUri = Uri.parse(repository);
@@ -55,160 +54,82 @@ class Publisher {
         }
         parser = GithubParser(appMap);
       } else {
-        if (isDaemonMode) {
-          print('No sources provided, skipping');
-          // Skips to the next entry in zapstore.yaml
-          throw GracefullyAbortSignal();
-        } else {
-          // TODO: Wrong message
-          throw UsageException('No sources provided', '''Options:
-  - Pass local artifacts with the -a argument
-  - If artifacts are Github releases, add a repository (or release_repository if closed source) in zapstore.yaml
-  - If artifacts are elsewhere on the web, declare remote artifacts and a version spec in zapstore.yaml''');
-        }
+        throw UsageException('No sources provided', '');
       }
     }
-
-    print(
-        'Publishing ${(appMap['name']?.toString())?.bold() ?? ''} app with ${parser.runtimeType}...');
 
     // (2) Parse: Produces initial app, release, metadatas
-
-    await parser.initialize();
+    await parser.resolveVersion();
+    await parser.findHashes();
     await parser.applyMetadata();
     await parser.applyRemoteMetadata();
-    // print(parser.app.toMap());
-    final (app, release, fileMetadatas) = parser.events;
 
-    print(app);
+    final List<PartialModel> partialModels = [
+      parser.partialApp,
+      parser.partialRelease,
+      ...parser.partialFileMetadatas,
+      ...parser.blossomAuthorizations,
+    ];
 
-    print(release);
+    // (3) Sign events and Blossom authorizations
 
-    print(fileMetadatas);
+    final signWith = env['SIGN_WITH'];
 
-    // (3) Sign
+    if (signWith == null) {
+      stderr.writeln(
+          '⚠️  ${'Nothing to sign with, sending unsigned events to stdout'.bold()}');
+      for (final PartialModel model in partialModels) {
+        print(model);
+      }
+      return;
+    }
 
-    var (signedApp, signedRelease, signedFileMetadatas) = await finalizeEvents(
-      app: app,
-      release: release,
-      fileMetadatas: fileMetadatas,
+    var (
+      signedApp,
+      signedRelease,
+      signedFileMetadatas,
+      signedBlossomAuthorizations
+    ) = await signModels(
+      partialModels: partialModels,
+      signWith: signWith,
     );
 
-    // (4) Publish and upload
+    // (4) Upload to Blossom
+    await _uploadToBlossom(signedBlossomAuthorizations);
 
-    var publishEvents = true;
-
-    if (!isDaemonMode) {
-      print('\n');
-      final viewEvents = Select(
-        prompt: 'Events signed! How do you want to proceed?',
-        options: [
-          'Inspect the events and confirm before publishing to relays',
-          'Publish the events to relays now',
-          'Skip without publishing'
-        ],
-      ).interact();
-
-      if (viewEvents == 0) {
-        print('\n');
-        print('App event (kind 32267)'.bold().black().onWhite());
-        print('\n');
-        printJsonEncodeColored(signedApp.toMap());
-
-        print('\n');
-        print('Release event (kind 30063)'.bold().black().onWhite());
-        print('\n');
-        printJsonEncodeColored(signedRelease.toMap());
-        print('\n');
-        print('File metadata events (kind 1063)'.bold().black().onWhite());
-        print('\n');
-        for (final m in signedFileMetadatas) {
-          printJsonEncodeColored(m.toMap());
-          print('\n');
-        }
-
-        publishEvents = Confirm(
-          prompt:
-              'Scroll up to check the events and press `y` when you\'re ready to publish',
-          defaultValue: true,
-        ).interact();
-      } else if (viewEvents == 2) {
-        throw GracefullyAbortSignal();
-      }
-    }
-
-    var showWhitelistMessage = false;
-    if (publishEvents) {
-      for (final BaseEvent event in [
-        signedApp,
-        signedRelease,
-        ...signedFileMetadatas
-      ]) {
-        try {
-          final spinner = CliSpin(
-            text: 'Publishing kind ${event.kind}...',
-            spinner: CliSpinners.dots,
-            isSilent: isDaemonMode,
-          ).start();
-          await relay.publish(event);
-          spinner.success(
-              '${'Published'.bold()}: ${event.id.toString()} (kind ${event.kind})');
-          if (isDaemonMode) {
-            print('Published kind ${event.kind}');
-          }
-
-          await _uploadToBlossom();
-        } catch (e) {
-          print(
-              '${e.toString().bold().black().onRed()}: ${event.id} (kind ${event.kind})');
-          if (e.toString().contains('not accepted')) {
-            showWhitelistMessage = true;
-          }
-        }
-      }
-    } else {
-      print('No events published nor Blossom artifacts uploaded, exiting');
-    }
-
-    if (showWhitelistMessage) {
-      print(
-          '\n${'Your npub is not whitelisted on the relay'.bold()}! If you want to self-publish your app, reach out.\n');
-    }
+    // (5) Publish
+    await _publishToRelays(signedApp, signedRelease, signedFileMetadatas);
   }
 
   // Upload Blossom
-  Future<void> _uploadToBlossom() async {
+  Future<void> _uploadToBlossom(
+      Set<BlossomAuthorization> authorizations) async {
     // TODO: Also upload images
     // await uploadToBlossom(newImagePath, imageHash, imageMimeType);
 
-    for (final artifactPath in []) {
-      // TODO: Check if its in filemetadata 'x' tag
-      // Check any url, image, etc that matches cdn.zapstore.dev (or other configurable?)
+    for (final a in []) {
+      final artifactPath = a.content;
 
       final uploadSpinner = CliSpin(
         text: 'Uploading artifact: $artifactPath...',
         spinner: CliSpinners.dots,
       ).start();
 
-      final tempArtifactPath =
-          path.join(Directory.systemTemp.path, path.basename(artifactPath));
+      final tempArtifactPath = getFileInTemp(artifactPath);
       await File(artifactPath).copy(tempArtifactPath);
-      final (artifactHash, newArtifactPath, mimeType) =
-          await renameToHash(tempArtifactPath);
+      final (artifactHash, mimeType) = await renameToHash(tempArtifactPath);
 
-      if (!overwriteRelease) {
-        await checkReleaseOnRelay(
-          version: '1.1.1', // TODO: Version
-          artifactHash: artifactHash,
-          spinner: uploadSpinner,
-        );
-      }
+      // if (!overwriteRelease) {
+      //   await checkReleaseOnRelay(
+      //     version: '1.1.1',
+      //     artifactHash: artifactHash,
+      //     spinner: uploadSpinner,
+      //   );
+      // }
 
       String artifactUrl = '';
       try {
-        artifactUrl = await uploadToBlossom(
-            newArtifactPath, artifactHash, mimeType,
-            spinner: uploadSpinner);
+        artifactUrl = await uploadToBlossom(a, spinner: uploadSpinner);
         uploadSpinner
             .success('Uploaded artifact: $artifactPath to $artifactUrl');
       } catch (e) {
@@ -227,6 +148,85 @@ class Publisher {
       }
     }
   }
+
+  Future<void> _publishToRelays(App signedApp, Release signedRelease,
+      Set<FileMetadata> signedFileMetadatas) async {
+    var publishEvents = true;
+
+    if (!isDaemonMode) {
+      final viewEvents = Select(
+        prompt: 'Events signed! How do you want to proceed?',
+        options: [
+          'Inspect the events and confirm before publishing to relays',
+          'Publish the events to relays now',
+        ],
+      ).interact();
+
+      if (viewEvents == 0) {
+        stderr.writeln();
+        stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
+        stderr.writeln();
+        printJsonEncodeColored(signedApp.toMap());
+
+        stderr.writeln();
+        stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
+        stderr.writeln();
+        printJsonEncodeColored(signedRelease.toMap());
+        stderr.writeln();
+        stderr.writeln(
+            'File metadata events (kind 1063)'.bold().black().onWhite());
+        stderr.writeln();
+        for (final m in signedFileMetadatas) {
+          printJsonEncodeColored(m.toMap());
+          stderr.writeln();
+        }
+
+        publishEvents = Confirm(
+          prompt:
+              'Scroll up to check the events and press `y` when you\'re ready to publish',
+          defaultValue: true,
+        ).interact();
+      }
+    }
+
+    var showWhitelistMessage = false;
+    if (publishEvents) {
+      for (final Model model in [
+        signedApp,
+        signedRelease,
+        ...signedFileMetadatas
+      ]) {
+        final kind = model.event.kind;
+        try {
+          final spinner = CliSpin(
+            text: 'Publishing kind $kind...',
+            spinner: CliSpinners.dots,
+            isSilent: isDaemonMode,
+          ).start();
+          await storage.save({model}, publish: true);
+          spinner.success(
+              '${'Published'.bold()}: ${model.id.toString()} (kind $kind)');
+          if (isDaemonMode) {
+            print('Published kind $kind');
+          }
+        } catch (e) {
+          stderr.writeln(
+              '${e.toString().bold().black().onRed()}: ${model.id} (kind $kind)');
+          if (e.toString().contains('not accepted')) {
+            showWhitelistMessage = true;
+          }
+        }
+      }
+    } else {
+      stderr.writeln(
+          'No events published nor Blossom artifacts uploaded, exiting');
+    }
+
+    if (showWhitelistMessage) {
+      stderr.writeln(
+          '\n${'Your npub is not whitelisted on the relay'.bold()}! If you want to self-publish your app, reach out.\n');
+    }
+  }
 }
 
 /// We check for apps with this same identifier (of any author, for simplicity)
@@ -234,11 +234,11 @@ class Publisher {
 /// This allows us to be roughly correct about the correct overwriteApp value,
 /// which will trigger fetching app information through the appropriate parser below.
 Future<bool> ensureOverwriteApp(bool overwriteApp, String appIdentifier) async {
-  final appsWithIdentifier = await relay.query<App>(
-    tags: {
-      '#d': [appIdentifier]
-    },
-  );
+  final appsWithIdentifier =
+      await storage.query<App>(RequestFilter(remote: true, tags: {
+    '#d': {appIdentifier}
+  }));
+
   // If none were found (first time publishing), we ignore the
   // overwrite argument and set it to true
   if (appsWithIdentifier.isEmpty) {

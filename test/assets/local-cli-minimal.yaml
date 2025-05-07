@@ -2,4 +2,4 @@
 identifier: jq
 version: 1.7.1
 artifacts:
-  - test/assets/jq*
+  - test/assets/jq.*

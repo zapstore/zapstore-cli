@@ -1,6 +1,9 @@
+import 'package:collection/collection.dart';
+import 'package:http/http.dart' as http;
+import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
-import 'package:purplebase/purplebase.dart';
-import 'package:zapstore_cli/models/nostr.dart';
+import 'package:models/models.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/parser/signatures.dart';
 import 'package:zapstore_cli/utils.dart';
@@ -12,31 +15,97 @@ import 'package:zapstore_cli/parser/axml_parser.dart';
 
 class ArtifactParser {
   final Map appMap;
-  final temp = <String, dynamic>{};
 
-  late final PartialApp app;
+  final partialApp = PartialApp();
+  final partialRelease = PartialRelease();
+  final partialFileMetadatas = <PartialFileMetadata>{};
+  final blossomAuthorizations = <PartialBlossomAuthorization>{};
 
-  ArtifactParser(this.appMap) {
-    app = PartialApp();
-    // TODO: Restore version replacement
-    // if (appMap['version'] is String) {
-    //   int i = 0;
-    //   for (final artifact in appMap['artifacts'].toList()) {
-    //     appMap['artifacts'][i++] =
-    //         artifact.toString().replaceAll('\$version', appMap['version']!);
-    //   }
-    // }
+  final bool areFilesLocal;
+
+  String? resolvedVersion;
+
+  final artifactHashes = <String>{};
+
+  ArtifactParser(this.appMap, {this.areFilesLocal = true});
+
+  Future<void> resolveVersion() async {
+    // Usecase: configs may specify a version: 1.2.1
+    // and have artifacts $version replaced: jq-$version-macos
+    if (appMap['version'] is String) {
+      resolvedVersion = appMap['version'];
+    }
+    if (appMap['version'] is List) {
+      final versionSpec = appMap['version'] as List;
+
+      final [endpoint, selector, attribute, ...rest] = versionSpec;
+      final request = http.Request('GET', Uri.parse(endpoint))
+        ..followRedirects = false;
+
+      final response = await http.Client().send(request);
+
+      RegExpMatch? match;
+      if (rest.isEmpty) {
+        // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
+        if (response.isRedirect) {
+          final raw = response.headers[selector]!;
+          match = regexpFromKey(attribute).firstMatch(raw);
+        } else {
+          final body = await response.stream.bytesToString();
+          final jsonMatch = JsonPath(selector).read(body).firstOrNull?.value;
+          if (jsonMatch != null) {
+            match = regexpFromKey(attribute).firstMatch(jsonMatch.toString());
+          }
+        }
+      } else {
+        // If versionSpec has 4 positions, it's an HTML endpoint
+        final body = await response.stream.bytesToString();
+        final elem = parseHtmlDocument(body).querySelector(selector.toString());
+        if (elem != null) {
+          final raw =
+              attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
+          match = regexpFromKey(rest.first).firstMatch(raw);
+        }
+      }
+
+      resolvedVersion = match != null
+          ? (match.groupCount > 0 ? match.group(1) : match.group(0))
+          : null;
+
+      if (resolvedVersion == null) {
+        final message = 'could not match version for $selector';
+        // artifactSpinner.fail(message);
+        if (isDaemonMode) {
+          print(message);
+        }
+        throw GracefullyAbortSignal();
+      }
+    } else if (appMap['version'] is String) {
+      resolvedVersion = appMap['version'];
+    }
+
+    // Replace all artifacts with resolved version
+    (<String>[...appMap['artifacts']]).forEachIndexed((i, a) {
+      appMap['artifacts'][i] = a.replaceAll('\$version', resolvedVersion!);
+      // print('replacgin $a = $resolvedVersion');
+    });
   }
 
-  Future<void> initialize() async {
+  Future<void> findHashes() async {
     for (final artifact in appMap['artifacts']) {
       final dir = Directory(path.dirname(artifact));
-      final r = RegExp(path.basename(artifact));
-      final as =
-          dir.listSync().where((e) => e is File && r.hasMatch(e.path)).map((e) {
-        return PartialFileMetadata()..path = e.path;
-      });
-      app.artifacts.addAll(as);
+      final r = RegExp('^${path.basename(artifact)}\$');
+      final apaths = dir
+          .listSync()
+          .where((e) => e is File && r.hasMatch(path.basename(e.path)))
+          .map((e) => e.path);
+
+      for (final artifactPath in apaths) {
+        final tempArtifactPath = getFileInTemp(artifactPath);
+        await File(artifactPath).copy(tempArtifactPath);
+        final (artifactHash, _) = await renameToHash(tempArtifactPath);
+        artifactHashes.add(artifactHash);
+      }
     }
   }
 
@@ -45,35 +114,28 @@ class ArtifactParser {
   @mustCallSuper
   Future<void> applyMetadata() async {
     String? identifier = appMap['identifier'];
-    String? version = appMap['version'] is String ? appMap['version'] : null;
 
-    for (final pfm in app.artifacts) {
-      final fm = await parseFile(pfm);
+    for (final pfm in artifactHashes) {
+      final (fm, bs) = await parseFile(pfm);
 
-      identifier ??= fm.identifier;
-      if (identifier == null) {
-        throw 'Identifier is null';
-      } else if (fm.identifier != null && fm.identifier != identifier) {
-        throw '${fm.identifier} != $identifier - mismatching identifiers, abort';
-      }
+      identifier =
+          _validatePropertyMatch(identifier, fm.identifier, type: 'identifier');
+      resolvedVersion =
+          _validatePropertyMatch(resolvedVersion, fm.version, type: 'version');
 
-      version ??= fm.version;
-      if (version == null) {
-        throw 'Version is null';
-      } else if (fm.version != null && fm.version != version) {
-        throw '${fm.version} != $version - mismatching versions, abort';
-      }
-
-      app.artifacts.add(fm);
+      partialFileMetadatas.add(fm);
+      blossomAuthorizations.addAll(bs);
     }
 
-    app.name ??= appMap['name']?.toString().toLowerCase();
-    app.identifier = identifier ?? app.name;
-    app.version = version;
-    print('got app ${app.identifier}@${app.version}');
+    partialApp.name ??= appMap['name']?.toString().toLowerCase();
+    partialApp.identifier = identifier ?? partialApp.name;
+    partialRelease.identifier = '$identifier@$resolvedVersion';
 
-    app.url ??= appMap['homepage'];
-    app.tags ??= (appMap['tags'] as String?)?.trim().split(' ').toSet();
+    partialApp.url ??= appMap['homepage'];
+    if (partialApp.tags.isEmpty) {
+      partialApp.tags =
+          (appMap['tags'] as String?)?.trim().split(' ').toSet() ?? {};
+    }
 
     // TODO: If release is absent, skip to next
     // if (release == null) {
@@ -88,22 +150,42 @@ class ArtifactParser {
     //   );
     // }
 
-    app
+    partialApp
       ..description = appMap['description'] ?? appMap['summary']
       ..summary = appMap['summary']
       ..repository = sourceRepository
       ..license = appMap['license'];
     if (appMap['icon'] != null) {
-      app.icon = (await processImages([appMap['icon']])).first;
+      final icon = (await renameToHashes([appMap['icon']])).first;
+      partialApp.addIcon(icon);
     }
-    app.images = await processImages(appMap['images'] ?? []);
+    for (final image in await renameToHashes(appMap['images'] ?? [])) {
+      partialApp.addImage(image);
+    }
+
+    // TODO: Look for release notes from file?
+    partialRelease.event.content = '';
+    partialRelease.identifier = '$identifier@$resolvedVersion';
+
+    // TODO: Perform all this earlier
+    partialApp.platforms =
+        partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
+    // partialApp.event.setTagValue('a', partialRelease.event.addressableId);
+
+    // Always use the latest release timestamp, but do earlier
+    partialApp.event.createdAt = partialRelease.event.createdAt;
+
+    // TODO: How can I link models at this stage if I need ID and for that pubkey
+    for (final fm in partialFileMetadatas) {
+      // partialRelease.linkModel(fm);
+    }
+    // partialRelease.linkModel(signedApp);
   }
 
   /// Fetches from Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
     // TODO: Restore
-    print('Would you like to pull extra metadata for this app?');
     // TODO: Also offer pulling Source Code (if github) and parsing Fastlane metadata
 
     // if (os == SupportedOS.android) {
@@ -137,21 +219,16 @@ class ArtifactParser {
 
   // Helpers
 
-  String? get developerPubkey => (appMap['developer']?.toString())?.hexKey;
   String? get sourceRepository => appMap['repository'];
   String? get releaseRepository => appMap['release_repository'];
 
-  Future<PartialFileMetadata> parseFile(PartialFileMetadata metadata) async {
-    final artifactPath = metadata.path!;
+  Future<(PartialFileMetadata, Set<PartialBlossomAuthorization>)> parseFile(
+      String artifactHash) async {
+    final metadata = PartialFileMetadata();
+
     String? identifier;
-    String? version;
 
-    if (!await File(artifactPath).exists()) {
-      throw 'No artifact file found at $artifactPath';
-    }
-
-    print('parsing $artifactPath');
-
+    final artifactPath = getFileInTemp(artifactHash);
     final fileType = detectFileType(artifactPath);
     if (fileType == kAndroidMimeType) {
       final artifactBytes = await File(artifactPath).readAsBytes();
@@ -169,8 +246,8 @@ class ArtifactParser {
 
       metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
-      metadata.signatureHashes = await getSignatures(artifactPath);
-      if (metadata.signatureHashes!.isEmpty) {
+      metadata.apkSignatureHashes = await getSignatureHashes(artifactPath);
+      if (metadata.apkSignatureHashes.isEmpty) {
         throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $artifactPath';
       }
 
@@ -183,7 +260,7 @@ class ArtifactParser {
           manifestDocument.querySelector('manifest')!.attributes['package']!;
 
       final manifest = manifestDocument.querySelector('manifest')!;
-      version = manifest.attributes['android:versionName'];
+      metadata.version = manifest.attributes['android:versionName'];
 
       metadata.versionCode = manifest.attributes['android:versionCode'];
 
@@ -194,136 +271,87 @@ class ArtifactParser {
 
       metadata.mimeType = kAndroidMimeType;
       metadata.identifier = identifier;
-    } else if (fileType == 'application/gzip') {
-      final z =
-          GZipDecoder().decodeBytes(File(metadata.path!).readAsBytesSync());
-      final archive = TarDecoder().decodeBytes(z);
-      // TODO: In this way detect executables!
-      // And then pass through executables regex filter from config
-      final w = archive.files
-          .map((f) => f.isFile && f.size > 0 ? detectFileType(f.name) : '');
-      print(w);
+
+      // For backwards-compatibility
+      metadata.event.content = '${metadata.identifier}@${metadata.version}';
+    } else {
+      // CLI
+      metadata.version = resolvedVersion;
+
+      if (fileType == 'application/gzip') {
+        final bytes =
+            GZipDecoder().decodeBytes(File(artifactPath).readAsBytesSync());
+        final archive = TarDecoder().decodeBytes(bytes);
+        // TODO: In this way detect executables!
+        // And then pass through executables regex filter from config
+        final w = archive.files
+            .map((f) => f.isFile && f.size > 0 ? detectFileType(f.name) : '');
+        print(w);
+      } else if (fileType == 'application/zip') {}
     }
 
-    if (fileType != null && fileType.startsWith('')) {
+    // If platforms were not set, we are dealing with a binary
+    if (metadata.platforms.isEmpty) {
       metadata.platforms = {
         switch (fileType) {
           'application/x-mach-binary-arm64' => 'darwin-arm64',
           'application/x-mach-binary-amd64' => 'darwin-x86_64',
           'application/x-elf-aarch64' => 'linux-aarch64',
           'application/x-elf-amd64' => 'linux-x86_64',
-          _ => ''
+          _ => throw UnsupportedError('Bad platform: $fileType')
         }
       };
     }
 
-    // Rename to generic mime type, in any way we query by platform
+    // Default mime type, we query by platform anyway
     metadata.mimeType ??= 'application/octet-stream';
 
-    // TODO: Check platforms are supported
-    // final artifactEntry = artifacts.entries.firstWhereOrNull(
-    //     (e) => regexpFromKey(e.key).hasMatch(path.basename(artifactPath)));
-
-    // final match =
-    //     regexpFromKey(artifactEntry?.key ?? '').firstMatch(artifactPath);
-
-    // platforms ??= {...?artifactEntry?.value?['platforms'] as Iterable?};
-    // if (!platforms
-    //     .every((platform) => kSupportedPlatforms.contains(platform))) {
-    //   throw 'Artifact $artifactPath has platforms $platforms but some are not in $kSupportedPlatforms';
-    // }
+    // TODO: Should get the original name to inform the user
+    _verifyPlatforms(metadata, 'artifactPath');
 
     // TODO: Add executables
     // final executables = artifactEntry?.value?['executables'] ?? [];
 
-    final tempArtifactPath =
-        path.join(Directory.systemTemp.path, path.basename(artifactPath));
-    await File(artifactPath).copy(tempArtifactPath);
-    final (artifactHash, newArtifactPath, mimeType) =
-        await renameToHash(tempArtifactPath);
-
     metadata.hash = artifactHash;
-    metadata.url = 'https://cdn.zapstore.dev/$artifactHash';
-    metadata.size = await File(newArtifactPath).length();
+    metadata.url = '$kZapstoreBlossomUrl/$artifactHash';
+    metadata.size = await File(getFileInTemp(artifactHash)).length();
 
-    metadata.version = version ?? appMap['version'];
+    final bs = {
+      PartialBlossomAuthorization()
+        // content should be the name of the original file
+        ..content = 'Upload ${path.basename(artifactPath)}'
+        ..type = BlossomAuthorizationType.upload
+        ..expiration = DateTime.now().add(Duration(days: 1))
+        ..addHash(artifactHash)
+    };
 
-    return metadata;
+    return (metadata, bs);
   }
 
-  (App, Release, Set<FileMetadata>) get events {
-    final fApp = App(
-      content: app.description,
-      summary: app.summary,
-      identifier: app.identifier,
-      icons: {app.icon}.nonNulls.toSet(),
-      images: app.images,
-      createdAt: DateTime.now(),
-      license: app.license,
-      platforms: app.artifacts
-          .map((a) => a.platforms)
-          .nonNulls
-          .expand((e) => e)
-          .toSet(),
-      repository: app.repository,
-      name: app.name,
-      url: app.url,
-      tags: app.tags,
-    );
+  String _validatePropertyMatch(String? s1, String? s2,
+      {required String type}) {
+    s1 ??= s2;
+    if (s1 == null || s1.isEmpty) {
+      throw 'Please provide $type in the config';
+    } else if (s2 != null && s1 != s2) {
+      throw '$s1 != $s2 - mismatching $type, abort';
+    }
+    return s1;
+  }
 
-    final fFileMetadatas = app.artifacts.map((a) {
-      return FileMetadata(
-        // Use app's identifier/version
-        content: '${app.identifier}@${app.version}',
-        mimeType: a.mimeType,
-        hash: a.hash,
-        platforms: a.platforms,
-        size: a.size,
-        version: a.version,
-        urls: {a.url}.nonNulls.toSet(),
-        additionalEventTags: {
-          // CLI-specific
-          for (final e in a.executables) ('executable', e),
-          // APK-specific
-          ('version_code', a.versionCode),
-          ('min_sdk_version', a.minSdkVersion),
-          ('target_sdk_version', a.targetSdkVersion),
-          for (final signatureHash in (a.signatureHashes ?? {}))
-            ('apk_signature_hash', signatureHash),
-        },
-      );
-    }).toSet();
-
-    final fRelease = Release(
-      content: 'Release notes here',
-      identifier: fFileMetadatas.first.content,
-      url: temp['url'],
-      // TODO: Fix (need to get event ID)
-      // linkedEvents: fFileMetadatas.map((f) => f.id.toString()).toSet(),
-    );
-
-    // TODO: Missing pubkey here
-    // fApp.linkedReplaceableEvents.add(fRelease.getReplaceableEventLink());
-
-    return (fApp, fRelease, fFileMetadatas);
+  void _verifyPlatforms(PartialFileMetadata metadata, String artifactPath) {
+    if (metadata.mimeType == kAndroidMimeType) {
+      if (!metadata.platforms.contains('android-arm64-v8a')) {
+        throw UnsupportedError('APK $artifactPath does not support arm64-v8a');
+      }
+    }
+    if (metadata.platforms
+        .any((platform) => !kZapstoreSupportedPlatforms.contains(platform))) {
+      throw UnsupportedError(
+          'Artifact has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
+    }
   }
 }
-
-// extension on BaseEvent {
-//   String getEventId(String pubkey) {
-//     final data = [
-//       0,
-//       pubkey.toLowerCase(),
-//       createdAt!.toInt(),
-//       kind,
-//       _tagList,
-//       content
-//     ];
-//     final digest =
-//         sha256.convert(Uint8List.fromList(utf8.encode(json.encode(data))));
-//     return digest.toString();
-//   }
-// }
 
 RegExp regexpFromKey(String key) {
   // %v matches 1.0 or 1.0.1, no groups are captured

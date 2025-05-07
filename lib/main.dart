@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dotenv/dotenv.dart';
 import 'package:interact_cli/interact_cli.dart';
-import 'package:purplebase/purplebase.dart';
+import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/commands/install.dart';
@@ -19,16 +19,20 @@ const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
 
-late final RelayMessageNotifier relay;
-late final RelayMessageNotifier authorRelays;
+late final StorageNotifier storage;
 
 void main(List<String> args) async {
   final container = ProviderContainer();
   var wasError = false;
   try {
-    relay = container.read(relayProviderFamily(kAppRelays).notifier);
-    authorRelays = container.read(relayProviderFamily(
-        {'wss://relay.nostr.band', 'wss://relay.primal.net'}).notifier);
+    storage = container.read(storageNotifierProvider.notifier);
+    await storage.initialize(StorageConfiguration(
+      relayGroups: {
+        'zapstore': kAppRelays,
+        'social': {'wss://relay.nostr.band', 'wss://relay.primal.net'}
+      },
+      defaultRelayGroup: 'zapstore',
+    ));
 
     final runner = CommandRunner("zapstore",
         "$figure\nThe permissionless app store powered by your social network")
@@ -57,7 +61,7 @@ void main(List<String> args) async {
     wasError = true;
     reset();
   } finally {
-    await relay.dispose();
+    storage.dispose();
     container.dispose();
     exit(wasError ? 127 : 0);
   }
