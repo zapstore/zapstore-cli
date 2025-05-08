@@ -19,6 +19,7 @@ class WebParser extends ArtifactParser {
     partialRelease.version = resolvedVersion;
 
     for (final key in appMap['artifacts']) {
+      final artifact = key.toString().replaceAll('\$version', resolvedVersion!);
       // if (!overwriteRelease) {
       //   await checkReleaseOnRelay(
       //     version: version,
@@ -28,10 +29,10 @@ class WebParser extends ArtifactParser {
       // }
 
       // artifactSpinner.text = 'Fetching artifact $artifactUrl...';
-      print('Fetching $key');
+      print('Fetching $artifact');
 
       final tempArtifactPath = await fetchFile(
-        key,
+        artifact,
         // spinner: artifactSpinner,
       );
       final (artifactHash, mimeType) = await renameToHash(tempArtifactPath);

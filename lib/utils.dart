@@ -162,19 +162,22 @@ Future<String> uploadToBlossom(BlossomAuthorization authorization,
     {CliSpin? spinner}) async {
   var artifactUrl = '$kZapstoreBlossomUrl/${authorization.hashes.first}';
   final artifactHash = authorization.hashes.first;
-  final headResponse = await http.head(Uri.parse(artifactUrl),
-      headers: {'Authorization': 'Nostr ${authorization.toBase64()}'});
+  final headResponse = await http.head(Uri.parse(artifactUrl));
+
   if (headResponse.statusCode != 200) {
     final artifactPath = path.join(kTempDir, artifactHash);
     final bytes = await File(artifactPath).readAsBytes();
-    final response = await http.post(
+    final response = await http.put(
       Uri.parse('$kZapstoreBlossomUrl/upload'),
       body: bytes,
       headers: {
         'Content-Type': authorization.mimeType!,
         'X-Filename': path.basename(artifactPath),
+        'Authorization': 'Nostr ${authorization.toBase64()}',
       },
     );
+
+    print(response.body);
 
     final responseMap = Map<String, dynamic>.from(jsonDecode(response.body));
     artifactUrl = responseMap['url'];
@@ -271,4 +274,4 @@ const kZapstorePubkey =
 const kAppRelays = {'wss://relay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};
 
-String kZapstoreBlossomUrl = 'https://cdn.zapstore.dev';
+String kZapstoreBlossomUrl = 'https://blossom.band';

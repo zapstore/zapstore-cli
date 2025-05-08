@@ -64,18 +64,17 @@ class Publisher {
     await parser.applyMetadata();
     await parser.applyRemoteMetadata();
 
-    final List<PartialModel> partialModels = [
-      parser.partialApp,
-      parser.partialRelease,
-      ...parser.partialFileMetadatas,
-      ...parser.blossomAuthorizations,
-    ];
-
     // (3) Sign events and Blossom authorizations
 
     final signWith = env['SIGN_WITH'];
 
     if (signWith == null) {
+      final List<PartialModel> partialModels = [
+        parser.partialApp,
+        parser.partialRelease,
+        ...parser.partialFileMetadatas,
+        ...parser.partialBlossomAuthorizations,
+      ];
       stderr.writeln(
           '⚠️  ${'Nothing to sign with, sending unsigned events to stdout'.bold()}');
       for (final PartialModel model in partialModels) {
@@ -84,15 +83,22 @@ class Publisher {
       return;
     }
 
+    // TODO: If blossom auths, warn user we will sign first and then upload
+
     var (
       signedApp,
       signedRelease,
       signedFileMetadatas,
       signedBlossomAuthorizations
     ) = await signModels(
-      partialModels: partialModels,
+      partialApp: parser.partialApp,
+      partialRelease: parser.partialRelease,
+      partialFileMetadatas: parser.partialFileMetadatas,
+      partialBlossomAuthorizations: parser.partialBlossomAuthorizations,
       signWith: signWith,
     );
+
+    // (3)
 
     // (4) Upload to Blossom
     await _uploadToBlossom(signedBlossomAuthorizations);
@@ -101,37 +107,21 @@ class Publisher {
     await _publishToRelays(signedApp, signedRelease, signedFileMetadatas);
   }
 
-  // Upload Blossom
+  // Upload to Blossom
   Future<void> _uploadToBlossom(
       Set<BlossomAuthorization> authorizations) async {
-    // TODO: Also upload images
-    // await uploadToBlossom(newImagePath, imageHash, imageMimeType);
-
-    for (final a in []) {
-      final artifactPath = a.content;
+    for (final a in authorizations) {
+      final artifactHash = a.hashes.first;
 
       final uploadSpinner = CliSpin(
-        text: 'Uploading artifact: $artifactPath...',
+        text: 'Uploading artifact: $artifactHash...',
         spinner: CliSpinners.dots,
       ).start();
-
-      final tempArtifactPath = getFileInTemp(artifactPath);
-      await File(artifactPath).copy(tempArtifactPath);
-      final (artifactHash, mimeType) = await renameToHash(tempArtifactPath);
-
-      // if (!overwriteRelease) {
-      //   await checkReleaseOnRelay(
-      //     version: '1.1.1',
-      //     artifactHash: artifactHash,
-      //     spinner: uploadSpinner,
-      //   );
-      // }
 
       String artifactUrl = '';
       try {
         artifactUrl = await uploadToBlossom(a, spinner: uploadSpinner);
-        uploadSpinner
-            .success('Uploaded artifact: $artifactPath to $artifactUrl');
+        uploadSpinner.success('Uploaded artifact to $artifactUrl');
       } catch (e) {
         uploadSpinner.fail(e.toString());
         rethrow;

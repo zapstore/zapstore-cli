@@ -8,7 +8,10 @@ import 'package:riverpod/riverpod.dart';
 
 Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
     signModels({
-  required List<PartialModel> partialModels,
+  required PartialApp partialApp,
+  required PartialRelease partialRelease,
+  required Set<PartialFileMetadata> partialFileMetadatas,
+  required Set<PartialBlossomAuthorization> partialBlossomAuthorizations,
   bool overwriteApp = false,
   required String signWith,
 }) async {
@@ -21,24 +24,40 @@ Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
     _ => Bip340PrivateKeySigner(signWith, ref),
   };
 
-  // TODO: Rethink the checking on relay, here signer.getPublicKey() is complex
-  // if (!overwriteApp) {
-  //   final pubkey = await signer.getPublicKey();
+  await signer.initialize();
 
-  //   // If we don't overwrite the app, get the latest copy from the relay
-  //   final appsInRelay =
-  //       await storage.query<App>(RequestFilter(remote: true, tags: {
-  //     '#d': {app.identifier!},
-  //   }, authors: {
-  //     pubkey
-  //   }));
+  final signingPubkey = await signer.getPublicKey();
 
-  //   if (appsInRelay.isNotEmpty) {
-  //     signedApp = appsInRelay.first;
-  //   }
-  // }
+  if (!overwriteApp) {
+    // If we don't overwrite the app, get the latest copy from the relay
+    // final appsInRelay =
+    //     await storage.query<App>(RequestFilter(remote: true, tags: {
+    //   '#d': {app.identifier!},
+    // }, authors: {
+    //   signingPubkey
+    // }));
 
-  final signedEvents = await signer.sign(partialModels);
+    // if (appsInRelay.isNotEmpty) {
+    //   signedApp = appsInRelay.first;
+    // }
+  }
+
+  for (final fm in partialFileMetadatas) {
+    final eid = Utils.getEventId(fm.event, signingPubkey);
+    partialRelease.event.addTagValue('e', eid);
+  }
+  partialRelease.event
+      .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
+  partialApp.event
+      .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
+
+  final signedEvents = await signer.sign([
+    partialApp,
+    partialRelease,
+    ...partialFileMetadatas,
+    ...partialBlossomAuthorizations
+  ]);
+  await signer.dispose();
 
   final signedApp = signedEvents.whereType<App>().first;
   final signedRelease = signedEvents.whereType<Release>().first;

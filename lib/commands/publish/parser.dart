@@ -19,7 +19,7 @@ class ArtifactParser {
   final partialApp = PartialApp();
   final partialRelease = PartialRelease();
   final partialFileMetadatas = <PartialFileMetadata>{};
-  final blossomAuthorizations = <PartialBlossomAuthorization>{};
+  final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
   final bool areFilesLocal;
 
@@ -83,16 +83,14 @@ class ArtifactParser {
     } else if (appMap['version'] is String) {
       resolvedVersion = appMap['version'];
     }
-
-    // Replace all artifacts with resolved version
-    (<String>[...appMap['artifacts']]).forEachIndexed((i, a) {
-      appMap['artifacts'][i] = a.replaceAll('\$version', resolvedVersion!);
-      // print('replacgin $a = $resolvedVersion');
-    });
   }
 
   Future<void> findHashes() async {
-    for (final artifact in appMap['artifacts']) {
+    for (final a in appMap['artifacts']) {
+      // Replace all artifact paths with resolved version
+      final artifact = resolvedVersion != null
+          ? a.toString().replaceAll('\$version', resolvedVersion!)
+          : a;
       final dir = Directory(path.dirname(artifact));
       final r = RegExp('^${path.basename(artifact)}\$');
       final apaths = dir
@@ -124,7 +122,7 @@ class ArtifactParser {
           _validatePropertyMatch(resolvedVersion, fm.version, type: 'version');
 
       partialFileMetadatas.add(fm);
-      blossomAuthorizations.addAll(bs);
+      partialBlossomAuthorizations.addAll(bs);
     }
 
     partialApp.name ??= appMap['name']?.toString().toLowerCase();
@@ -158,9 +156,25 @@ class ArtifactParser {
     if (appMap['icon'] != null) {
       final icon = (await renameToHashes([appMap['icon']])).first;
       partialApp.addIcon(icon);
+      final bs = PartialBlossomAuthorization()
+        // content should be the name of the original file
+        ..content = 'Upload ${path.basename(appMap['icon'])}'
+        ..type = BlossomAuthorizationType.upload
+        ..expiration = DateTime.now().add(Duration(days: 1))
+        ..addHash(icon);
+      partialBlossomAuthorizations.add(bs);
     }
-    for (final image in await renameToHashes(appMap['images'] ?? [])) {
-      partialApp.addImage(image);
+    for (final image in appMap['images'] ?? []) {
+      final (hash, _) = await renameToHash(image);
+      partialApp.addImage(hash);
+
+      final bs = PartialBlossomAuthorization()
+        // content should be the name of the original file
+        ..content = 'Upload ${path.basename(image)}'
+        ..type = BlossomAuthorizationType.upload
+        ..expiration = DateTime.now().add(Duration(days: 1))
+        ..addHash(hash);
+      partialBlossomAuthorizations.add(bs);
     }
 
     // TODO: Look for release notes from file?
@@ -174,12 +188,6 @@ class ArtifactParser {
 
     // Always use the latest release timestamp, but do earlier
     partialApp.event.createdAt = partialRelease.event.createdAt;
-
-    // TODO: How can I link models at this stage if I need ID and for that pubkey
-    for (final fm in partialFileMetadatas) {
-      // partialRelease.linkModel(fm);
-    }
-    // partialRelease.linkModel(signedApp);
   }
 
   /// Fetches from Github, Play Store, etc
@@ -321,10 +329,10 @@ class ArtifactParser {
         // content should be the name of the original file
         ..content = 'Upload ${path.basename(artifactPath)}'
         ..type = BlossomAuthorizationType.upload
+        ..mimeType = metadata.mimeType!
         ..expiration = DateTime.now().add(Duration(days: 1))
         ..addHash(artifactHash)
     };
-
     return (metadata, bs);
   }
 
@@ -342,11 +350,11 @@ class ArtifactParser {
   void _verifyPlatforms(PartialFileMetadata metadata, String artifactPath) {
     if (metadata.mimeType == kAndroidMimeType) {
       if (!metadata.platforms.contains('android-arm64-v8a')) {
-        throw UnsupportedError('APK $artifactPath does not support arm64-v8a');
+        throw UnsupportedError(
+            'APK $artifactPath does not support arm64-v8a: ${metadata.platforms}');
       }
-    }
-    if (metadata.platforms
-        .any((platform) => !kZapstoreSupportedPlatforms.contains(platform))) {
+    } else if (!metadata.platforms
+        .every((platform) => kZapstoreSupportedPlatforms.contains(platform))) {
       throw UnsupportedError(
           'Artifact has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
     }
