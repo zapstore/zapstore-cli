@@ -165,9 +165,6 @@ class ArtifactParser {
     if (appMap['icon'] != null) {
       partialApp.addIcon(await copyToHash(appMap['icon']));
     }
-    if (appMap['banner'] != null) {
-      partialApp.banner = await copyToHash(appMap['banner']);
-    }
     for (final image in appMap['images'] ?? []) {
       partialApp.addImage(await copyToHash(image));
     }
@@ -221,13 +218,6 @@ class ArtifactParser {
             partialApp.addIcon('$s/${metadataApp.icons.first}');
           }
         }
-        // TODO: Banner should be a Set
-        partialApp.banner ??= metadataApp.banner;
-        for (final i in metadataApp.images) {
-          for (final s in blossomServers) {
-            partialApp.addImage('$s/$i');
-          }
-        }
       } else {
         extraMetadataSpinner.fail(
             '[${fetcher.name}] ${partialApp.identifier} was not found, no extra metadata added');
@@ -237,11 +227,7 @@ class ArtifactParser {
 
   Future<void> lastShit() async {
     // Here add final Blossom authorizations
-    for (final hash in [
-      ...partialApp.icons,
-      if (partialApp.banner != null) partialApp.banner!,
-      ...partialApp.images
-    ]) {
+    for (final hash in [...partialApp.icons, ...partialApp.images]) {
       final auth = PartialBlossomAuthorization()
         ..content = 'Upload asset'
         ..type = BlossomAuthorizationType.upload

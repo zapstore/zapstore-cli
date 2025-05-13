@@ -8,15 +8,7 @@ class FastlaneFetcher extends Fetcher {
 
   @override
   Future<PartialApp?> run({required String appIdentifier}) async {
-    final app = PartialApp();
-
-    // TODO: Try local first, otherwise remote
-
-    app.name = 'test';
-
-    // app.description = markdown.convert(appDescription);
-
-    return app;
+    throw UnimplementedError();
   }
 }
 

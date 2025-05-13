@@ -54,20 +54,20 @@ class Package {
 
   Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
     final downloadHash = await fetchFile(meta.urls.first, spinner: spinner);
-    await _installFromLocal(getFilePathInTempDirectory(downloadHash), meta);
+    await _installFromLocal(downloadHash, meta);
   }
 
-  Future<void> _installFromLocal(String downloadPath, FileMetadata meta,
+  Future<void> _installFromLocal(String fileHash, FileMetadata meta,
       {bool keepCopy = false}) async {
+    // TODO: Remove shell calls here
     final versionPath = path.join(directory.path, meta.version);
     await shell.run('mkdir -p $versionPath');
 
-    final hash = await computeHash(downloadPath);
-
-    if (hash != meta.hash) {
-      deleteRecursive(downloadPath);
-      throw 'Hash mismatch! $hash != ${meta.hash}\nFile server may be compromised.';
+    if (fileHash != meta.hash) {
+      throw 'Hash mismatch! $fileHash != ${meta.hash}\nFile server may be compromised.';
     }
+
+    final downloadPath = getFilePathInTempDirectory(fileHash);
 
     // Auto-extract
     // application/x-gzip

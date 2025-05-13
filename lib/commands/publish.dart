@@ -100,12 +100,10 @@ class Publisher {
       signWith: signWith,
     );
 
-    // (3)
-
     // (4) Upload to Blossom
-    await blossom.uploadMany(signedBlossomAuthorizations);
+    await blossom.upload(signedBlossomAuthorizations);
 
-    // ***IF THERE WERE ANY ERRORS UPLOADING TO BLOSSOM, ABORT AND NOTIFY USER
+    // TODO: All Blossom uploads must succeed or abort
 
     // (5) Publish
     await _publishToRelays(signedApp, signedRelease, signedFileMetadatas);

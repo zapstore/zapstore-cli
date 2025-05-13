@@ -167,30 +167,11 @@ extension on int {
 Future<String> copyToHash(String filePath) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final hash = await computeHash(filePath);
-  final destFilePath = getFilePathInTempDirectory(hash);
-
-  // TODO:
-  await run('cp $filePath $destFilePath', verbose: false);
+  await File(filePath).copy(getFilePathInTempDirectory(hash));
   // final ext = path.extension(Uri.parse(filePath).path);
   return hash;
 }
 
-Future<String> runInShell(String cmd,
-    {String? workingDirectory, bool verbose = false}) async {
-  if (Platform.isWindows) {
-    return (await run(cmd,
-            runInShell: true,
-            workingDirectory: workingDirectory,
-            verbose: verbose))
-        .outText;
-  }
-
-  return (await run('''sh -c '$cmd' ''',
-          workingDirectory: workingDirectory, verbose: verbose))
-      .outText;
-}
-
-// TODO: If already have bytes dont re read
 Future<String> computeHash(String filePath) async {
   return sha256
       .convert(await File(filePath).readAsBytes())

@@ -33,10 +33,8 @@ class PlayStoreFetcher extends Fetcher {
         .map((e) => e.attributes['src'])
         .nonNulls;
     final iconUrl = iconUrls.first;
-    final iconHash = await fetchFile(iconUrl);
+    final iconHash = await fetchFile(stripDimensions(iconUrl));
     app.addIcon(iconHash);
-
-    // TODO: Banner
 
     final imageUrls = document
         .querySelectorAll('img[data-screenshot-index]')
@@ -45,10 +43,16 @@ class PlayStoreFetcher extends Fetcher {
 
     for (final imageUrl in imageUrls) {
       if (imageUrl.trim().isNotEmpty) {
-        final imageHash = await fetchFile(imageUrl);
+        final imageHash = await fetchFile(stripDimensions(imageUrl));
         app.addImage(imageHash);
       }
     }
     return app;
+  }
+
+  String stripDimensions(String url) {
+    final uri = Uri.parse(url);
+    final p = uri.path.split('=').firstOrNull ?? uri.path;
+    return uri.replace(path: p).toString();
   }
 }

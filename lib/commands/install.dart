@@ -15,8 +15,14 @@ import 'package:path/path.dart' as path;
 Future<void> install(String value, {bool skipWot = false}) async {
   final db = await loadPackages();
 
-  final hostPlatform =
-      (await shell.run('uname -sm')).outText.toLowerCase().replaceAll(' ', '-');
+  final pv = Platform.version.split('on').lastOrNull?.trim();
+
+  final hostPlatform = switch (pv) {
+    '"macos_arm64"' => 'darwin-arm64',
+    '"linux_arm64"' => 'linux-aarch64',
+    '"linux_amd64"' => 'linux-amd64',
+    _ => throw UnsupportedError('$pv'),
+  };
 
   final spinner = CliSpin(
     text: 'Searching for $value...',
