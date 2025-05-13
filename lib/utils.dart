@@ -133,10 +133,12 @@ Future<String> fetchFile(
     await sub?.cancel();
     client.close();
 
-    final hash = sha256.convert(buffer.takeBytes()).toString().toLowerCase();
+    final bytes = buffer.takeBytes();
+    final hash = sha256.convert(bytes).toString().toLowerCase();
 
     final file = File(getFilePathInTempDirectory(hash));
     await deleteRecursive(file.path);
+    await file.writeAsBytes(bytes);
     completer.complete(hash);
   });
   return completer.future;

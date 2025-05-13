@@ -64,9 +64,9 @@ class GithubParser extends ArtifactParser {
         metadataSpinner.fail(message);
         throw GracefullyAbortSignal();
       }
-
-      metadataSpinner.success('Fetched release from Github');
     }
+
+    metadataSpinner.success('Fetched release from Github');
 
     resolvedVersion = appMap['version'] ?? releaseJson!['tag_name']!.toString();
   }

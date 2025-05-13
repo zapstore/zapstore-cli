@@ -185,7 +185,8 @@ class ArtifactParser {
   /// Fetches from Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    for (final m in appMap['remote_metadata']) {
+    final rm = appMap['remote_metadata'] ?? [];
+    for (final m in rm) {
       final fetcher = switch (m) {
         'playstore' => PlayStoreFetcher(),
         'fdroid' => FDroidFetcher(),

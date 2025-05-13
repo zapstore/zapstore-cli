@@ -2,3 +2,5 @@ name: Voyage
 repository: https://github.com/dluvian/voyage
 artifacts:
   - app-arm64-v8a-release.apk
+remote_metadata:
+  - playstore
