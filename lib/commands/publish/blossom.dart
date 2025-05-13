@@ -16,20 +16,20 @@ class BlossomClient {
 
     for (final server in servers) {
       for (final authorization in authorizations) {
-        final artifactUrl = '$server/${authorization.hashes.first}';
-        final artifactHash = authorization.hashes.first;
+        final assetUrl = '$server/${authorization.hashes.first}';
+        final assetHash = authorization.hashes.first;
 
         final uploadSpinner = CliSpin(
-          text: 'Uploading artifact: $artifactHash...',
+          text: 'Uploading asset: $assetHash...',
           spinner: CliSpinners.dots,
         ).start();
 
         try {
-          final headResponse = await http.head(Uri.parse(artifactUrl));
+          final headResponse = await http.head(Uri.parse(assetUrl));
 
           if (headResponse.statusCode != 200) {
-            final bytes = await File(getFilePathInTempDirectory(artifactHash))
-                .readAsBytes();
+            final bytes =
+                await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
             final response = await http.put(
               Uri.parse('$server/upload'),
               body: bytes,
@@ -44,13 +44,13 @@ class BlossomClient {
                 Map<String, dynamic>.from(jsonDecode(response.body));
 
             if (response.statusCode != 200 ||
-                artifactHash != responseMap['sha256']) {
-              throw 'Error uploading: status code ${response.statusCode}, hash: $artifactHash, server hash: ${responseMap['sha256']}; $responseMap';
+                assetHash != responseMap['sha256']) {
+              throw 'Error uploading: status code ${response.statusCode}, hash: $assetHash, server hash: ${responseMap['sha256']}; $responseMap';
             }
           }
 
-          urls.add(artifactUrl);
-          uploadSpinner.success('Uploaded artifact to $artifactUrl');
+          urls.add(assetUrl);
+          uploadSpinner.success('Uploaded asset to $assetUrl');
         } catch (e) {
           uploadSpinner.fail(e.toString());
           rethrow;

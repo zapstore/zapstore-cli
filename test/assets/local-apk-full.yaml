@@ -6,5 +6,5 @@ tags: zapstore repository blah
 icon: test/assets/icon.png
 license: MIT
 repository: https://github.com/zapstore/zapstore
-artifacts:
+assets:
   - test/assets/.*.apk

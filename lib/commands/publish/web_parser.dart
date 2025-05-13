@@ -3,7 +3,7 @@ import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 
-class WebParser extends ArtifactParser {
+class WebParser extends AssetParser {
   WebParser(super.appMap) : super(areFilesLocal: false);
 
   @override
@@ -15,30 +15,25 @@ class WebParser extends ArtifactParser {
     partialRelease.identifier = '';
     partialRelease.version = resolvedVersion;
 
-    for (final key in appMap['artifacts']) {
-      final artifact = key.toString().replaceAll('\$version', resolvedVersion!);
+    for (final key in appMap['assets']) {
+      final asset = key.toString().replaceAll('\$version', resolvedVersion!);
       // if (!overwriteRelease) {
       //   await checkReleaseOnRelay(
       //     version: version,
-      //     artifactUrl: artifactUrl,
-      //     // spinner: artifactSpinner,
+      //     assetUrl: assetUrl,
       //   );
       // }
 
-      // artifactSpinner.text = 'Fetching artifact $artifactUrl...';
-      print('Fetching $artifact');
-
-      final artifactHash = await fetchFile(
-        artifact,
-        // spinner: artifactSpinner,
-      );
+      // TODO: Make spinner and pass to fetchFile
+      print('Fetching $asset');
+      final assetHash = await fetchFile(asset);
 
       final fm = PartialFileMetadata();
-      fm.hash = artifactHash;
-      fm.mimeType = detectFileType(getFilePathInTempDirectory(artifactHash));
+      fm.hash = assetHash;
+      fm.mimeType = detectFileType(getFilePathInTempDirectory(assetHash));
       fm.url = key;
 
-      artifactHashes.add(artifactHash);
+      assetHashes.add(assetHash);
 
       partialFileMetadatas.add(fm);
     }

@@ -29,24 +29,24 @@ class Publisher {
 
     // (1) Validate input and determine parser
     final appMap = {...yamlAppMap.value};
-    final artifacts = appMap['artifacts'] as List;
+    final assets = appMap['assets'] as List;
 
-    late final ArtifactParser parser;
+    late final AssetParser parser;
 
-    final hasRemoteArtifacts = artifacts.any((k) {
+    final hasRemoteAssets = assets.any((k) {
       // Paths with a scheme are fetched from the web
       return Uri.tryParse(k)?.hasScheme ?? false;
     });
-    final hasLocalArtifacts = artifacts.any((k) {
+    final hasLocalAssets = assets.any((k) {
       // Paths are considered local only when they have
       // a forward slash, if needed write: ./file.apk
       return k.toString().contains('/');
     });
 
-    if (hasRemoteArtifacts) {
+    if (hasRemoteAssets) {
       parser = WebParser(appMap);
-    } else if (hasLocalArtifacts) {
-      parser = ArtifactParser(appMap);
+    } else if (hasLocalAssets) {
+      parser = AssetParser(appMap);
     } else {
       // If paths do not have a scheme and do not contain slashes, try Github
       final repository = appMap['release_repository'] ?? appMap['repository'];
@@ -178,8 +178,8 @@ class Publisher {
         }
       }
     } else {
-      stderr.writeln(
-          'No events published nor Blossom artifacts uploaded, exiting');
+      stderr
+          .writeln('No events published nor Blossom assets uploaded, exiting');
     }
 
     if (showWhitelistMessage) {

@@ -61,26 +61,26 @@ Future<Map<String, dynamic>> checkUser() async {
 
 Future<void> checkReleaseOnRelay(
     {required String version,
-    String? artifactUrl,
-    String? artifactHash,
+    String? assetUrl,
+    String? assetHash,
     CliSpin? spinner}) async {
   late final bool isReleaseOnRelay;
-  if (artifactHash != null) {
-    final artifacts =
+  if (assetHash != null) {
+    final assets =
         await storage.query<FileMetadata>(RequestFilter(remote: true, tags: {
-      '#x': {artifactHash}
+      '#x': {assetHash}
     }));
 
-    isReleaseOnRelay = artifacts.isNotEmpty;
+    isReleaseOnRelay = assets.isNotEmpty;
   } else {
-    final artifacts = await storage.query<FileMetadata>(RequestFilter(
+    final assets = await storage.query<FileMetadata>(RequestFilter(
       remote: true,
-      search: artifactUrl!,
+      search: assetUrl!,
     ));
 
     // Search is full-text (not exact) so we double-check
-    isReleaseOnRelay = artifacts.any((r) {
-      return r.urls.any((u) => u == artifactUrl);
+    isReleaseOnRelay = assets.any((r) {
+      return r.urls.any((u) => u == assetUrl);
     });
   }
   if (isReleaseOnRelay) {

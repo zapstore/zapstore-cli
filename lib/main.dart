@@ -130,23 +130,13 @@ late final bool isDaemonMode;
 // TODO: Add pointer to CHANGELOG.md in config yaml
 // String? releaseNotes;
 late String configPath;
-late bool overwriteApp;
-late bool overwriteRelease;
 
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',
         abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
-    argParser.addMultiOption('artifact',
-        abbr: 'a',
-        help: 'Artifact to be uploaded (can be used multiple times)');
     argParser.addOption('release-notes',
         abbr: 'n', help: 'File containing release notes');
-
-    argParser.addFlag('overwrite-app',
-        help: 'Generate a new kind 32267 to publish', defaultsTo: false);
-    argParser.addFlag('overwrite-release',
-        help: 'Generate a new kind 30063 to publish', defaultsTo: false);
     argParser.addFlag('daemon-mode',
         abbr: 'd',
         help:
@@ -171,9 +161,6 @@ class PublishCommand extends Command {
 
     // Set daemon mode
     isDaemonMode = argResults!.flag('daemon-mode');
-
-    overwriteApp = argResults!.flag('overwrite-app');
-    overwriteRelease = argResults!.flag('overwrite-release');
 
     await Publisher().initialize();
   }

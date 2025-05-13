@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 
-class GithubParser extends ArtifactParser {
+class GithubParser extends AssetParser {
   GithubParser(super.appMap) : super(areFilesLocal: false);
 
   Map<String, dynamic>? releaseJson;
@@ -36,7 +36,7 @@ class GithubParser extends ArtifactParser {
     // If there's a message it's an error (or no matching assets were found)
     if (releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable)
-            .any((a) => <String>{...appMap['artifacts']}.any((e) {
+            .any((a) => <String>{...appMap['assets']}.any((e) {
                   final r = RegExp(e);
                   return r.hasMatch(a['name']) ||
                       (a['label'] != null && r.hasMatch(a['label']));
@@ -73,7 +73,7 @@ class GithubParser extends ArtifactParser {
 
   @override
   Future<void> findHashes() async {
-    for (final key in appMap['artifacts']) {
+    for (final key in appMap['assets']) {
       final assets = (releaseJson!['assets'] as Iterable).where((a) {
         final r = RegExp(key);
         return r.hasMatch(a['name']) ||
@@ -96,30 +96,30 @@ class GithubParser extends ArtifactParser {
       }
 
       for (final asset in assets) {
-        final artifactUrl = asset['browser_download_url'];
-        packageSpinner.text = 'Fetching package $artifactUrl...';
+        final assetUrl = asset['browser_download_url'];
+        packageSpinner.text = 'Fetching package $assetUrl...';
 
         // if (!overwriteRelease) {
         //   await checkReleaseOnRelay(
         //     version: version,
-        //     artifactUrl: artifactUrl,
+        //     assetUrl: assetUrl,
         //     spinner: packageSpinner,
         //   );
         // }
 
-        final fileHash = await fetchFile(artifactUrl,
+        final fileHash = await fetchFile(assetUrl,
             headers: headers, spinner: packageSpinner);
 
         final fm = PartialFileMetadata();
         fm.hash = fileHash;
-        fm.url = artifactUrl;
+        fm.url = assetUrl;
         fm.mimeType = detectFileType(getFilePathInTempDirectory(fileHash)) ??
             asset['content_type'];
         partialFileMetadatas.add(fm);
 
-        artifactHashes.add(fileHash);
+        assetHashes.add(fileHash);
 
-        packageSpinner.success('Fetched package: $artifactUrl');
+        packageSpinner.success('Fetched package: $assetUrl');
       }
     }
   }
@@ -152,7 +152,7 @@ class GithubParser extends ArtifactParser {
   Map<String, dynamic>? _findRelease(Iterable releases) {
     for (final r in releases) {
       for (final asset in r['assets']) {
-        for (final e in appMap['artifacts']) {
+        for (final e in appMap['assets']) {
           if (RegExp(e.key).hasMatch(asset['name'])) {
             return r;
           }

@@ -17,7 +17,7 @@ import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
 
-class ArtifactParser {
+class AssetParser {
   final Map appMap;
 
   final partialApp = PartialApp();
@@ -30,18 +30,19 @@ class ArtifactParser {
 
   String? resolvedVersion;
 
-  final artifactHashes = <String>{};
+  final assetHashes = <String>{};
 
-  ArtifactParser(this.appMap, {this.areFilesLocal = true});
+  AssetParser(this.appMap, {this.areFilesLocal = true});
+
+  // TODO: Spinner for main parser functions (and rename them to something better)
 
   Future<void> resolveVersion() async {
     blossomServers = {
       ...(appMap['blossom'] ?? {kZapstoreBlossomUrl})
     };
 
-    // TODO: Rename artifacts to assets
     // Usecase: configs may specify a version: 1.2.1
-    // and have artifacts $version replaced: jq-$version-macos
+    // and have assets $version replaced: jq-$version-macos
     if (appMap['version'] is String) {
       resolvedVersion = appMap['version'];
     }
@@ -84,7 +85,6 @@ class ArtifactParser {
 
       if (resolvedVersion == null) {
         final message = 'could not match version for $selector';
-        // artifactSpinner.fail(message);
         if (isDaemonMode) {
           print(message);
         }
@@ -96,20 +96,20 @@ class ArtifactParser {
   }
 
   Future<void> findHashes() async {
-    for (final a in appMap['artifacts']) {
-      // Replace all artifact paths with resolved version
-      final artifact = resolvedVersion != null
+    for (final a in appMap['assets']) {
+      // Replace all asset paths with resolved version
+      final asset = resolvedVersion != null
           ? a.toString().replaceAll('\$version', resolvedVersion!)
           : a;
-      final dir = Directory(path.dirname(artifact));
-      final r = RegExp('^${path.basename(artifact)}\$');
+      final dir = Directory(path.dirname(asset));
+      final r = RegExp('^${path.basename(asset)}\$');
       final apaths = dir
           .listSync()
           .where((e) => e is File && r.hasMatch(path.basename(e.path)))
           .map((e) => e.path);
 
-      for (final artifactPath in apaths) {
-        artifactHashes.add(await copyToHash(artifactPath));
+      for (final assetPath in apaths) {
+        assetHashes.add(await copyToHash(assetPath));
       }
     }
   }
@@ -120,7 +120,7 @@ class ArtifactParser {
   Future<void> applyMetadata() async {
     String? identifier = appMap['identifier'];
 
-    for (final pfm in artifactHashes) {
+    for (final pfm in assetHashes) {
       final (fm, bs) = await parseFile(pfm);
 
       identifier =
@@ -150,7 +150,7 @@ class ArtifactParser {
     //     if (!overwriteRelease) {
     //   await checkReleaseOnRelay(
     //     version: version,
-    //     artifactUrl: artifactUrl,
+    //     assetUrl: assetUrl,
     //     spinner: packageSpinner,
     //   );
     // }
@@ -244,16 +244,16 @@ class ArtifactParser {
   String? get releaseRepository => appMap['release_repository'];
 
   Future<(PartialFileMetadata, Set<PartialBlossomAuthorization>)> parseFile(
-      String artifactHash) async {
+      String assetHash) async {
     final metadata = PartialFileMetadata();
 
     String? identifier;
 
-    final artifactPath = getFilePathInTempDirectory(artifactHash);
-    final fileType = detectFileType(artifactPath);
+    final assetPath = getFilePathInTempDirectory(assetHash);
+    final fileType = detectFileType(assetPath);
     if (fileType == kAndroidMimeType) {
-      final artifactBytes = await File(artifactPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(artifactBytes);
+      final assetBytes = await File(assetPath).readAsBytes();
+      final archive = ZipDecoder().decodeBytes(assetBytes);
 
       var architectures = {'arm64-v8a'};
       try {
@@ -267,9 +267,9 @@ class ArtifactParser {
 
       metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
-      metadata.apkSignatureHashes = await getSignatureHashes(artifactPath);
+      metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
       if (metadata.apkSignatureHashes.isEmpty) {
-        throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $artifactPath';
+        throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
       }
 
       final binaryManifestFile =
@@ -301,7 +301,7 @@ class ArtifactParser {
 
       if (fileType == 'application/gzip') {
         final bytes =
-            GZipDecoder().decodeBytes(File(artifactPath).readAsBytesSync());
+            GZipDecoder().decodeBytes(File(assetPath).readAsBytesSync());
         final archive = TarDecoder().decodeBytes(bytes);
         // TODO: In this way detect executables!
         // And then pass through executables regex filter from config
@@ -328,24 +328,23 @@ class ArtifactParser {
     metadata.mimeType ??= 'application/octet-stream';
 
     // TODO: Should get the original name to inform the user
-    _validatePlatforms(metadata, 'artifactPath');
+    _validatePlatforms(metadata, 'assetPath');
 
     // TODO: Add executables
-    // final executables = artifactEntry?.value?['executables'] ?? [];
+    // final executables = assetEntry?.value?['executables'] ?? [];
 
-    metadata.hash = artifactHash;
-    metadata.url = '$kZapstoreBlossomUrl/$artifactHash';
-    metadata.size =
-        await File(getFilePathInTempDirectory(artifactHash)).length();
+    metadata.hash = assetHash;
+    metadata.url = '$kZapstoreBlossomUrl/$assetHash';
+    metadata.size = await File(getFilePathInTempDirectory(assetHash)).length();
 
     final bs = {
       PartialBlossomAuthorization()
         // content should be the name of the original file
-        ..content = 'Upload ${path.basename(artifactPath)}'
+        ..content = 'Upload ${path.basename(assetPath)}'
         ..type = BlossomAuthorizationType.upload
         ..mimeType = metadata.mimeType!
         ..expiration = DateTime.now().add(Duration(days: 1))
-        ..addHash(artifactHash)
+        ..addHash(assetHash)
     };
     return (metadata, bs);
   }
@@ -361,16 +360,16 @@ class ArtifactParser {
     return s1;
   }
 
-  void _validatePlatforms(PartialFileMetadata metadata, String artifactPath) {
+  void _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
     if (metadata.mimeType == kAndroidMimeType) {
       if (!metadata.platforms.contains('android-arm64-v8a')) {
         throw UnsupportedError(
-            'APK $artifactPath does not support arm64-v8a: ${metadata.platforms}');
+            'APK $assetPath does not support arm64-v8a: ${metadata.platforms}');
       }
     } else if (!metadata.platforms
         .every((platform) => kZapstoreSupportedPlatforms.contains(platform))) {
       throw UnsupportedError(
-          'Artifact has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
+          'asset has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
     }
   }
 }

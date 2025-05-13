@@ -1,5 +1,5 @@
 
 identifier: jq
 version: 1.7.1
-artifacts:
+assets:
   - test/assets/jq.*
