@@ -1,9 +1,6 @@
-import 'package:json_path/json_path.dart';
 import 'package:models/models.dart';
-import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
-import 'package:zapstore_cli/main.dart';
-import 'package:http/http.dart' as http;
+import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class WebParser extends ArtifactParser {
@@ -31,15 +28,14 @@ class WebParser extends ArtifactParser {
       // artifactSpinner.text = 'Fetching artifact $artifactUrl...';
       print('Fetching $artifact');
 
-      final tempArtifactPath = await fetchFile(
+      final artifactHash = await fetchFile(
         artifact,
         // spinner: artifactSpinner,
       );
-      final (artifactHash, mimeType) = await renameToHash(tempArtifactPath);
 
       final fm = PartialFileMetadata();
       fm.hash = artifactHash;
-      fm.mimeType = mimeType;
+      fm.mimeType = detectFileType(getFilePathInTempDirectory(artifactHash));
       fm.url = key;
 
       artifactHashes.add(artifactHash);

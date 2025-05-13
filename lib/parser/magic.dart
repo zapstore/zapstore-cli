@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:mime/mime.dart';
 import 'package:zapstore_cli/utils.dart';
 
-/// Main detection function that calls individual detectors.
 String? detectFileType(String filePath) {
   final data = Uint8List.fromList(File(filePath).readAsBytesSync());
 

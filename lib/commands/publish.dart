@@ -6,6 +6,7 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
+import 'package:zapstore_cli/commands/publish/blossom.dart';
 import 'package:zapstore_cli/commands/publish/events.dart';
 import 'package:zapstore_cli/commands/publish/github_parser.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
@@ -14,6 +15,8 @@ import 'package:zapstore_cli/commands/publish/web_parser.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class Publisher {
+  final blossom = BlossomClient(servers: {kZapstoreBlossomUrl});
+
   Future<void> initialize() async {
     final configYaml = File(configPath);
 
@@ -63,6 +66,7 @@ class Publisher {
     await parser.findHashes();
     await parser.applyMetadata();
     await parser.applyRemoteMetadata();
+    await parser.lastShit();
 
     // (3) Sign events and Blossom authorizations
 
@@ -83,8 +87,6 @@ class Publisher {
       return;
     }
 
-    // TODO: If blossom auths, warn user we will sign first and then upload
-
     var (
       signedApp,
       signedRelease,
@@ -101,42 +103,12 @@ class Publisher {
     // (3)
 
     // (4) Upload to Blossom
-    await _uploadToBlossom(signedBlossomAuthorizations);
+    await blossom.uploadMany(signedBlossomAuthorizations);
+
+    // ***IF THERE WERE ANY ERRORS UPLOADING TO BLOSSOM, ABORT AND NOTIFY USER
 
     // (5) Publish
     await _publishToRelays(signedApp, signedRelease, signedFileMetadatas);
-  }
-
-  // Upload to Blossom
-  Future<void> _uploadToBlossom(
-      Set<BlossomAuthorization> authorizations) async {
-    for (final a in authorizations) {
-      final artifactHash = a.hashes.first;
-
-      final uploadSpinner = CliSpin(
-        text: 'Uploading artifact: $artifactHash...',
-        spinner: CliSpinners.dots,
-      ).start();
-
-      String artifactUrl = '';
-      try {
-        artifactUrl = await uploadToBlossom(a, spinner: uploadSpinner);
-        uploadSpinner.success('Uploaded artifact to $artifactUrl');
-      } catch (e) {
-        uploadSpinner.fail(e.toString());
-        rethrow;
-      }
-
-      // Ensure the file was fully uploaded
-      // TODO: Test this
-      // TODO: Remove temp files
-      final tempPackagePath =
-          await fetchFile(artifactUrl, spinner: uploadSpinner);
-      final computedHash = await computeHash(tempPackagePath);
-      if (computedHash != artifactHash) {
-        throw 'File was not correctly uploaded as hashes mismatch. Try again with --overwrite-release';
-      }
-    }
   }
 
   Future<void> _publishToRelays(App signedApp, Release signedRelease,

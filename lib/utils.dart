@@ -12,11 +12,10 @@ import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/parser/magic.dart';
 
 final kTempDir = Directory.systemTemp.path;
 
-String getFileInTemp(String name) {
+String getFilePathInTempDirectory(String name) {
   return path.join(kTempDir, path.basename(name));
 }
 
@@ -99,28 +98,18 @@ String formatProfile(Profile profile) {
   return '${name.toString().bold()}${profile.nip05?.isEmpty ?? false ? '' : ' (${profile.nip05})'} - https://nostr.com/${profile.npub}';
 }
 
-Future<Set<String>> renameToHashes(List<String> filePaths) async {
-  final hashes = <String>{};
-  for (final filePath in filePaths) {
-    final (hash, mimeType) = await renameToHash(filePath, copy: true);
-    hashes.add(hash);
-  }
-  return hashes;
-}
-
-/// Returns the downloaded file path
+/// Returns the hash of the downloaded file
 Future<String> fetchFile(
   String url, {
   Map<String, String>? headers,
   CliSpin? spinner,
 }) async {
-  final file = File(getFileInTemp(url));
-  await shell.run('rm -fr ${file.path}');
   final initialText = spinner?.text;
   final completer = Completer<String>();
+
   StreamSubscription? sub;
   final client = http.Client();
-  final sink = file.openWrite();
+  final buffer = BytesBuilder();
 
   final req = http.Request('GET', Uri.parse(url));
   if (headers != null) {
@@ -131,17 +120,9 @@ Future<String> fetchFile(
   var downloadedBytes = 0;
   final totalBytes = response.contentLength!;
 
-  // final progress = Progress(
-  //   length: totalBytes,
-  //   size: 0.25,
-  //   rightPrompt: (current) =>
-  //       ' ${(current / 1024 / 1024).toStringAsFixed(2)}MB (${(current / totalBytes * 100).floor()}%)',
-  // ).interact();
-
   sub = response.stream.listen((chunk) {
     final data = Uint8List.fromList(chunk);
-    sink.add(data);
-    // progress.increase(data.length);
+    buffer.add(data);
     downloadedBytes += data.length;
     spinner?.text =
         '$initialText ${downloadedBytes.toMB()} (${(downloadedBytes / totalBytes * 100).floor()}%)';
@@ -149,44 +130,27 @@ Future<String> fetchFile(
     throw e;
   }, onDone: () async {
     spinner?.text = '$initialText ${downloadedBytes.toMB()} (100%)';
-    // progress.done();
     await sub?.cancel();
-    await sink.close();
     client.close();
-    completer.complete(file.path);
+
+    final hash = sha256.convert(buffer.takeBytes()).toString().toLowerCase();
+
+    final file = File(getFilePathInTempDirectory(hash));
+    await deleteRecursive(file.path);
+    completer.complete(hash);
   });
   return completer.future;
 }
 
-Future<String> uploadToBlossom(BlossomAuthorization authorization,
-    {CliSpin? spinner}) async {
-  var artifactUrl = '$kZapstoreBlossomUrl/${authorization.hashes.first}';
-  final artifactHash = authorization.hashes.first;
-  final headResponse = await http.head(Uri.parse(artifactUrl));
+Future<void> deleteRecursive(String path) async {
+  final file = File(path);
+  final dir = Directory(path);
 
-  if (headResponse.statusCode != 200) {
-    final artifactPath = path.join(kTempDir, artifactHash);
-    final bytes = await File(artifactPath).readAsBytes();
-    final response = await http.put(
-      Uri.parse('$kZapstoreBlossomUrl/upload'),
-      body: bytes,
-      headers: {
-        'Content-Type': authorization.mimeType!,
-        'X-Filename': path.basename(artifactPath),
-        'Authorization': 'Nostr ${authorization.toBase64()}',
-      },
-    );
-
-    print(response.body);
-
-    final responseMap = Map<String, dynamic>.from(jsonDecode(response.body));
-    artifactUrl = responseMap['url'];
-
-    if (response.statusCode != 200 || artifactHash != responseMap['sha256']) {
-      throw 'Error uploading $artifactPath: status code ${response.statusCode}, hash: $artifactHash, server hash: ${responseMap['sha256']}';
-    }
+  if (await file.exists()) {
+    await file.delete();
+  } else if (await dir.exists()) {
+    dir.delete(recursive: true);
   }
-  return artifactUrl;
 }
 
 extension R2 on Future<http.Response> {
@@ -199,28 +163,16 @@ extension on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
 }
 
-/// Returns hash, mime type
-Future<(String, String)> renameToHash(String filePath,
-    {bool copy = false}) async {
+/// Returns hash
+Future<String> copyToHash(String filePath) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
-  final ext = path.extension(Uri.parse(filePath).path);
   final hash = await computeHash(filePath);
+  final destFilePath = getFilePathInTempDirectory(hash);
 
-  final mimeType = detectFileType(filePath)!;
-
-  var hashName = '$hash$ext';
-  if (hash == hashName) {
-    final [t1, t2] = mimeType.split('/');
-    if (t1.trim() == 'image') {
-      hashName = '$hash.$t2';
-    }
-  }
-
-  final destFilePath = env['BLOSSOM_DIR'] != null
-      ? path.join(env['BLOSSOM_DIR']!, hashName)
-      : path.join(kTempDir, hash);
-  await run('${copy ? 'cp' : 'mv'} $filePath $destFilePath', verbose: false);
-  return (hash, mimeType);
+  // TODO:
+  await run('cp $filePath $destFilePath', verbose: false);
+  // final ext = path.extension(Uri.parse(filePath).path);
+  return hash;
 }
 
 Future<String> runInShell(String cmd,
@@ -238,6 +190,7 @@ Future<String> runInShell(String cmd,
       .outText;
 }
 
+// TODO: If already have bytes dont re read
 Future<String> computeHash(String filePath) async {
   return sha256
       .convert(await File(filePath).readAsBytes())
@@ -274,4 +227,4 @@ const kZapstorePubkey =
 const kAppRelays = {'wss://relay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};
 
-String kZapstoreBlossomUrl = 'https://blossom.band';
+const kZapstoreBlossomUrl = 'https://bcdn.zapstore.dev';

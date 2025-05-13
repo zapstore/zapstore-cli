@@ -1,8 +1,12 @@
+import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
 import 'package:models/models.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/fastlane_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/fdroid_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/playstore_fetcher.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/parser/signatures.dart';
@@ -22,6 +26,7 @@ class ArtifactParser {
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
   final bool areFilesLocal;
+  late final Set<String> blossomServers;
 
   String? resolvedVersion;
 
@@ -30,6 +35,11 @@ class ArtifactParser {
   ArtifactParser(this.appMap, {this.areFilesLocal = true});
 
   Future<void> resolveVersion() async {
+    blossomServers = {
+      ...(appMap['blossom'] ?? {kZapstoreBlossomUrl})
+    };
+
+    // TODO: Rename artifacts to assets
     // Usecase: configs may specify a version: 1.2.1
     // and have artifacts $version replaced: jq-$version-macos
     if (appMap['version'] is String) {
@@ -49,12 +59,12 @@ class ArtifactParser {
         // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
         if (response.isRedirect) {
           final raw = response.headers[selector]!;
-          match = regexpFromKey(attribute).firstMatch(raw);
+          match = RegExp(attribute).firstMatch(raw);
         } else {
           final body = await response.stream.bytesToString();
           final jsonMatch = JsonPath(selector).read(body).firstOrNull?.value;
           if (jsonMatch != null) {
-            match = regexpFromKey(attribute).firstMatch(jsonMatch.toString());
+            match = RegExp(attribute).firstMatch(jsonMatch.toString());
           }
         }
       } else {
@@ -64,7 +74,7 @@ class ArtifactParser {
         if (elem != null) {
           final raw =
               attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
-          match = regexpFromKey(rest.first).firstMatch(raw);
+          match = RegExp(rest.first).firstMatch(raw);
         }
       }
 
@@ -99,10 +109,7 @@ class ArtifactParser {
           .map((e) => e.path);
 
       for (final artifactPath in apaths) {
-        final tempArtifactPath = getFileInTemp(artifactPath);
-        await File(artifactPath).copy(tempArtifactPath);
-        final (artifactHash, _) = await renameToHash(tempArtifactPath);
-        artifactHashes.add(artifactHash);
+        artifactHashes.add(await copyToHash(artifactPath));
       }
     }
   }
@@ -153,76 +160,95 @@ class ArtifactParser {
       ..summary = appMap['summary']
       ..repository = sourceRepository
       ..license = appMap['license'];
+
+    // All user provided assets should be renamed/copied (not moved)
     if (appMap['icon'] != null) {
-      final icon = (await renameToHashes([appMap['icon']])).first;
-      partialApp.addIcon(icon);
-      final bs = PartialBlossomAuthorization()
-        // content should be the name of the original file
-        ..content = 'Upload ${path.basename(appMap['icon'])}'
-        ..type = BlossomAuthorizationType.upload
-        ..expiration = DateTime.now().add(Duration(days: 1))
-        ..addHash(icon);
-      partialBlossomAuthorizations.add(bs);
+      partialApp.addIcon(await copyToHash(appMap['icon']));
+    }
+    if (appMap['banner'] != null) {
+      partialApp.banner = await copyToHash(appMap['banner']);
     }
     for (final image in appMap['images'] ?? []) {
-      final (hash, _) = await renameToHash(image);
-      partialApp.addImage(hash);
-
-      final bs = PartialBlossomAuthorization()
-        // content should be the name of the original file
-        ..content = 'Upload ${path.basename(image)}'
-        ..type = BlossomAuthorizationType.upload
-        ..expiration = DateTime.now().add(Duration(days: 1))
-        ..addHash(hash);
-      partialBlossomAuthorizations.add(bs);
+      partialApp.addImage(await copyToHash(image));
     }
 
     // TODO: Look for release notes from file?
+    // Or if no file, ask to paste .md contents
     partialRelease.event.content = '';
     partialRelease.identifier = '$identifier@$resolvedVersion';
 
-    // TODO: Perform all this earlier
+    // App's platforms are the sum of file metadatas' platforms
     partialApp.platforms =
         partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
-    // partialApp.event.setTagValue('a', partialRelease.event.addressableId);
 
-    // Always use the latest release timestamp, but do earlier
+    // Always use the latest release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
   }
 
   /// Fetches from Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    // TODO: Restore
-    // TODO: Also offer pulling Source Code (if github) and parsing Fastlane metadata
+    for (final m in appMap['remote_metadata']) {
+      final fetcher = switch (m) {
+        'playstore' => PlayStoreFetcher(),
+        'fdroid' => FDroidFetcher(),
+        'fastlane' => FastlaneFetcher(),
+        _ => null,
+      };
 
-    // if (os == SupportedOS.android) {
-    //   var extraMetadata = 0;
-    //   CliSpin? extraMetadataSpinner;
+      if (fetcher == null) continue;
 
-    //   if (!isDaemonMode) {
-    //     extraMetadata = Select(
-    //       prompt: 'Would you like to pull extra metadata for this app?',
-    //       options: ['Play Store', 'F-Droid', 'None'],
-    //     ).interact();
+      CliSpin? extraMetadataSpinner;
+      extraMetadataSpinner = CliSpin(
+              text: 'Fetching extra metadata...',
+              spinner: CliSpinners.dots,
+              isEnabled: !isDaemonMode)
+          .start();
 
-    //     extraMetadataSpinner = CliSpin(
-    //       text: 'Fetching extra metadata...',
-    //       spinner: CliSpinners.dots,
-    //     ).start();
-    //   }
+      final metadataApp = await fetcher.run(
+        appIdentifier: partialApp.identifier!,
+      );
 
-    //   if (extraMetadata == 0) {
-    //     final playStoreParser = PlayStoreParser();
-    //     app = await playStoreParser.run(
-    //       app: app,
-    //       originalName: appMap['name'],
-    //       spinner: extraMetadataSpinner,
-    //     );
-    //   } else if (extraMetadata == 1) {
-    //     extraMetadataSpinner?.fail('F-Droid is not yet supported, sorry');
-    //   }
-    // }
+      if (metadataApp != null) {
+        // All paths in metadataApp are just hashes, must add Blossom servers
+        extraMetadataSpinner.success('[${fetcher.name}] Fetched metadata');
+        partialApp.name ??= metadataApp.name;
+        if (partialApp.description.isEmpty) {
+          partialApp.description = metadataApp.description;
+        }
+        if (partialApp.icons.isEmpty && metadataApp.icons.isNotEmpty) {
+          for (final s in blossomServers) {
+            partialApp.addIcon('$s/${metadataApp.icons.first}');
+          }
+        }
+        // TODO: Banner should be a Set
+        partialApp.banner ??= metadataApp.banner;
+        for (final i in metadataApp.images) {
+          for (final s in blossomServers) {
+            partialApp.addImage('$s/$i');
+          }
+        }
+      } else {
+        extraMetadataSpinner.fail(
+            '[${fetcher.name}] ${partialApp.identifier} was not found, no extra metadata added');
+      }
+    }
+  }
+
+  Future<void> lastShit() async {
+    // Here add final Blossom authorizations
+    for (final hash in [
+      ...partialApp.icons,
+      if (partialApp.banner != null) partialApp.banner!,
+      ...partialApp.images
+    ]) {
+      final auth = PartialBlossomAuthorization()
+        ..content = 'Upload asset'
+        ..type = BlossomAuthorizationType.upload
+        ..expiration = DateTime.now().add(Duration(hours: 1))
+        ..addHash(hash);
+      partialBlossomAuthorizations.add(auth);
+    }
   }
 
   // Helpers
@@ -236,7 +262,7 @@ class ArtifactParser {
 
     String? identifier;
 
-    final artifactPath = getFileInTemp(artifactHash);
+    final artifactPath = getFilePathInTempDirectory(artifactHash);
     final fileType = detectFileType(artifactPath);
     if (fileType == kAndroidMimeType) {
       final artifactBytes = await File(artifactPath).readAsBytes();
@@ -315,14 +341,15 @@ class ArtifactParser {
     metadata.mimeType ??= 'application/octet-stream';
 
     // TODO: Should get the original name to inform the user
-    _verifyPlatforms(metadata, 'artifactPath');
+    _validatePlatforms(metadata, 'artifactPath');
 
     // TODO: Add executables
     // final executables = artifactEntry?.value?['executables'] ?? [];
 
     metadata.hash = artifactHash;
     metadata.url = '$kZapstoreBlossomUrl/$artifactHash';
-    metadata.size = await File(getFileInTemp(artifactHash)).length();
+    metadata.size =
+        await File(getFilePathInTempDirectory(artifactHash)).length();
 
     final bs = {
       PartialBlossomAuthorization()
@@ -347,7 +374,7 @@ class ArtifactParser {
     return s1;
   }
 
-  void _verifyPlatforms(PartialFileMetadata metadata, String artifactPath) {
+  void _validatePlatforms(PartialFileMetadata metadata, String artifactPath) {
     if (metadata.mimeType == kAndroidMimeType) {
       if (!metadata.platforms.contains('android-arm64-v8a')) {
         throw UnsupportedError(
@@ -359,11 +386,4 @@ class ArtifactParser {
           'Artifact has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
     }
   }
-}
-
-RegExp regexpFromKey(String key) {
-  // %v matches 1.0 or 1.0.1, no groups are captured
-  // TODO: No longer need to match %v
-  key = key.replaceAll('%v', r'\d+\.\d+(?:\.\d+)?');
-  return RegExp(key);
 }

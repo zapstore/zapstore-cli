@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:models/models.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
+import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class GithubParser extends ArtifactParser {
@@ -36,8 +36,8 @@ class GithubParser extends ArtifactParser {
     // If there's a message it's an error (or no matching assets were found)
     if (releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable)
-            .any((a) => (appMap['artifacts'] as Iterable).any((e) {
-                  final r = regexpFromKey(e);
+            .any((a) => <String>{...appMap['artifacts']}.any((e) {
+                  final r = RegExp(e);
                   return r.hasMatch(a['name']) ||
                       (a['label'] != null && r.hasMatch(a['label']));
                 }))) {
@@ -74,15 +74,11 @@ class GithubParser extends ArtifactParser {
   @override
   Future<void> findHashes() async {
     for (final key in appMap['artifacts']) {
-      // TODO: should do this after resolving version
-      if (await File(key).exists()) {
-        stderr.writeln('skipping as file exists');
-        continue;
-      }
-
-      final assets = (releaseJson!['assets'] as Iterable).where((a) =>
-          regexpFromKey(key).hasMatch(a['name']) ||
-          (a['label'] != null && regexpFromKey(key).hasMatch(a['label'])));
+      final assets = (releaseJson!['assets'] as Iterable).where((a) {
+        final r = RegExp(key);
+        return r.hasMatch(a['name']) ||
+            (a['label'] != null && r.hasMatch(a['label']));
+      });
 
       final packageSpinner = CliSpin(
         text: 'Fetching package...',
@@ -111,29 +107,20 @@ class GithubParser extends ArtifactParser {
         //   );
         // }
 
-        final tempPackagePath = await fetchFile(artifactUrl,
+        final fileHash = await fetchFile(artifactUrl,
             headers: headers, spinner: packageSpinner);
-        final (fileHash, mimeType) = await renameToHash(tempPackagePath);
 
         final fm = PartialFileMetadata();
         fm.hash = fileHash;
         fm.url = artifactUrl;
-        fm.mimeType = mimeType; // ?? asset['content_type'];
+        fm.mimeType = detectFileType(getFilePathInTempDirectory(fileHash)) ??
+            asset['content_type'];
         partialFileMetadatas.add(fm);
 
         artifactHashes.add(fileHash);
 
         packageSpinner.success('Fetched package: $artifactUrl');
       }
-
-      // Since previous check was done on URL, check again now against hash
-      // if (!overwriteRelease) {
-      //   await checkReleaseOnRelay(
-      //     version: version,
-      //     artifactHash: fileHash,
-      //     spinner: packageSpinner,
-      //   );
-      // }
     }
   }
 
@@ -154,7 +141,10 @@ class GithubParser extends ArtifactParser {
     final repoJson =
         await http.get(Uri.parse(repoUrl), headers: headers).getJson();
 
-    appMap['description'] ??= repoJson['description'];
+    if (partialApp.description.isEmpty) {
+      partialApp.description = repoJson['description'];
+    }
+    partialApp.tags.addAll([...repoJson['topics']]);
 
     return super.applyRemoteMetadata();
   }
@@ -163,7 +153,7 @@ class GithubParser extends ArtifactParser {
     for (final r in releases) {
       for (final asset in r['assets']) {
         for (final e in appMap['artifacts']) {
-          if (regexpFromKey(e.key).hasMatch(asset['name'])) {
+          if (RegExp(e.key).hasMatch(asset['name'])) {
             return r;
           }
         }

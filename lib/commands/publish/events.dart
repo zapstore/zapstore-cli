@@ -28,20 +28,6 @@ Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
 
   final signingPubkey = await signer.getPublicKey();
 
-  if (!overwriteApp) {
-    // If we don't overwrite the app, get the latest copy from the relay
-    // final appsInRelay =
-    //     await storage.query<App>(RequestFilter(remote: true, tags: {
-    //   '#d': {app.identifier!},
-    // }, authors: {
-    //   signingPubkey
-    // }));
-
-    // if (appsInRelay.isNotEmpty) {
-    //   signedApp = appsInRelay.first;
-    // }
-  }
-
   for (final fm in partialFileMetadatas) {
     final eid = Utils.getEventId(fm.event, signingPubkey);
     partialRelease.event.addTagValue('e', eid);

@@ -53,8 +53,8 @@ class Package {
   Future<bool> skeletonExists() => directory.exists();
 
   Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
-    final downloadPath = await fetchFile(meta.urls.first, spinner: spinner);
-    await _installFromLocal(downloadPath, meta);
+    final downloadHash = await fetchFile(meta.urls.first, spinner: spinner);
+    await _installFromLocal(getFilePathInTempDirectory(downloadHash), meta);
   }
 
   Future<void> _installFromLocal(String downloadPath, FileMetadata meta,
@@ -65,7 +65,7 @@ class Package {
     final hash = await computeHash(downloadPath);
 
     if (hash != meta.hash) {
-      await shell.run('rm -f $downloadPath');
+      deleteRecursive(downloadPath);
       throw 'Hash mismatch! $hash != ${meta.hash}\nFile server may be compromised.';
     }
 
@@ -79,8 +79,8 @@ class Package {
       'application/gzip',
       'application/x-gtar'
     ].contains(meta.mimeType)) {
-      final extractDir =
-          getFileInTemp('${path.basenameWithoutExtension(downloadPath)}.tmp');
+      final extractDir = getFilePathInTempDirectory(
+          '${path.basenameWithoutExtension(downloadPath)}.tmp');
 
       final uncompress =
           ['application/gzip', 'application/x-gtar'].contains(meta.mimeType)
@@ -126,13 +126,14 @@ class Package {
   }
 
   Future<void> remove() async {
-    await runInShell('rm -fr ${binaries.join(' ')} ${directory.path}',
-        workingDirectory: kBaseDir);
+    for (final e in [...binaries, directory.path]) {
+      await deleteRecursive(path.join(kBaseDir, e));
+    }
   }
 
   Future<void> linkVersion(String version) async {
-    await shell
-        .run('ln -sf ${path.join('$pubkey-$identifier', version, identifier)}');
+    final p = path.join('$pubkey-$identifier', version, identifier);
+    await Link(p).create(identifier, recursive: true);
     enabledVersion = version;
   }
 
@@ -211,10 +212,13 @@ After that, open a new shell and re-run this program.
 
     final filePath = Platform.script.toFilePath();
     final hash = await computeHash(filePath);
-    // TODO: Restore
-    // await zapstorePackage._installFromLocal(
-    //     filePath, FileMetadata(version: kVersion, hash: hash),
-    //     keepCopy: true);
+    await zapstorePackage._installFromLocal(
+        filePath,
+        (PartialFileMetadata()
+              ..version = kVersion
+              ..hash = hash)
+            .dummySign(),
+        keepCopy: true);
     await zapstorePackage.linkVersion(kVersion);
     // Try again with zapstore installed/updated
     print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());
