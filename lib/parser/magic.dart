@@ -5,13 +5,14 @@ import 'dart:typed_data';
 import 'package:mime/mime.dart';
 import 'package:zapstore_cli/utils.dart';
 
-String? detectFileType(String filePath) {
-  final data = Uint8List.fromList(File(filePath).readAsBytesSync());
+Future<String?> detectFileType(String filePath) async {
+  final data = Uint8List.fromList(await File(filePath).readAsBytes());
+  return lookupMimeType(filePath, headerBytes: data) ??
+      await detectBytesType(data);
+}
 
+Future<String?> detectBytesType(Uint8List data) async {
   String? result;
-
-  result = lookupMimeType(filePath, headerBytes: data);
-  if (result != null) return result;
 
   // ZIP: first 4 bytes are [0x50, 0x4B, 0x03, 0x04].
   if (data.length >= 4 &&

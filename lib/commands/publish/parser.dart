@@ -1,21 +1,21 @@
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/fastlane_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/fdroid_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/playstore_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/fastlane_metadata_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/fdroid_metadata_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/github_metadata_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/playstore_metadata_fetcher.dart';
+import 'package:zapstore_cli/commands/publish/parser_utils.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/parser/magic.dart';
-import 'package:zapstore_cli/parser/signatures.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'dart:io';
-import 'package:archive/archive.dart';
 import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
-import 'package:zapstore_cli/parser/axml_parser.dart';
 
 class AssetParser {
   final Map appMap;
@@ -26,27 +26,36 @@ class AssetParser {
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
   final bool areFilesLocal;
-  late final Set<String> blossomServers;
 
-  String? resolvedVersion;
-
-  final assetHashes = <String>{};
+  late String? resolvedVersion;
+  late var assetHashes = <String>{};
+  Set<String> get blossomServers => <String>{
+        ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
+      };
 
   AssetParser(this.appMap, {this.areFilesLocal = true});
 
-  // TODO: Spinner for main parser functions (and rename them to something better)
+  Future<List<PartialModel>> run() async {
+    resolvedVersion = await resolveVersion();
+    assetHashes = await resolveHashes();
+    await applyFileMetadata();
+    await applyRemoteMetadata();
+    return [
+      partialApp,
+      partialRelease,
+      ...partialFileMetadatas,
+      ...partialBlossomAuthorizations
+    ];
+  }
 
-  Future<void> resolveVersion() async {
-    blossomServers = {
-      ...(appMap['blossom'] ?? {kZapstoreBlossomUrl})
-    };
+  Future<String?> resolveVersion() async {
+    String? version;
 
     // Usecase: configs may specify a version: 1.2.1
     // and have assets $version replaced: jq-$version-macos
     if (appMap['version'] is String) {
-      resolvedVersion = appMap['version'];
-    }
-    if (appMap['version'] is List) {
+      version = appMap['version'];
+    } else if (appMap['version'] is List) {
       final versionSpec = appMap['version'] as List;
 
       final [endpoint, selector, attribute, ...rest] = versionSpec;
@@ -79,57 +88,61 @@ class AssetParser {
         }
       }
 
-      resolvedVersion = match != null
+      version = match != null
           ? (match.groupCount > 0 ? match.group(1) : match.group(0))
           : null;
-
-      if (resolvedVersion == null) {
-        final message = 'could not match version for $selector';
-        if (isDaemonMode) {
-          print(message);
-        }
-        throw GracefullyAbortSignal();
-      }
-    } else if (appMap['version'] is String) {
-      resolvedVersion = appMap['version'];
     }
+    return version;
   }
 
-  Future<void> findHashes() async {
-    for (final a in appMap['assets']) {
+  Future<Set<String>> resolveHashes() async {
+    final assetHashes = <String>{};
+    for (final definedAsset in appMap['assets']) {
       // Replace all asset paths with resolved version
       final asset = resolvedVersion != null
-          ? a.toString().replaceAll('\$version', resolvedVersion!)
-          : a;
+          ? definedAsset.toString().replaceAll('\$version', resolvedVersion!)
+          : definedAsset;
+
       final dir = Directory(path.dirname(asset));
       final r = RegExp('^${path.basename(asset)}\$');
-      final apaths = dir
+
+      final assetPaths = dir
           .listSync()
           .where((e) => e is File && r.hasMatch(path.basename(e.path)))
           .map((e) => e.path);
 
-      for (final assetPath in apaths) {
-        assetHashes.add(await copyToHash(assetPath));
+      for (final assetPath in assetPaths) {
+        final hashesFromCompressed = await extractFromCompressedFile(assetPath);
+        if (hashesFromCompressed != null) {
+          // We only add hashes from inside a zip file
+          assetHashes.addAll(hashesFromCompressed);
+        } else {
+          // Otherwise if it's a regular executable, rename and add
+          assetHashes.add(await copyToHash(assetPath));
+        }
       }
     }
+    return assetHashes;
   }
 
-  /// Downloads (if necessary) and applies data in files,
-  /// including APK data in the case of Android
+  /// Applies metadata found in files (local or downloaded)
   @mustCallSuper
-  Future<void> applyMetadata() async {
+  Future<void> applyFileMetadata() async {
     String? identifier = appMap['identifier'];
 
-    for (final pfm in assetHashes) {
-      final (fm, bs) = await parseFile(pfm);
+    for (final hash in assetHashes) {
+      final (partialFileMetadata, partialBlossomAuthorizations) =
+          await extractMetadataFromFile(hash, blossomServers);
 
-      identifier =
-          _validatePropertyMatch(identifier, fm.identifier, type: 'identifier');
-      resolvedVersion =
-          _validatePropertyMatch(resolvedVersion, fm.version, type: 'version');
+      identifier = _validatePropertyMatch(
+          identifier, partialFileMetadata.identifier,
+          type: 'identifier');
+      resolvedVersion = _validatePropertyMatch(
+          resolvedVersion, partialFileMetadata.version,
+          type: 'version');
 
-      partialFileMetadatas.add(fm);
-      partialBlossomAuthorizations.addAll(bs);
+      partialFileMetadatas.add(partialFileMetadata);
+      partialBlossomAuthorizations.addAll(partialBlossomAuthorizations);
     }
 
     partialApp.name ??= appMap['name']?.toString().toLowerCase();
@@ -158,10 +171,9 @@ class AssetParser {
     partialApp
       ..description = appMap['description'] ?? appMap['summary']
       ..summary = appMap['summary']
-      ..repository = sourceRepository
+      ..repository = appMap['repository']
       ..license = appMap['license'];
 
-    // All user provided assets should be renamed/copied (not moved)
     if (appMap['icon'] != null) {
       partialApp.addIcon(await copyToHash(appMap['icon']));
     }
@@ -182,15 +194,17 @@ class AssetParser {
     partialApp.event.createdAt = partialRelease.event.createdAt;
   }
 
-  /// Fetches from Github, Play Store, etc
+  /// Applies metadata from remote sources: Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    final rm = appMap['remote_metadata'] ?? [];
-    for (final m in rm) {
-      final fetcher = switch (m) {
-        'playstore' => PlayStoreFetcher(),
-        'fdroid' => FDroidFetcher(),
-        'fastlane' => FastlaneFetcher(),
+    final metadataSources = appMap['metadata'] ?? [];
+
+    for (final source in metadataSources) {
+      final fetcher = switch (source) {
+        'playstore' => PlayStoreMetadataFetcher(),
+        'fdroid' => FDroidMetadataFetcher(),
+        'fastlane' => FastlaneMetadataFetcher(),
+        'github' => GithubMetadataFetcher(),
         _ => null,
       };
 
@@ -203,151 +217,37 @@ class AssetParser {
               isEnabled: !isDaemonMode)
           .start();
 
-      final metadataApp = await fetcher.run(
-        appIdentifier: partialApp.identifier!,
-      );
-
-      if (metadataApp != null) {
-        // All paths in metadataApp are just hashes, must add Blossom servers
+      try {
+        await fetcher.run(app: partialApp);
         extraMetadataSpinner.success('[${fetcher.name}] Fetched metadata');
-        partialApp.name ??= metadataApp.name;
-        if (partialApp.description.isEmpty) {
-          partialApp.description = metadataApp.description;
-        }
-        if (partialApp.icons.isEmpty && metadataApp.icons.isNotEmpty) {
-          for (final s in blossomServers) {
-            partialApp.addIcon('$s/${metadataApp.icons.first}');
-          }
-        }
-      } else {
+      } catch (e) {
         extraMetadataSpinner.fail(
             '[${fetcher.name}] ${partialApp.identifier} was not found, no extra metadata added');
       }
     }
-  }
 
-  Future<void> lastShit() async {
-    // Here add final Blossom authorizations
-    for (final hash in [...partialApp.icons, ...partialApp.images]) {
+    // Generate Blossom authorizations (icons, images hold hashes until here)
+    for (final i in [...partialApp.icons, ...partialApp.images]) {
       final auth = PartialBlossomAuthorization()
         ..content = 'Upload asset'
         ..type = BlossomAuthorizationType.upload
         ..expiration = DateTime.now().add(Duration(hours: 1))
-        ..addHash(hash);
+        ..addHash(i);
       partialBlossomAuthorizations.add(auth);
     }
+
+    // Adjust icon + image URLs with Blossom servers
+    partialApp.icons = partialApp.icons
+        .map((icon) => blossomServers.map((blossom) => '$blossom/$icon'))
+        .expand((e) => e)
+        .toSet();
+    partialApp.images = partialApp.images
+        .map((i) => blossomServers.map((blossom) => '$blossom/$i'))
+        .expand((e) => e)
+        .toSet();
   }
 
   // Helpers
-
-  String? get sourceRepository => appMap['repository'];
-  String? get releaseRepository => appMap['release_repository'];
-
-  Future<(PartialFileMetadata, Set<PartialBlossomAuthorization>)> parseFile(
-      String assetHash) async {
-    final metadata = PartialFileMetadata();
-
-    String? identifier;
-
-    final assetPath = getFilePathInTempDirectory(assetHash);
-    final fileType = detectFileType(assetPath);
-    if (fileType == kAndroidMimeType) {
-      final assetBytes = await File(assetPath).readAsBytes();
-      final archive = ZipDecoder().decodeBytes(assetBytes);
-
-      var architectures = {'arm64-v8a'};
-      try {
-        architectures = archive.files
-            .where((a) => a.name.startsWith('lib/'))
-            .map((a) => a.name.split('/')[1])
-            .toSet();
-      } catch (_) {
-        // If expected format is not there assume default
-      }
-
-      metadata.platforms = architectures.map((a) => 'android-$a').toSet();
-
-      metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
-      if (metadata.apkSignatureHashes.isEmpty) {
-        throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
-      }
-
-      final binaryManifestFile =
-          archive.firstWhere((a) => a.name == 'AndroidManifest.xml');
-      final rawAndroidManifest = AxmlParser.toXml(binaryManifestFile.content);
-      final manifestDocument = parseHtmlDocument(rawAndroidManifest);
-
-      identifier =
-          manifestDocument.querySelector('manifest')!.attributes['package']!;
-
-      final manifest = manifestDocument.querySelector('manifest')!;
-      metadata.version = manifest.attributes['android:versionName'];
-
-      metadata.versionCode = manifest.attributes['android:versionCode'];
-
-      final usesSdk = manifest.querySelector('uses-sdk')!;
-      metadata.minSdkVersion = usesSdk.attributes['android:minSdkVersion'];
-      metadata.targetSdkVersion =
-          usesSdk.attributes['android:targetSdkVersion'];
-
-      metadata.mimeType = kAndroidMimeType;
-      metadata.identifier = identifier;
-
-      // For backwards-compatibility
-      metadata.event.content = '${metadata.identifier}@${metadata.version}';
-    } else {
-      // CLI
-      metadata.version = resolvedVersion;
-
-      if (fileType == 'application/gzip') {
-        final bytes =
-            GZipDecoder().decodeBytes(File(assetPath).readAsBytesSync());
-        final archive = TarDecoder().decodeBytes(bytes);
-        // TODO: In this way detect executables!
-        // And then pass through executables regex filter from config
-        final w = archive.files
-            .map((f) => f.isFile && f.size > 0 ? detectFileType(f.name) : '');
-        print(w);
-      } else if (fileType == 'application/zip') {}
-    }
-
-    // If platforms were not set, we are dealing with a binary
-    if (metadata.platforms.isEmpty) {
-      metadata.platforms = {
-        switch (fileType) {
-          'application/x-mach-binary-arm64' => 'darwin-arm64',
-          'application/x-mach-binary-amd64' => 'darwin-x86_64',
-          'application/x-elf-aarch64' => 'linux-aarch64',
-          'application/x-elf-amd64' => 'linux-x86_64',
-          _ => throw UnsupportedError('Bad platform: $fileType')
-        }
-      };
-    }
-
-    // Default mime type, we query by platform anyway
-    metadata.mimeType ??= 'application/octet-stream';
-
-    // TODO: Should get the original name to inform the user
-    _validatePlatforms(metadata, 'assetPath');
-
-    // TODO: Add executables
-    // final executables = assetEntry?.value?['executables'] ?? [];
-
-    metadata.hash = assetHash;
-    metadata.url = '$kZapstoreBlossomUrl/$assetHash';
-    metadata.size = await File(getFilePathInTempDirectory(assetHash)).length();
-
-    final bs = {
-      PartialBlossomAuthorization()
-        // content should be the name of the original file
-        ..content = 'Upload ${path.basename(assetPath)}'
-        ..type = BlossomAuthorizationType.upload
-        ..mimeType = metadata.mimeType!
-        ..expiration = DateTime.now().add(Duration(days: 1))
-        ..addHash(assetHash)
-    };
-    return (metadata, bs);
-  }
 
   String _validatePropertyMatch(String? s1, String? s2,
       {required String type}) {
@@ -360,16 +260,37 @@ class AssetParser {
     return s1;
   }
 
-  void _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
-    if (metadata.mimeType == kAndroidMimeType) {
-      if (!metadata.platforms.contains('android-arm64-v8a')) {
-        throw UnsupportedError(
-            'APK $assetPath does not support arm64-v8a: ${metadata.platforms}');
+  Future<Set<String>?> extractFromCompressedFile(String assetPath) async {
+    final fileType = await detectFileType(assetPath);
+    final okPlatforms = [
+      'application/x-mach-binary-arm64',
+      'application/x-elf-aarch64',
+      'application/x-elf-amd64'
+    ];
+    final executableRegexps =
+        <String>{...?appMap['executables']}.map(RegExp.new);
+    final assetHashes = <String>{};
+
+    if (['application/gzip', 'application/zip'].contains(fileType)) {
+      final archive = await getArchive(assetPath, fileType!);
+
+      for (final f in archive.files) {
+        if (f.isFile) {
+          for (final r in executableRegexps) {
+            if (r.hasMatch(f.name)) {
+              final bytes = f.readBytes()!;
+              if (okPlatforms.contains(await detectBytesType(bytes))) {
+                final hash = sha256.convert(bytes).toString().toLowerCase();
+                await File(getFilePathInTempDirectory(hash))
+                    .writeAsBytes(bytes);
+                assetHashes.add(hash);
+              }
+            }
+          }
+        }
       }
-    } else if (!metadata.platforms
-        .every((platform) => kZapstoreSupportedPlatforms.contains(platform))) {
-      throw UnsupportedError(
-          'asset has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
+      return assetHashes;
     }
+    return null;
   }
 }

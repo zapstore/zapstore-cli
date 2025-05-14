@@ -127,7 +127,6 @@ class RemoveCommand extends Command {
 }
 
 late final bool isDaemonMode;
-// TODO: Add pointer to CHANGELOG.md in config yaml
 // String? releaseNotes;
 late String configPath;
 
@@ -162,7 +161,7 @@ class PublishCommand extends Command {
     // Set daemon mode
     isDaemonMode = argResults!.flag('daemon-mode');
 
-    await Publisher().initialize();
+    await Publisher().run();
   }
 }
 

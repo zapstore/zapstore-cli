@@ -1,13 +1,13 @@
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/fetcher.dart';
+import 'package:zapstore_cli/commands/publish/fetchers/metadata_fetcher.dart';
 import 'package:zapstore_cli/utils.dart';
 
-class FastlaneFetcher extends Fetcher {
+class FastlaneMetadataFetcher extends MetadataFetcher {
   @override
   String get name => 'Remote Fastlane Git fetcher';
 
   @override
-  Future<PartialApp?> run({required String appIdentifier}) async {
+  Future<void> run({required PartialApp app}) async {
     throw UnimplementedError();
   }
 }

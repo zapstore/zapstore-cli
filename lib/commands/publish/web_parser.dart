@@ -1,22 +1,28 @@
-import 'package:models/models.dart';
+import 'package:cli_spin/cli_spin.dart';
 import 'package:zapstore_cli/commands/publish/parser.dart';
-import 'package:zapstore_cli/parser/magic.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class WebParser extends AssetParser {
   WebParser(super.appMap) : super(areFilesLocal: false);
 
   @override
-  Future<void> findHashes() async {
+  Future<Set<String>> resolveHashes() async {
+    final assetHashes = <String>{};
+
+    // Web parser cannot continue without a version
     if (resolvedVersion == null) {
-      throw 'No version bro!';
+      final message = 'Could not match version for ${appMap['version']}';
+      if (isDaemonMode) {
+        print(message);
+        throw GracefullyAbortSignal();
+      }
+      throw message;
     }
 
-    partialRelease.identifier = '';
-    partialRelease.version = resolvedVersion;
-
     for (final key in appMap['assets']) {
-      final asset = key.toString().replaceAll('\$version', resolvedVersion!);
+      final assetUrl = key.toString().replaceAll('\$version', resolvedVersion!);
+
       // if (!overwriteRelease) {
       //   await checkReleaseOnRelay(
       //     version: version,
@@ -24,20 +30,16 @@ class WebParser extends AssetParser {
       //   );
       // }
 
-      // TODO: Make spinner and pass to fetchFile
-      print('Fetching $asset');
-      final assetHash = await fetchFile(asset);
-
-      final fm = PartialFileMetadata();
-      fm.hash = assetHash;
-      fm.mimeType = detectFileType(getFilePathInTempDirectory(assetHash));
-      fm.url = key;
-
+      final assetSpinner = CliSpin(
+        text: 'Fetching asset $assetUrl...',
+        spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
+      ).start();
+      final assetHash = await fetchFile(assetUrl, spinner: assetSpinner);
       assetHashes.add(assetHash);
 
-      partialFileMetadatas.add(fm);
+      assetSpinner.success('Fetched asset: $assetUrl');
     }
-
-    return super.applyMetadata();
+    return assetHashes;
   }
 }

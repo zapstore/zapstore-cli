@@ -25,6 +25,9 @@ final kBaseDir = Platform.isWindows
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 final hexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
+final hashUrlMap = <String, String>{};
+final hashPathMap = <String, String>{};
+
 Future<Map<String, dynamic>> checkUser() async {
   final file = File(path.join(kBaseDir, '_.json'));
   final user = await file.exists()
@@ -139,6 +142,7 @@ Future<String> fetchFile(
     final file = File(getFilePathInTempDirectory(hash));
     await deleteRecursive(file.path);
     await file.writeAsBytes(bytes);
+    hashUrlMap[hash] = url;
     completer.complete(hash);
   });
   return completer.future;
@@ -171,6 +175,7 @@ Future<String> copyToHash(String filePath) async {
   final hash = await computeHash(filePath);
   await File(filePath).copy(getFilePathInTempDirectory(hash));
   // final ext = path.extension(Uri.parse(filePath).path);
+  hashPathMap[hash] = filePath;
   return hash;
 }
 
@@ -179,6 +184,44 @@ Future<String> computeHash(String filePath) async {
       .convert(await File(filePath).readAsBytes())
       .toString()
       .toLowerCase();
+}
+
+/// Returns the subsection that follows the heading matching [version].
+///
+/// * [markdown] – entire contents of `CHANGELOG.md`.
+/// * [version]  – the literal version label to look for, e.g. `"1.2.0"` or
+///                `"Unreleased"`.
+///
+/// The function looks for a level-2 heading of the canonical form
+///
+///     ## [<version>] - YYYY-MM-DD
+///
+/// or
+///
+///     ## [<version>]
+///
+/// If the heading is found, the text from that heading (inclusive) up to—but
+/// not including—the next level-2 heading is returned.
+/// If the heading is not present, the whole provided Markdown is returned.
+String? extractVersionSection(String markdown, String version) {
+  // Build a regex that matches the exact version inside the square brackets.
+  final headingPattern = RegExp(
+      r'^##\s*$$\s*' + RegExp.escape(version) + r'\s*$$.*$',
+      multiLine: true);
+
+  final match = headingPattern.firstMatch(markdown);
+  if (match == null) return markdown;
+
+  final start = match.start;
+
+  // Look for the next level-2 heading after the one we just found.
+  final nextHeadingPattern = RegExp(r'^##\s*\[.*$', multiLine: true);
+  final nextMatch =
+      nextHeadingPattern.firstMatch(markdown.substring(match.end));
+
+  final end = nextMatch == null ? markdown.length : match.end + nextMatch.start;
+
+  return markdown.substring(start, end).trimRight();
 }
 
 void printJsonEncodeColored(Object obj) {

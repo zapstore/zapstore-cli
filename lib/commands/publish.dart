@@ -17,7 +17,43 @@ import 'package:zapstore_cli/utils.dart';
 class Publisher {
   final blossom = BlossomClient(servers: {kZapstoreBlossomUrl});
 
-  Future<void> initialize() async {
+  Future<void> run() async {
+    // (1) Find parser
+    final parser = await _findParser();
+
+    // (2) Parse: Produces initial app, release, metadatas
+    final partialModels = await parser.run();
+
+    // (3) Sign events and Blossom authorizations
+
+    final signWith = env['SIGN_WITH'];
+
+    if (signWith == null) {
+      stderr.writeln(
+          '⚠️  ${'Nothing to sign with, returning unsigned events'.bold()}');
+      for (final model in partialModels) {
+        print(model);
+      }
+      return;
+    }
+
+    final signedModels = await signModels(
+      partialModels: partialModels,
+      signWith: signWith,
+    );
+
+    // (4) Upload to Blossom
+    await blossom
+        .upload(signedModels.whereType<BlossomAuthorization>().toSet());
+
+    // (5) Publish
+    await _sendToRelays(
+        signedModels.whereType<App>().first,
+        signedModels.whereType<Release>().first,
+        signedModels.whereType<FileMetadata>().toSet());
+  }
+
+  Future<AssetParser> _findParser() async {
     final configYaml = File(configPath);
 
     if (!await configYaml.exists()) {
@@ -29,6 +65,13 @@ class Publisher {
 
     // (1) Validate input and determine parser
     final appMap = {...yamlAppMap.value};
+    if (!appMap.containsKey('assets')) {
+      final usage = appMap['artifacts'] is List
+          ? 'You are listing artifacts, update to the new format (artifacts -> assets).'
+          : 'You must have an asset list in your config file.';
+      throw UsageException('Asset list not found', usage);
+    }
+
     final assets = appMap['assets'] as List;
 
     late final AssetParser parser;
@@ -60,56 +103,10 @@ class Publisher {
         throw UsageException('No sources provided', '');
       }
     }
-
-    // (2) Parse: Produces initial app, release, metadatas
-    await parser.resolveVersion();
-    await parser.findHashes();
-    await parser.applyMetadata();
-    await parser.applyRemoteMetadata();
-    await parser.lastShit();
-
-    // (3) Sign events and Blossom authorizations
-
-    final signWith = env['SIGN_WITH'];
-
-    if (signWith == null) {
-      final List<PartialModel> partialModels = [
-        parser.partialApp,
-        parser.partialRelease,
-        ...parser.partialFileMetadatas,
-        ...parser.partialBlossomAuthorizations,
-      ];
-      stderr.writeln(
-          '⚠️  ${'Nothing to sign with, sending unsigned events to stdout'.bold()}');
-      for (final PartialModel model in partialModels) {
-        print(model);
-      }
-      return;
-    }
-
-    var (
-      signedApp,
-      signedRelease,
-      signedFileMetadatas,
-      signedBlossomAuthorizations
-    ) = await signModels(
-      partialApp: parser.partialApp,
-      partialRelease: parser.partialRelease,
-      partialFileMetadatas: parser.partialFileMetadatas,
-      partialBlossomAuthorizations: parser.partialBlossomAuthorizations,
-      signWith: signWith,
-    );
-
-    // (4) Upload to Blossom
-    await blossom.upload(signedBlossomAuthorizations);
-
-    // TODO: All Blossom uploads must succeed or abort
-
-    // (5) Publish
-    await _publishToRelays(signedApp, signedRelease, signedFileMetadatas);
+    return parser;
   }
 
-  Future<void> _publishToRelays(App signedApp, Release signedRelease,
+  Future<void> _sendToRelays(App signedApp, Release signedRelease,
       Set<FileMetadata> signedFileMetadatas) async {
     var publishEvents = true;
 

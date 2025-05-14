@@ -6,12 +6,8 @@ import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
 import 'package:riverpod/riverpod.dart';
 
-Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
-    signModels({
-  required PartialApp partialApp,
-  required PartialRelease partialRelease,
-  required Set<PartialFileMetadata> partialFileMetadatas,
-  required Set<PartialBlossomAuthorization> partialBlossomAuthorizations,
+Future<List<Model<dynamic>>> signModels({
+  required List<PartialModel<dynamic>> partialModels,
   bool overwriteApp = false,
   required String signWith,
 }) async {
@@ -28,8 +24,16 @@ Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
 
   final signingPubkey = await signer.getPublicKey();
 
+  final partialApp = partialModels.whereType<PartialApp>().first;
+  final partialRelease = partialModels.whereType<PartialRelease>().first;
+  final partialFileMetadatas =
+      partialModels.whereType<PartialFileMetadata>().toSet();
+  final partialBlossomAuthorizations =
+      partialModels.whereType<PartialBlossomAuthorization>().toSet();
+
   for (final fm in partialFileMetadatas) {
     final eid = Utils.getEventId(fm.event, signingPubkey);
+    print('setting $eid');
     partialRelease.event.addTagValue('e', eid);
   }
   partialRelease.event
@@ -37,7 +41,7 @@ Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
   partialApp.event
       .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
 
-  final signedEvents = await signer.sign([
+  final signedModels = await signer.sign([
     partialApp,
     partialRelease,
     ...partialFileMetadatas,
@@ -45,18 +49,7 @@ Future<(App, Release, Set<FileMetadata>, Set<BlossomAuthorization>)>
   ]);
   await signer.dispose();
 
-  final signedApp = signedEvents.whereType<App>().first;
-  final signedRelease = signedEvents.whereType<Release>().first;
-  final signedFileMetadatas = signedEvents.whereType<FileMetadata>().toSet();
-  final signedBlossomAuthorizations =
-      signedEvents.whereType<BlossomAuthorization>().toSet();
-
-  return (
-    signedApp,
-    signedRelease,
-    signedFileMetadatas,
-    signedBlossomAuthorizations
-  );
+  return signedModels;
 }
 
 class NakNIP46Signer extends Signer {
