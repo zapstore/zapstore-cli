@@ -1,6 +1,0 @@
-name: phoenixd
-repository: https://github.com/acinq/phoenixd
-assets:
-  - phoenix-\d+.\d+.\d+-macos-arm64.zip
-  - phoenix-\d+.\d+.\d+-linux-x64.zip
-executables: [phoenixd, phoenix-cli]

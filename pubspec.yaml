@@ -29,6 +29,7 @@ dependencies:
   convert: ^3.1.2
   nip07_signer: ^0.1.1
   json_path: ^0.7.5
+  file_magic_number: ^0.7.2
 
 dependency_overrides:
   # patched dart_console to use stderr

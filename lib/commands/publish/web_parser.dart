@@ -4,7 +4,7 @@ import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils.dart';
 
 class WebParser extends AssetParser {
-  WebParser(super.appMap) : super(areFilesLocal: false);
+  WebParser(super.appMap) : super(uploadToBlossom: false);
 
   @override
   Future<Set<String>> resolveHashes() async {
@@ -35,6 +35,7 @@ class WebParser extends AssetParser {
         spinner: CliSpinners.dots,
         isSilent: isDaemonMode,
       ).start();
+
       final assetHash = await fetchFile(assetUrl, spinner: assetSpinner);
       assetHashes.add(assetHash);
 

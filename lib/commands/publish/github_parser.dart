@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils.dart';
 
 class GithubParser extends AssetParser {
-  GithubParser(super.appMap) : super(areFilesLocal: false);
+  GithubParser(super.appMap) : super(uploadToBlossom: false);
 
   Map<String, dynamic>? releaseJson;
 
@@ -23,7 +23,7 @@ class GithubParser extends AssetParser {
   @override
   Future<String?> resolveVersion() async {
     final metadataSpinner = CliSpin(
-      text: 'Fetching release...',
+      text: 'Fetching release from Github...',
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
@@ -110,7 +110,6 @@ class GithubParser extends AssetParser {
 
         final fileHash =
             await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
-
         assetHashes.add(fileHash);
 
         assetSpinner.success('Fetched asset: $assetUrl');
@@ -127,6 +126,10 @@ class GithubParser extends AssetParser {
     partialRelease.event.createdAt =
         DateTime.tryParse(releaseJson?['created_at']) ?? DateTime.now();
     partialRelease.url = releaseJson?['html_url'];
+
+    // Default to repo name if no identifier
+    identifier ??= repositoryName.split('/').lastOrNull;
+
     return super.applyFileMetadata();
   }
 

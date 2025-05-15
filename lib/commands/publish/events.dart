@@ -33,7 +33,6 @@ Future<List<Model<dynamic>>> signModels({
 
   for (final fm in partialFileMetadatas) {
     final eid = Utils.getEventId(fm.event, signingPubkey);
-    print('setting $eid');
     partialRelease.event.addTagValue('e', eid);
   }
   partialRelease.event

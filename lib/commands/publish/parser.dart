@@ -1,6 +1,5 @@
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
@@ -11,7 +10,6 @@ import 'package:zapstore_cli/commands/publish/fetchers/github_metadata_fetcher.d
 import 'package:zapstore_cli/commands/publish/fetchers/playstore_metadata_fetcher.dart';
 import 'package:zapstore_cli/commands/publish/parser_utils.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/parser/magic.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -25,15 +23,20 @@ class AssetParser {
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
-  final bool areFilesLocal;
+  final bool uploadToBlossom;
 
+  String? identifier;
   late String? resolvedVersion;
   late var assetHashes = <String>{};
+
+  // TODO: Set up proper Blossom server
   Set<String> get blossomServers => <String>{
         ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
       };
 
-  AssetParser(this.appMap, {this.areFilesLocal = true});
+  AssetParser(this.appMap, {this.uploadToBlossom = true}) {
+    identifier = appMap['identifier'];
+  }
 
   Future<List<PartialModel>> run() async {
     resolvedVersion = await resolveVersion();
@@ -112,14 +115,7 @@ class AssetParser {
           .map((e) => e.path);
 
       for (final assetPath in assetPaths) {
-        final hashesFromCompressed = await extractFromCompressedFile(assetPath);
-        if (hashesFromCompressed != null) {
-          // We only add hashes from inside a zip file
-          assetHashes.addAll(hashesFromCompressed);
-        } else {
-          // Otherwise if it's a regular executable, rename and add
-          assetHashes.add(await copyToHash(assetPath));
-        }
+        assetHashes.add(await copyToHash(assetPath));
       }
     }
     return assetHashes;
@@ -128,11 +124,34 @@ class AssetParser {
   /// Applies metadata found in files (local or downloaded)
   @mustCallSuper
   Future<void> applyFileMetadata() async {
-    String? identifier = appMap['identifier'];
+    for (final assetHash in assetHashes) {
+      final partialFileMetadata = await extractMetadataFromFile(
+          assetHash, blossomServers,
+          resolvedVersion: resolvedVersion,
+          executablePatterns: appMap['executables'] != null
+              ? <String>{...appMap['executables']}
+              : null);
 
-    for (final hash in assetHashes) {
-      final (partialFileMetadata, partialBlossomAuthorizations) =
-          await extractMetadataFromFile(hash, blossomServers);
+      // Place first the original URL and leave Blossom servers as backup
+      if (hashUrlMap.containsKey(assetHash)) {
+        partialFileMetadata.event.addTagValue('url', hashUrlMap[assetHash]);
+      }
+
+      if (uploadToBlossom) {
+        for (final server in blossomServers) {
+          partialFileMetadata.event
+              .addTagValue('url', path.join(server, assetHash));
+        }
+
+        final partialBlossomAuthorization = PartialBlossomAuthorization()
+          // content should be the name of the original file
+          ..content = 'Upload'
+          ..type = BlossomAuthorizationType.upload
+          ..mimeType = partialFileMetadata.mimeType!
+          ..expiration = DateTime.now().add(Duration(days: 1))
+          ..addHash(assetHash);
+        partialBlossomAuthorizations.add(partialBlossomAuthorization);
+      }
 
       identifier = _validatePropertyMatch(
           identifier, partialFileMetadata.identifier,
@@ -142,7 +161,6 @@ class AssetParser {
           type: 'version');
 
       partialFileMetadatas.add(partialFileMetadata);
-      partialBlossomAuthorizations.addAll(partialBlossomAuthorizations);
     }
 
     partialApp.name ??= appMap['name']?.toString().toLowerCase();
@@ -258,39 +276,5 @@ class AssetParser {
       throw '$s1 != $s2 - mismatching $type, abort';
     }
     return s1;
-  }
-
-  Future<Set<String>?> extractFromCompressedFile(String assetPath) async {
-    final fileType = await detectFileType(assetPath);
-    final okPlatforms = [
-      'application/x-mach-binary-arm64',
-      'application/x-elf-aarch64',
-      'application/x-elf-amd64'
-    ];
-    final executableRegexps =
-        <String>{...?appMap['executables']}.map(RegExp.new);
-    final assetHashes = <String>{};
-
-    if (['application/gzip', 'application/zip'].contains(fileType)) {
-      final archive = await getArchive(assetPath, fileType!);
-
-      for (final f in archive.files) {
-        if (f.isFile) {
-          for (final r in executableRegexps) {
-            if (r.hasMatch(f.name)) {
-              final bytes = f.readBytes()!;
-              if (okPlatforms.contains(await detectBytesType(bytes))) {
-                final hash = sha256.convert(bytes).toString().toLowerCase();
-                await File(getFilePathInTempDirectory(hash))
-                    .writeAsBytes(bytes);
-                assetHashes.add(hash);
-              }
-            }
-          }
-        }
-      }
-      return assetHashes;
-    }
-    return null;
   }
 }

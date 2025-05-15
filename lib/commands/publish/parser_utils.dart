@@ -2,25 +2,26 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:models/models.dart';
-import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
-import 'package:zapstore_cli/parser/magic.dart';
+import 'package:zapstore_cli/parser/detect_types.dart';
 import 'package:zapstore_cli/parser/signatures.dart';
 import 'package:zapstore_cli/utils.dart';
 
-Future<(PartialFileMetadata, Set<PartialBlossomAuthorization>)>
-    extractMetadataFromFile(
-        String assetHash, Set<String> blossomServers) async {
+Future<PartialFileMetadata> extractMetadataFromFile(
+    String assetHash, Set<String> blossomServers,
+    {String? resolvedVersion, Set<String>? executablePatterns}) async {
   final metadata = PartialFileMetadata();
 
   String? identifier;
 
   final assetPath = getFilePathInTempDirectory(assetHash);
-  final fileType = await detectFileType(assetPath);
+  final (mimeType, internalMimeTypes, executablePaths) =
+      await detectFileTypes(assetPath, executablePatterns: executablePatterns);
 
-  if (fileType == kAndroidMimeType) {
-    final archive = await getArchive(assetPath, fileType!);
+  if (mimeType == kAndroidMimeType) {
+    final assetBytes = await File(assetPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(assetBytes);
 
     var architectures = {'arm64-v8a'};
     try {
@@ -63,61 +64,32 @@ Future<(PartialFileMetadata, Set<PartialBlossomAuthorization>)>
     metadata.event.content = '${metadata.identifier}@${metadata.version}';
   } else {
     // CLI
+    metadata.version = resolvedVersion;
 
-    // Regular executable
-    metadata.mimeType = fileType;
-
-    // TODO: Check platforms
     metadata.platforms = {
-      switch (fileType) {
-        'application/x-mach-binary-arm64' => 'darwin-arm64',
-        'application/x-elf-aarch64' => 'linux-aarch64',
-        'application/x-elf-amd64' => 'linux-x86_64',
-        _ => throw UnsupportedError('Bad platform: $fileType')
-      }
-    };
+      for (final type in [mimeType, ...?internalMimeTypes])
+        switch (type) {
+          'application/x-mach-binary-arm64' => 'darwin-arm64',
+          'application/x-elf-aarch64' => 'linux-aarch64',
+          'application/x-elf-amd64' => 'linux-x86_64',
+          _ => null,
+        }
+    }.nonNulls.toSet();
+
+    if (executablePaths != null) {
+      metadata.executables = executablePaths;
+    }
   }
 
   // Default mime type, we query by platform anyway
-  metadata.mimeType ??= 'application/octet-stream';
+  metadata.mimeType = mimeType ?? 'application/octet-stream';
 
   _validatePlatforms(metadata, hashPathMap[assetHash] ?? '');
-
-  // TODO: Add executables - do we actually need this or we get multiple 1063s?
-  // See in relay what current phoenixd has
-  // final executables = assetEntry?.value?['executables'] ?? [];
 
   metadata.hash = assetHash;
   metadata.size = await File(getFilePathInTempDirectory(assetHash)).length();
 
-  // Place first the original URL and leave Blossom servers as backup
-  if (hashUrlMap.containsKey(assetHash)) {
-    metadata.event.addTagValue('url', hashUrlMap[assetHash]);
-  }
-  for (final server in blossomServers) {
-    metadata.event.addTagValue('url', path.join(server, assetHash));
-  }
-
-  final auth = {
-    PartialBlossomAuthorization()
-      // content should be the name of the original file
-      ..content = 'Upload ${path.basename(assetPath)}'
-      ..type = BlossomAuthorizationType.upload
-      ..mimeType = metadata.mimeType!
-      ..expiration = DateTime.now().add(Duration(days: 1))
-      ..addHash(assetHash)
-  };
-  return (metadata, auth);
-}
-
-Future<Archive> getArchive(String assetPath, String fileType) async {
-  final bytes = await File(assetPath).readAsBytes();
-  return switch (fileType) {
-    'application/gzip' =>
-      TarDecoder().decodeBytes(GZipDecoder().decodeBytes(bytes)),
-    'application/zip' || kAndroidMimeType => ZipDecoder().decodeBytes(bytes),
-    _ => throw UnsupportedError('')
-  };
+  return metadata;
 }
 
 void _validatePlatforms(PartialFileMetadata metadata, String assetPath) {

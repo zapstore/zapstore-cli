@@ -1,14 +1,14 @@
 import 'package:test/test.dart';
-import 'package:zapstore_cli/parser/magic.dart';
+import 'package:zapstore_cli/parser/detect_types.dart';
 
 void main() {
   test('Detect shit', () {
-    print(detectFileType('test/assets/sample.apk'));
-    print(detectFileType('test/assets/icon.png'));
-    print(detectFileType('test/assets/hello'));
-    print(detectFileType('test/assets/hello.tar.gz'));
-    print(detectFileType('test/assets/hello.zip'));
-    print(detectFileType('test/assets/jq-linux-arm64'));
-    print(detectFileType('test/assets/jq-macos-arm64'));
+    print(detectFileTypes('test/assets/sample.apk'));
+    print(detectFileTypes('test/assets/icon.png'));
+    print(detectFileTypes('test/assets/hello'));
+    print(detectFileTypes('test/assets/hello.tar.gz'));
+    print(detectFileTypes('test/assets/hello.zip'));
+    print(detectFileTypes('test/assets/jq-linux-arm64'));
+    print(detectFileTypes('test/assets/jq-macos-arm64'));
   });
 }
