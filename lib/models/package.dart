@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
@@ -57,72 +56,53 @@ class Package {
     await _installFromLocal(downloadHash, meta);
   }
 
-  Future<void> _installFromLocal(String fileHash, FileMetadata meta,
+  Future<void> _installFromLocal(String fileHash, FileMetadata metadata,
       {bool keepCopy = false}) async {
-    // TODO: Remove shell calls here
-    final versionPath = path.join(directory.path, meta.version);
-    await shell.run('mkdir -p $versionPath');
+    final versionPath = path.join(directory.path, metadata.version);
 
-    if (fileHash != meta.hash) {
-      throw 'Hash mismatch! $fileHash != ${meta.hash}\nFile server may be compromised.';
+    await Directory(versionPath).create(recursive: true);
+
+    if (fileHash != metadata.hash) {
+      throw 'Hash mismatch! $fileHash != ${metadata.hash}\nFile server may be compromised.';
     }
 
     final downloadPath = getFilePathInTempDirectory(fileHash);
 
     // Auto-extract
-    // application/x-gzip
-    // application/x-gtar
-    // application/x-tgz
-    if ([
-      'application/x-zip-compressed',
-      'application/zip',
-      'application/gzip',
-      'application/x-gtar'
-    ].contains(meta.mimeType)) {
+    if (kArchiveMimeTypes.contains(metadata.mimeType)) {
       final extractDir = getFilePathInTempDirectory(
           '${path.basenameWithoutExtension(downloadPath)}.tmp');
 
-      final uncompress =
-          ['application/gzip', 'application/x-gtar'].contains(meta.mimeType)
-              ? 'tar zxf $downloadPath -C $extractDir'
-              : 'unzip -d $extractDir $downloadPath';
+      await deleteRecursive(extractDir);
+      await Directory(extractDir).create(recursive: true);
+      // TODO: Uncompress: 'tar zxf $downloadPath -C $extractDir'
 
-      final mvs = {
-        // Attempt to find declared binaries in meta, or default to package name
-        for (final binaryPath
-            in meta.executables.isEmpty ? {identifier} : meta.executables)
-          _installBinaryCmd(
-              path.join(extractDir, binaryPath),
-              path.join(
-                versionPath,
-                path.basename(binaryPath),
-              ))
-      }.join('\n');
-
-      final cmd = '''
-      rm -fr $extractDir
-      mkdir -p $extractDir
-      $uncompress
-      $mvs
-      rm -fr $extractDir $downloadPath
-    ''';
-      await shell.run(cmd);
+      for (final executablePath in metadata.executables) {
+        await _installBinary(
+            path.join(extractDir, executablePath),
+            path.join(
+              versionPath,
+              path.basename(executablePath),
+            ));
+      }
+      await deleteRecursive(extractDir);
+      await deleteRecursive(downloadPath);
     } else {
       final binaryPath = path.join(versionPath, identifier);
-      final cmd =
-          _installBinaryCmd(downloadPath, binaryPath, keepCopy: keepCopy);
-      await shell.run(cmd);
+      await _installBinary(downloadPath, binaryPath, keepCopy: keepCopy);
     }
   }
 
-  String _installBinaryCmd(String srcPath, String destPath,
-      {bool keepCopy = false}) {
-    final cmd = '''
-      ${keepCopy ? 'cp' : 'mv'} $srcPath $destPath
-      chmod +x $destPath
-      ln -sf ${path.relative(destPath, from: kBaseDir)}
-    ''';
-    return cmd;
+  Future<void> _installBinary(String srcPath, String destPath,
+      {bool keepCopy = false}) async {
+    if (keepCopy) {
+      await File(srcPath).rename(destPath);
+    } else {
+      await File(srcPath).copy(destPath);
+    }
+    final target = path.relative(destPath, from: kBaseDir);
+    final linkName = path.basename(target);
+    await Link(linkName).create(target, recursive: true);
   }
 
   Future<void> remove() async {
@@ -133,7 +113,7 @@ class Package {
 
   Future<void> linkVersion(String version) async {
     final p = path.join('$pubkey-$identifier', version, identifier);
-    await Link(p).create(identifier, recursive: true);
+    await Link(identifier).create(p, recursive: true);
     enabledVersion = version;
   }
 
@@ -157,7 +137,7 @@ Future<Map<String, Package>> loadPackages() async {
       ).interact();
 
       if (setUp) {
-        await run('mkdir -p $kBaseDir', verbose: false);
+        await Directory(kBaseDir).create(recursive: true);
       } else {
         print('Okay, good luck.');
         exit(0);
@@ -177,6 +157,8 @@ After that, open a new shell and re-run this program.
     }
   }
 
+// TODO: Fix and use _findLinks
+  _findLinks(kBaseDir);
   final links = {
     for (final link in (await shell.run('find . -maxdepth 1 -type l')).outLines)
       link.substring(2): (await shell.run('readlink $link')).outText
@@ -202,7 +184,7 @@ After that, open a new shell and re-run this program.
   if (db['zapstore'] == null ||
       db['zapstore']!.enabledVersion == null ||
       (db['zapstore']!.enabledVersion != null &&
-          compareVersions(db['zapstore']!.enabledVersion!, kVersion) == -1)) {
+          !canUpgrade(db['zapstore']!.enabledVersion!, kVersion))) {
     final zapstorePackage = Package(
         identifier: 'zapstore',
         pubkey: kZapstorePubkey,
@@ -228,22 +210,9 @@ After that, open a new shell and re-run this program.
   return db;
 }
 
-int compareVersions(String v1, String v2) {
-  final v1Parts = v1
-      .split('.')
-      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
+Future<void> _findLinks(String dirPath) async {
+  await Directory(dirPath)
+      .list(recursive: false)
+      .where((entity) => FileSystemEntity.isLinkSync(entity.path))
       .toList();
-  final v2Parts = v2
-      .split('.')
-      .map((e) => int.parse(e.replaceAll(RegExp(r'\D'), '')))
-      .toList();
-
-  for (var i = 0; i < max(v1Parts.length, v2Parts.length); i++) {
-    final v1Part = v1Parts[i];
-    final v2Part = v2Parts[i];
-    if (v1Part < v2Part) return -1;
-    if (v1Part > v2Part) return 1;
-  }
-
-  return 0;
 }

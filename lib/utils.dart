@@ -240,6 +240,13 @@ void printJsonEncodeColored(Object obj) {
 class GracefullyAbortSignal extends Error {}
 
 const kAndroidMimeType = 'application/vnd.android.package-archive';
+const kArchiveMimeTypes = [
+  'application/zip',
+  'application/gzip',
+  'application/x-tar',
+  'application/x-xz',
+  'application/x-bzip2'
+];
 
 const kZapstoreSupportedPlatforms = [
   'darwin-arm64',

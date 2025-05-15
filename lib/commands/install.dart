@@ -103,20 +103,20 @@ Future<void> install(String value, {bool skipWot = false}) async {
     isAuthorTrusted = installedPackage.pubkey == meta.event.pubkey;
 
     isUpdatable = installedPackage.versions
-        .every((version) => compareVersions(meta.version!, version) == 1);
+        .every((version) => canUpgrade(meta.version!, version));
 
     if (!isUpdatable) {
-      final upToDate = installedPackage.versions
-          .any((version) => compareVersions(meta.version!, version) == 0);
+      final upToDate =
+          installedPackage.versions.any((version) => meta.version == version);
       if (upToDate) {
         print(
             'Package already up to date ${app.event.identifier} ${meta.version}');
         exit(0);
       }
 
-      // Then there must be a -1 (downgrade)
-      final higherVersion = installedPackage.versions.firstWhereOrNull(
-          (version) => compareVersions(meta.version!, version) == -1);
+      // Then there must be a downgrade
+      final higherVersion = installedPackage.versions
+          .firstWhereOrNull((version) => !canUpgrade(meta.version!, version));
 
       final installAnyway = Confirm(
         prompt:

@@ -47,13 +47,7 @@ Future<
 
   mimeType ??= _getTypeForCompressed(data);
 
-  if ([
-    'application/zip',
-    'application/gzip',
-    'application/x-tar',
-    'application/x-xz',
-    'application/x-bzip2'
-  ].contains(mimeType)) {
+  if (kArchiveMimeTypes.contains(mimeType)) {
     (internalMimeTypes, executablePaths) = await _detectCompressed(
       data,
       mimeType!,
