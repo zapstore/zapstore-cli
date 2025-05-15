@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_magic_number/magic_number_type.dart';
+import 'package:mime/mime.dart';
 import 'package:zapstore_cli/utils.dart';
 import 'package:file_magic_number/file_magic_number.dart';
 
@@ -16,8 +17,7 @@ Future<
         )>
     detectFileTypes(String filePath, {Set<String>? executablePatterns}) async {
   final data = Uint8List.fromList(await File(filePath).readAsBytes());
-  // TODO: Restore lookupMimeType(filePath, headerBytes: data)
-  return await detectBytesType(data, executablePatterns: executablePatterns);
+  return detectBytesType(data, executablePatterns: executablePatterns);
 }
 
 Future<
@@ -42,6 +42,8 @@ Future<
     MagicNumberType.mp4 => 'video/mp4',
     _ => null,
   };
+
+  mimeType ??= lookupMimeType('', headerBytes: data);
 
   mimeType ??= _getTypeForCompressed(data);
 
