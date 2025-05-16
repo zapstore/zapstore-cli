@@ -9,6 +9,9 @@ import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils/utils.dart';
 
+import 'dart:ffi';
+import 'package:ffi/ffi.dart';
+
 String getFilePathInTempDirectory(String name) {
   return path.join(kTempDir, path.basename(name));
 }
@@ -103,4 +106,52 @@ Future<String> computeHash(String filePath) async {
 
 extension on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
+}
+
+/* -----------------------------------------------------------
+ * Low-level binding to C-function  int chmod(const char*, int);
+ * ----------------------------------------------------------*/
+
+typedef _ChmodC = Int32 Function(Pointer<Utf8> path, Int32 mode);
+typedef _ChmodDart = int Function(Pointer<Utf8> path, int mode);
+
+class Posix {
+  late final _ChmodDart _chmod;
+
+  Posix() {
+    final lib = _loadLibc();
+    _chmod = lib.lookupFunction<_ChmodC, _ChmodDart>('chmod');
+  }
+
+  DynamicLibrary _loadLibc() {
+    if (Platform.isLinux) return DynamicLibrary.open('libc.so.6');
+    if (Platform.isMacOS) return DynamicLibrary.open('libc.dylib');
+    throw UnsupportedError('POSIX chmod not available on this OS');
+  }
+
+  /// Direct wrapper around the C `chmod`.
+  int chmod(String path, int mode) {
+    final p = path.toNativeUtf8();
+    final rc = _chmod(p, mode);
+    malloc.free(p);
+    return rc;
+  }
+}
+
+/* -----------------------------------------------------------
+ * Public helper: add execute bit for owner/group/others
+ * (exactly what `chmod +x` does).
+ * ----------------------------------------------------------*/
+
+void makeExecutable(String path) {
+  if (Platform.isWindows) return; // nothing to do on Windows
+
+  const int execBits = 0x49; // 0o111  -> S_IXUSR|S_IXGRP|S_IXOTH
+  final current = File(path).statSync().mode;
+  final wanted = current | execBits; // keep existing perms, add +x
+
+  final rc = Posix().chmod(path, wanted);
+  if (rc != 0) {
+    throw FileSystemException('chmod failed with code $rc', path);
+  }
 }

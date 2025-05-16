@@ -31,7 +31,8 @@ Future<void> install(String value, {bool skipWot = false}) async {
     spinner: CliSpinners.dots,
   ).start();
 
-  final apps = await storage.query<App>(RequestFilter(remote: true, tags: {
+  final apps = await storage
+      .query<App>(RequestFilter(remote: true, search: value, tags: {
     '#f': {hostPlatform}
   }));
 
@@ -79,50 +80,31 @@ Future<void> install(String value, {bool skipWot = false}) async {
     throw GracefullyAbortSignal();
   }
 
-  final meta = fileMetadatas[0];
+  final metadata = fileMetadatas[0];
 
   spinner.success(
-      'Found ${app.event.identifier}@${meta.version?.bold()} (released on ${meta.createdAt.toIso8601String()})\n  ${app.summary ?? app.description}');
+      'Found ${app.event.identifier}@${metadata.version.bold()} (released on ${metadata.createdAt.toIso8601String()})\n  ${app.summary ?? app.description}');
 
   final installedPackage = db[app.id];
 
   var isUpdatable = false;
   var isAuthorTrusted = false;
+
   if (installedPackage != null) {
-    final appVersionInstalled =
-        installedPackage.versions.firstWhereOrNull((v) => v == meta.version);
-    if (appVersionInstalled != null) {
-      if (appVersionInstalled == installedPackage.enabledVersion) {
-        spinner
-            .success('Package ${app.event.identifier} is already up to date');
-      } else {
-        installedPackage.linkVersion(meta.version!);
-        spinner.success('Package ${app.event.identifier} re-enabled');
-      }
-      exit(0);
+    if (installedPackage.version == metadata.version) {
+      spinner.success('Package ${app.event.identifier} is already up to date');
+      throw GracefullyAbortSignal();
     }
 
-    isAuthorTrusted = installedPackage.pubkey == meta.event.pubkey;
+    isAuthorTrusted = installedPackage.pubkey == metadata.event.pubkey;
 
-    isUpdatable = installedPackage.versions
-        .every((version) => canUpgrade(meta.version!, version));
+    isUpdatable = canUpgrade(installedPackage.version, metadata.version);
 
     if (!isUpdatable) {
-      final upToDate =
-          installedPackage.versions.any((version) => meta.version == version);
-      if (upToDate) {
-        print(
-            'Package already up to date ${app.event.identifier} ${meta.version}');
-        exit(0);
-      }
-
-      // Then there must be a downgrade
-      final higherVersion = installedPackage.versions
-          .firstWhereOrNull((version) => !canUpgrade(meta.version!, version));
-
+      // Then it must be a downgrade
       final installAnyway = Confirm(
         prompt:
-            'Are you sure you want to downgrade ${app.event.identifier} from $higherVersion to ${meta.version}?',
+            'Are you sure you want to downgrade ${app.event.identifier} from ${installedPackage.version} to ${metadata.version}?',
         defaultValue: false,
       ).interact();
 
@@ -149,6 +131,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
         late final Map<String, dynamic> trust;
 
+        // TODO: Replace with Vertex
         try {
           trust = await http
               .get(Uri.parse(
@@ -195,7 +178,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
         final installPackage = Confirm(
           prompt:
-              'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.event.identifier}${isUpdatable ? ' to ${meta.version}' : ''}?',
+              'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.event.identifier}${isUpdatable ? ' to ${metadata.version}' : ''}?',
           defaultValue: false,
         ).interact();
 
@@ -214,25 +197,27 @@ Future<void> install(String value, {bool skipWot = false}) async {
   }
 
   // On first install, check if other executables are present in PATH
+  print(db);
   if (db[app.event.identifier] == null) {
-    FileMetadata;
-    final presentInPath =
-        (meta.executables.isEmpty ? {app.event.identifier} : meta.executables)
-            .map((e) {
+    final presentInPath = (metadata.executables.isEmpty
+            ? {app.event.identifier}
+            : metadata.executables)
+        .map((e) {
       final p = whichSync(path.basename(e));
       return p != null ? path.basename(e) : null;
     }).nonNulls;
 
-    if (presentInPath.isNotEmpty) {
-      final installAnyway = Confirm(
-        prompt:
-            'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
-        defaultValue: true,
-      ).interact();
-      if (!installAnyway) {
-        exit(0);
-      }
-    }
+    // TODO: ?
+    // if (presentInPath.isNotEmpty) {
+    //   final installAnyway = Confirm(
+    //     prompt:
+    //         'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
+    //     defaultValue: true,
+    //   ).interact();
+    //   if (!installAnyway) {
+    //     exit(0);
+    //   }
+    // }
   }
 
   final installSpinner = CliSpin(
@@ -243,12 +228,11 @@ Future<void> install(String value, {bool skipWot = false}) async {
   final package = db[app.event.identifier] ??
       Package(
           identifier: app.event.identifier,
-          pubkey: meta.event.pubkey,
-          versions: {meta.version!},
-          enabledVersion: meta.version!);
+          pubkey: metadata.event.pubkey,
+          version: metadata.version);
 
-  await package.installRemote(meta, spinner: installSpinner);
+  await package.installRemote(metadata, spinner: installSpinner);
 
   installSpinner.success(
-      'Installed package ${app.event.identifier.bold()}@${meta.version}');
+      'Installed package ${app.event.identifier.bold()}@${metadata.version}');
 }

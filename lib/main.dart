@@ -13,6 +13,7 @@ import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
+import 'package:purplebase/purplebase.dart';
 
 const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)
 
@@ -22,11 +23,14 @@ final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
 late final StorageNotifier storage;
 
 void main(List<String> args) async {
-  final container = ProviderContainer();
+  final container = ProviderContainer(overrides: [
+    storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
+  ]);
   var wasError = false;
   try {
     storage = container.read(storageNotifierProvider.notifier);
     await storage.initialize(StorageConfiguration(
+      databasePath: path.join(kBaseDir, 'storage.db'),
       relayGroups: {
         'zapstore': kAppRelays,
         'social': {'wss://relay.nostr.band', 'wss://relay.primal.net'}

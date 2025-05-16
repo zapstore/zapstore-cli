@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/models/package.dart';
 
@@ -7,8 +8,9 @@ void list() async {
   if (db.isEmpty) {
     print('No packages installed');
   }
-  for (final MapEntry(:key, value: package) in db.entries) {
-    print(
-        '${key.bold()} ${package.versions.map((v) => v == package.enabledVersion ? '${v.bold()} (enabled)' : v).toList().reversed.join(', ')}');
+
+  final orderedEntries = db.entries.sortedBy((e) => e.key);
+  for (final MapEntry(:key, value: package) in orderedEntries) {
+    print('${key.bold()}: ${package.version}');
   }
 }
