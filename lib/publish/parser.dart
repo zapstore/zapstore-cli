@@ -30,7 +30,6 @@ class AssetParser {
   late String? resolvedVersion;
   late var assetHashes = <String>{};
 
-  // TODO: Set up proper Blossom server
   Set<String> get blossomServers => <String>{
         ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
       };

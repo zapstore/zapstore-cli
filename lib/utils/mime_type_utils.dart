@@ -44,6 +44,11 @@ Future<
     _ => null,
   };
 
+  if (mimeType == 'application/zip' &&
+      latin1.decode(data, allowInvalid: true).contains("AndroidManifest.xml")) {
+    mimeType = kAndroidMimeType;
+  }
+
   mimeType ??= lookupMimeType('', headerBytes: data);
 
   mimeType ??= _getTypeForCompressed(data);
@@ -130,11 +135,6 @@ String? _detectELFMimeType(Uint8List data) {
 Future<(Set<String>, Set<String>?)> _detectCompressed(
     Uint8List data, String mimeType,
     {Set<String>? executablePatterns}) async {
-  if (mimeType == 'application/zip' &&
-      latin1.decode(data, allowInvalid: true).contains("AndroidManifest.xml")) {
-    return ({kAndroidMimeType}, null);
-  }
-
   final archive = getArchive(data, mimeType);
   return _findExecutables(archive, executablePatterns: executablePatterns);
 }
