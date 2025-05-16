@@ -55,6 +55,7 @@ class Package {
       await File(filePath).rename(executablePath);
       await linkExecutable(versionPath, executablePath);
     }
+    await removeOldVersions(version);
   }
 
   Future<void> linkExecutable(String versionPath, String executablePath) async {
@@ -70,6 +71,14 @@ class Package {
   Future<void> remove() async {
     for (final e in [...executables, directory.path]) {
       await deleteRecursive(path.join(kBaseDir, e));
+    }
+  }
+
+  Future<void> removeOldVersions(String newVersion) async {
+    final oldDirs = (await directory.list().toList())
+        .where((e) => e is Directory && path.basename(e.path) != newVersion);
+    for (final dir in oldDirs) {
+      await deleteRecursive(path.join(kBaseDir, dir.path));
     }
   }
 

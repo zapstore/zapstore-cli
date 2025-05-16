@@ -197,27 +197,26 @@ Future<void> install(String value, {bool skipWot = false}) async {
   }
 
   // On first install, check if other executables are present in PATH
-  print(db);
   if (db[app.event.identifier] == null) {
     final presentInPath = (metadata.executables.isEmpty
             ? {app.event.identifier}
             : metadata.executables)
         .map((e) {
+      // Executables can be nested, so grab the basename to which they will be linked
       final p = whichSync(path.basename(e));
       return p != null ? path.basename(e) : null;
     }).nonNulls;
 
-    // TODO: ?
-    // if (presentInPath.isNotEmpty) {
-    //   final installAnyway = Confirm(
-    //     prompt:
-    //         'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
-    //     defaultValue: true,
-    //   ).interact();
-    //   if (!installAnyway) {
-    //     exit(0);
-    //   }
-    // }
+    if (presentInPath.isNotEmpty) {
+      final installAnyway = Confirm(
+        prompt:
+            'The executables $presentInPath already exist in PATH, likely from another package manager. Install anyway?',
+        defaultValue: true,
+      ).interact();
+      if (!installAnyway) {
+        exit(0);
+      }
+    }
   }
 
   final installSpinner = CliSpin(
