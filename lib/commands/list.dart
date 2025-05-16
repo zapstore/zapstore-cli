@@ -2,7 +2,7 @@ import 'package:tint/tint.dart';
 import 'package:zapstore_cli/models/package.dart';
 
 void list() async {
-  final db = await loadPackages();
+  final db = await Package.loadAll();
 
   if (db.isEmpty) {
     print('No packages installed');

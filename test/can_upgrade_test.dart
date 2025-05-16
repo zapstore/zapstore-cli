@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/version_utils.dart';
 
 void main() {
   group('canUpgrade - table-driven tests', () {

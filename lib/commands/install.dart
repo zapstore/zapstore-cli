@@ -8,12 +8,14 @@ import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/package.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
+import 'package:zapstore_cli/utils/version_utils.dart';
 
 Future<void> install(String value, {bool skipWot = false}) async {
-  final db = await loadPackages();
+  final db = await Package.loadAll();
 
   final pv = Platform.version.split('on').lastOrNull?.trim();
 
@@ -245,7 +247,7 @@ Future<void> install(String value, {bool skipWot = false}) async {
           versions: {meta.version!},
           enabledVersion: meta.version!);
 
-  await package.installFromUrl(meta, spinner: installSpinner);
+  await package.installRemote(meta, spinner: installSpinner);
 
   installSpinner.success(
       'Installed package ${app.event.identifier.bold()}@${meta.version}');

@@ -1,8 +1,8 @@
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/metadata_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/github_parser.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/github_parser.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubMetadataFetcher extends MetadataFetcher {
   @override

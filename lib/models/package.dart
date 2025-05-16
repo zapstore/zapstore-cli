@@ -4,36 +4,38 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
-import 'package:process_run/process_run.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
+import 'package:zapstore_cli/utils/version_utils.dart';
 
 class Package {
   final String identifier;
   final String pubkey;
   final Set<String> versions;
-  final Set<String> binaries;
+  final Set<String> executables;
   String? enabledVersion;
 
   Package(
       {required this.identifier,
       required this.pubkey,
       this.versions = const {},
-      this.binaries = const {},
+      this.executables = const {},
       required this.enabledVersion});
 
   factory Package.fromString(
       String key, Set<String> lines, Map<String, String> links) {
     final pubkey = key.substring(0, 64);
     final name = key.substring(65);
-    final binaries = <String>{};
+    final executables = <String>{};
     String? enabledVersion;
     final versions = lines.map((line) {
-      final [_, version, binary] = line.substring(65).split('/');
-      if (links[binary] == line) {
-        binaries.add(binary);
+      final [_, version, executable] = line.substring(65).split('/');
+      if (links[executable] == line) {
+        executables.add(executable);
         enabledVersion ??= version;
       }
       return version;
@@ -42,22 +44,15 @@ class Package {
         identifier: name,
         pubkey: pubkey,
         versions: versions,
-        binaries: binaries,
+        executables: executables,
         enabledVersion: enabledVersion);
   }
 
   Directory get directory =>
       Directory(path.join(kBaseDir, '$pubkey-$identifier'));
 
-  Future<bool> skeletonExists() => directory.exists();
-
-  Future<void> installFromUrl(FileMetadata meta, {CliSpin? spinner}) async {
-    final downloadHash = await fetchFile(meta.urls.first, spinner: spinner);
-    await _installFromLocal(downloadHash, meta);
-  }
-
-  Future<void> _installFromLocal(String fileHash, FileMetadata metadata,
-      {bool keepCopy = false}) async {
+  Future<void> installRemote(FileMetadata metadata, {CliSpin? spinner}) async {
+    final fileHash = await fetchFile(metadata.urls.first, spinner: spinner);
     final versionPath = path.join(directory.path, metadata.version);
 
     await Directory(versionPath).create(recursive: true);
@@ -75,10 +70,15 @@ class Package {
 
       await deleteRecursive(extractDir);
       await Directory(extractDir).create(recursive: true);
-      // TODO: Uncompress: 'tar zxf $downloadPath -C $extractDir'
+
+      // Extract compressed file
+      final bytes = await File(downloadPath).readAsBytes();
+      final (mimeType, _, _) = await detectBytesMimeType(bytes);
+      final archive = getArchive(bytes, mimeType!);
+      await writeArchiveToDisk(archive);
 
       for (final executablePath in metadata.executables) {
-        await _installBinary(
+        await installExecutable(
             path.join(extractDir, executablePath),
             path.join(
               versionPath,
@@ -89,24 +89,20 @@ class Package {
       await deleteRecursive(downloadPath);
     } else {
       final binaryPath = path.join(versionPath, identifier);
-      await _installBinary(downloadPath, binaryPath, keepCopy: keepCopy);
+      await installExecutable(downloadPath, binaryPath);
     }
   }
 
-  Future<void> _installBinary(String srcPath, String destPath,
-      {bool keepCopy = false}) async {
-    if (keepCopy) {
-      await File(srcPath).rename(destPath);
-    } else {
-      await File(srcPath).copy(destPath);
-    }
+  Future<void> installExecutable(String srcPath, String destPath) async {
+    await File(srcPath).rename(destPath);
     final target = path.relative(destPath, from: kBaseDir);
-    final linkName = path.basename(target);
-    await Link(linkName).create(target, recursive: true);
+    final link = Link(path.join(kBaseDir, path.basename(target)));
+    await link.delete();
+    await link.create(target);
   }
 
   Future<void> remove() async {
-    for (final e in [...binaries, directory.path]) {
+    for (final e in [...executables, directory.path]) {
       await deleteRecursive(path.join(kBaseDir, e));
     }
   }
@@ -119,33 +115,32 @@ class Package {
 
   @override
   String toString() {
-    return '$identifier versions: $versions binaries: $binaries';
+    return '$identifier {versions: $versions binaries: $executables}';
   }
-}
 
-Future<Map<String, Package>> loadPackages() async {
-  final dir = Directory(kBaseDir);
-  final systemPath = env['PATH']!;
+  static Future<Map<String, Package>> loadAll() async {
+    final dir = Directory(kBaseDir);
+    final systemPath = env['PATH']!;
 
-  if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
-    print('${'Welcome to zapstore!'.bold().white().onBlue()}\n');
+    if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
+      print('${'Welcome to zapstore!'.bold().white().onBlue()}\n');
 
-    if (!await dir.exists()) {
-      final setUp = Confirm(
-        prompt:
-            'This program requires creating the $kBaseDir directory. Proceed?',
-      ).interact();
+      if (!await dir.exists()) {
+        final setUp = Confirm(
+          prompt:
+              'This program requires creating the $kBaseDir directory. Proceed?',
+        ).interact();
 
-      if (setUp) {
-        await Directory(kBaseDir).create(recursive: true);
-      } else {
-        print('Okay, good luck.');
-        exit(0);
+        if (setUp) {
+          await Directory(kBaseDir).create(recursive: true);
+        } else {
+          print('Okay, good luck.');
+          exit(0);
+        }
       }
-    }
 
-    if (!systemPath.contains(kBaseDir)) {
-      print('''\n
+      if (!systemPath.contains(kBaseDir)) {
+        print('''\n
 Make sure ${kBaseDir.bold()} is in your PATH
 
 You can run ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent.
@@ -153,66 +148,70 @@ This will make programs installed by zapstore available in your system.
 
 After that, open a new shell and re-run this program.
 ''');
-      exit(0);
+        exit(0);
+      }
     }
+
+    final links = await _listLinks(kBaseDir);
+
+    final executablePaths = _listFilesAtDepth(Directory(kBaseDir), 1)
+        .map((e) => path.relative(e, from: kBaseDir))
+        .where((e) => startsWithHexRegexp.hasMatch(e));
+
+    final db = <String, Package>{};
+    final groupedExecutablePaths =
+        executablePaths.groupSetsBy((e) => e.split('/').first);
+
+    for (final e in groupedExecutablePaths.entries) {
+      final package = Package.fromString(e.key, e.value, links);
+      db[package.identifier] = package;
+    }
+
+    // If zapstore not in db, auto-install/update
+    final kZapstoreId = 'zapstore';
+    if (db[kZapstoreId] == null ||
+        db[kZapstoreId]!.enabledVersion == null ||
+        (db[kZapstoreId]!.enabledVersion != null &&
+            canUpgrade(db[kZapstoreId]!.enabledVersion!, kVersion))) {
+      final zapstorePackage = Package(
+          identifier: kZapstoreId,
+          pubkey: kZapstorePubkey,
+          versions: {kVersion},
+          executables: {kZapstoreId},
+          enabledVersion: kVersion);
+
+      final filePath = Platform.script.toFilePath();
+      final hash = await copyToHash(filePath);
+
+      final versionPath = path.join(zapstorePackage.directory.path, kVersion);
+      final binaryPath = path.join(versionPath, kZapstoreId);
+      await zapstorePackage.installExecutable(
+          getFilePathInTempDirectory(hash), binaryPath);
+      // Try again with zapstore installed/updated
+      print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());
+      return await loadAll();
+    }
+    return db;
   }
-
-// TODO: Fix and use _findLinks
-  _findLinks(kBaseDir);
-  final links = {
-    for (final link in (await shell.run('find . -maxdepth 1 -type l')).outLines)
-      link.substring(2): (await shell.run('readlink $link')).outText
-  };
-
-  final binaryFullPaths =
-      (await shell.run('find . -mindepth 3 -maxdepth 3 -type f'))
-          .outLines
-          .map((e) => e.substring(2))
-          .where((e) => hexRegexp.hasMatch(e));
-
-  final db = <String, Package>{};
-  final groupedBinaryFullPaths =
-      binaryFullPaths.groupSetsBy((e) => e.split('/').first);
-
-  for (final key in groupedBinaryFullPaths.keys) {
-    final package =
-        Package.fromString(key, groupedBinaryFullPaths[key]!, links);
-    db[package.identifier] = package;
-  }
-
-  // If zapstore not in db, auto-install/update
-  if (db['zapstore'] == null ||
-      db['zapstore']!.enabledVersion == null ||
-      (db['zapstore']!.enabledVersion != null &&
-          !canUpgrade(db['zapstore']!.enabledVersion!, kVersion))) {
-    final zapstorePackage = Package(
-        identifier: 'zapstore',
-        pubkey: kZapstorePubkey,
-        versions: {kVersion},
-        binaries: {'zapstore'},
-        enabledVersion: kVersion);
-
-    final filePath = Platform.script.toFilePath();
-    final hash = await computeHash(filePath);
-    await zapstorePackage._installFromLocal(
-        filePath,
-        (PartialFileMetadata()
-              ..version = kVersion
-              ..hash = hash)
-            .dummySign(),
-        keepCopy: true);
-    await zapstorePackage.linkVersion(kVersion);
-    // Try again with zapstore installed/updated
-    print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());
-    return await loadPackages();
-  }
-
-  return db;
 }
 
-Future<void> _findLinks(String dirPath) async {
-  await Directory(dirPath)
-      .list(recursive: false)
-      .where((entity) => FileSystemEntity.isLinkSync(entity.path))
-      .toList();
+Future<Map<String, String>> _listLinks(String dir) async {
+  final links = <String, String>{};
+
+  for (final entity in await Directory(dir).list(followLinks: false).toList()) {
+    if (entity is Link) {
+      links[path.relative(entity.path, from: dir)] = await entity.target();
+    }
+  }
+  return links;
+}
+
+Iterable<String> _listFilesAtDepth(Directory dir, int depth) sync* {
+  for (final entity in dir.listSync(followLinks: false)) {
+    if (entity is Directory) {
+      yield* _listFilesAtDepth(entity, depth + 1);
+    } else if (entity is File && depth == 3) {
+      yield entity.path;
+    }
+  }
 }

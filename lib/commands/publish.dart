@@ -6,13 +6,14 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/commands/publish/blossom.dart';
-import 'package:zapstore_cli/commands/publish/events.dart';
-import 'package:zapstore_cli/commands/publish/github_parser.dart';
-import 'package:zapstore_cli/commands/publish/parser.dart';
+import 'package:zapstore_cli/publish/blossom.dart';
+import 'package:zapstore_cli/publish/events.dart';
+import 'package:zapstore_cli/publish/github_parser.dart';
+import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/commands/publish/web_parser.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/publish/web_parser.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 class Publisher {
   final blossom = BlossomClient(servers: {kZapstoreBlossomUrl});

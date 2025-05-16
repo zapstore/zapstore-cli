@@ -1,10 +1,11 @@
 import 'dart:convert';
 
 import 'package:cli_spin/cli_spin.dart';
-import 'package:zapstore_cli/commands/publish/parser.dart';
+import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubParser extends AssetParser {
   GithubParser(super.appMap) : super(uploadToBlossom: false);

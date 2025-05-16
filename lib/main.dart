@@ -11,7 +11,7 @@ import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 
 const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)

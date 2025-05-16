@@ -4,13 +4,14 @@ import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/fastlane_metadata_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/fdroid_metadata_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/github_metadata_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/playstore_metadata_fetcher.dart';
-import 'package:zapstore_cli/commands/publish/parser_utils.dart';
+import 'package:zapstore_cli/publish/fetchers/fastlane_metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/fetchers/fdroid_metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/fetchers/github_metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/fetchers/playstore_metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/parser_utils.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
@@ -109,8 +110,7 @@ class AssetParser {
       final dir = Directory(path.dirname(asset));
       final r = RegExp('^${path.basename(asset)}\$');
 
-      final assetPaths = dir
-          .listSync()
+      final assetPaths = (await dir.list().toList())
           .where((e) => e is File && r.hasMatch(path.basename(e.path)))
           .map((e) => e.path);
 
@@ -174,6 +174,7 @@ class AssetParser {
     }
 
     // TODO: If release is absent, skip to next
+    // TODO: If version is not higher, abort (use canUpgrade and version_code comparison first)
     // if (release == null) {
     //   print('No release, nothing to do');
     //   throw GracefullyAbortSignal();

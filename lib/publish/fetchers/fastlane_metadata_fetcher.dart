@@ -1,6 +1,6 @@
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/metadata_fetcher.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
 
 class FastlaneMetadataFetcher extends MetadataFetcher {
   @override

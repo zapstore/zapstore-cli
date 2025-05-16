@@ -1,5 +1,5 @@
 import 'package:models/models.dart';
-import 'package:zapstore_cli/commands/publish/fetchers/metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
 
 class FDroidMetadataFetcher extends MetadataFetcher {
   @override

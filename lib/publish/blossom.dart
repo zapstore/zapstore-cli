@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
 
 class BlossomClient {
   final Set<String> servers;

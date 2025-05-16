@@ -2,8 +2,8 @@ import 'package:models/models.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:http/http.dart' as http;
 import 'package:html2md/html2md.dart' as markdown;
-import 'package:zapstore_cli/commands/publish/fetchers/metadata_fetcher.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
 
 class PlayStoreMetadataFetcher extends MetadataFetcher {
   @override

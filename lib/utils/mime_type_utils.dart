@@ -6,7 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_magic_number/magic_number_type.dart';
 import 'package:mime/mime.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'package:file_magic_number/file_magic_number.dart';
 
 Future<
@@ -15,9 +15,9 @@ Future<
           Set<String>? internalMimeTypes,
           Set<String>? executablePaths
         )>
-    detectFileTypes(String filePath, {Set<String>? executablePatterns}) async {
+    detectMimeTypes(String filePath, {Set<String>? executablePatterns}) async {
   final data = Uint8List.fromList(await File(filePath).readAsBytes());
-  return detectBytesType(data, executablePatterns: executablePatterns);
+  return detectBytesMimeType(data, executablePatterns: executablePatterns);
 }
 
 Future<
@@ -26,7 +26,8 @@ Future<
           Set<String>? internalMimeTypes,
           Set<String>? executablePaths
         )>
-    detectBytesType(Uint8List data, {Set<String>? executablePatterns}) async {
+    detectBytesMimeType(Uint8List data,
+        {Set<String>? executablePatterns}) async {
   String? mimeType;
   Set<String>? internalMimeTypes;
   Set<String>? executablePaths;
@@ -134,16 +135,16 @@ Future<(Set<String>, Set<String>?)> _detectCompressed(
     return ({kAndroidMimeType}, null);
   }
 
-  final archive = _getArchive(data, mimeType);
+  final archive = getArchive(data, mimeType);
   return _findExecutables(archive, executablePatterns: executablePatterns);
 }
 
-Archive _getArchive(Uint8List data, String mimeType) {
+Archive getArchive(Uint8List data, String mimeType) {
   return switch (mimeType) {
     'application/zip' => ZipDecoder().decodeBytes(data),
     'application/gzip' => () {
         final bytes = GZipDecoder().decodeBytes(data);
-        return _getArchive(bytes, _getTypeForCompressed(bytes)!);
+        return getArchive(bytes, _getTypeForCompressed(bytes)!);
       }(),
     'application/x-tar' => TarDecoder().decodeBytes(data),
     'application/x-xz' =>
@@ -173,10 +174,10 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
       for (final r in executableRegexps) {
         if (r.hasMatch(f.name)) {
           final bytes = f.readBytes()!;
-          final fileTypes = await detectBytesType(bytes);
-          if (supportedExecutablePlatforms.contains(fileTypes.$1)) {
+          final mimeTypes = await detectBytesMimeType(bytes);
+          if (supportedExecutablePlatforms.contains(mimeTypes.$1)) {
             executablePaths.add(f.name);
-            internalMimeTypes.add(fileTypes.$1!);
+            internalMimeTypes.add(mimeTypes.$1!);
           }
         }
       }

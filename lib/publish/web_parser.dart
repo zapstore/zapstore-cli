@@ -1,7 +1,8 @@
 import 'package:cli_spin/cli_spin.dart';
-import 'package:zapstore_cli/commands/publish/parser.dart';
+import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 class WebParser extends AssetParser {
   WebParser(super.appMap) : super(uploadToBlossom: false);

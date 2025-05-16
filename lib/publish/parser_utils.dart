@@ -4,9 +4,10 @@ import 'package:archive/archive.dart';
 import 'package:models/models.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
-import 'package:zapstore_cli/parser/detect_types.dart';
-import 'package:zapstore_cli/parser/signatures.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
+import 'package:zapstore_cli/parser/signature_parser.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 Future<PartialFileMetadata> extractMetadataFromFile(
     String assetHash, Set<String> blossomServers,
@@ -17,7 +18,7 @@ Future<PartialFileMetadata> extractMetadataFromFile(
 
   final assetPath = getFilePathInTempDirectory(assetHash);
   final (mimeType, internalMimeTypes, executablePaths) =
-      await detectFileTypes(assetPath, executablePatterns: executablePatterns);
+      await detectMimeTypes(assetPath, executablePatterns: executablePatterns);
 
   if (mimeType == kAndroidMimeType) {
     final assetBytes = await File(assetPath).readAsBytes();
