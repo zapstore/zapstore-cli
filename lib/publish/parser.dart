@@ -4,17 +4,20 @@ import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
 import 'package:models/models.dart';
+import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/publish/blossom.dart';
 import 'package:zapstore_cli/publish/fetchers/fastlane_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/fdroid_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/github_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/playstore_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/parser_utils.dart';
-import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:universal_html/parsing.dart';
+import 'package:zapstore_cli/utils/version_utils.dart';
 
 class AssetParser {
   final Map appMap;
@@ -29,13 +32,13 @@ class AssetParser {
   String? identifier;
   late String? resolvedVersion;
   late var assetHashes = <String>{};
-
-  Set<String> get blossomServers => <String>{
-        ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
-      };
+  late final BlossomClient blossomClient;
 
   AssetParser(this.appMap, {this.uploadToBlossom = true}) {
     identifier = appMap['identifier'];
+    blossomClient = BlossomClient(servers: {
+      ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
+    });
   }
 
   Future<List<PartialModel>> run() async {
@@ -43,6 +46,11 @@ class AssetParser {
     assetHashes = await resolveHashes();
     await applyFileMetadata();
     await applyRemoteMetadata();
+    if (!overwriteRelease) {
+      await checkVersionOnRelays(
+          partialApp.identifier!, partialRelease.version!,
+          versionCode: partialFileMetadatas.firstOrNull?.versionCode);
+    }
     return [
       partialApp,
       partialRelease,
@@ -124,11 +132,10 @@ class AssetParser {
   @mustCallSuper
   Future<void> applyFileMetadata() async {
     for (final assetHash in assetHashes) {
-      final partialFileMetadata = await extractMetadataFromFile(
-          assetHash, blossomServers,
+      final partialFileMetadata = await extractMetadataFromFile(assetHash,
           resolvedVersion: resolvedVersion,
           executablePatterns: appMap['executables'] != null
-              ? <String>{...appMap['executables']}
+              ? {...appMap['executables']}
               : null);
 
       // Place first the original URL and leave Blossom servers as backup
@@ -137,7 +144,7 @@ class AssetParser {
       }
 
       if (uploadToBlossom) {
-        for (final server in blossomServers) {
+        for (final server in blossomClient.servers) {
           partialFileMetadata.event
               .addTagValue('url', path.join(server, assetHash));
         }
@@ -172,20 +179,6 @@ class AssetParser {
           (appMap['tags'] as String?)?.trim().split(' ').toSet() ?? {};
     }
 
-    // TODO: If release is absent, skip to next
-    // TODO: If version is not higher, abort (use canUpgrade and version_code comparison first)
-    // if (release == null) {
-    //   print('No release, nothing to do');
-    //   throw GracefullyAbortSignal();
-    // }
-    //     if (!overwriteRelease) {
-    //   await checkReleaseOnRelay(
-    //     version: version,
-    //     assetUrl: assetUrl,
-    //     spinner: packageSpinner,
-    //   );
-    // }
-
     partialApp
       ..description = appMap['description'] ?? appMap['summary']
       ..summary = appMap['summary']
@@ -199,14 +192,25 @@ class AssetParser {
       partialApp.addImage(await copyToHash(image));
     }
 
-    // TODO: Look for release notes from file?
-    // Or if no file, ask to paste .md contents
-    partialRelease.event.content = '';
     partialRelease.identifier = '$identifier@$resolvedVersion';
 
     // App's platforms are the sum of file metadatas' platforms
     partialApp.platforms =
         partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
+
+    // Set release notes
+    final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
+    final md = await changelogFile.readAsString();
+
+    // If changelog file was provided, it takes precedence
+    if (appMap.containsKey('changelog')) {
+      partialRelease.releaseNotes =
+          extractChangelogSection(md, resolvedVersion!);
+    }
+    // Only change here if no notes, whether from the call before
+    // or from another parser
+    partialRelease.releaseNotes ??=
+        extractChangelogSection(md, resolvedVersion!);
 
     // Always use the latest release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
@@ -229,11 +233,9 @@ class AssetParser {
       if (fetcher == null) continue;
 
       CliSpin? extraMetadataSpinner;
-      extraMetadataSpinner = CliSpin(
-              text: 'Fetching extra metadata...',
-              spinner: CliSpinners.dots,
-              isEnabled: !isDaemonMode)
-          .start();
+      extraMetadataSpinner =
+          CliSpin(text: 'Fetching extra metadata...', spinner: CliSpinners.dots)
+              .start();
 
       try {
         await fetcher.run(app: partialApp);
@@ -256,11 +258,11 @@ class AssetParser {
 
     // Adjust icon + image URLs with Blossom servers
     partialApp.icons = partialApp.icons
-        .map((icon) => blossomServers.map((blossom) => '$blossom/$icon'))
+        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
         .expand((e) => e)
         .toSet();
     partialApp.images = partialApp.images
-        .map((i) => blossomServers.map((blossom) => '$blossom/$i'))
+        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
         .expand((e) => e)
         .toSet();
   }

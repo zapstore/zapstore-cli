@@ -161,40 +161,42 @@ class _Identifier implements Comparable<_Identifier> {
   String toString() => value;
 }
 
-/// Returns the subsection that follows the heading matching [version].
+/// Returns the raw markdown section that belongs to [version] or `null` if the
+/// version cannot be found in the changelog.
 ///
-/// * [markdown] – entire contents of `CHANGELOG.md`.
-/// * [version]  – the literal version label to look for, e.g. `"1.2.0"` or
-///                `"Unreleased"`.
-///
-/// The function looks for a level-2 heading of the canonical form
-///
-///     ## [<version>] - YYYY-MM-DD
-///
-/// or
-///
-///     ## [<version>]
-///
-/// If the heading is found, the text from that heading (inclusive) up to—but
-/// not including—the next level-2 heading is returned.
-/// If the heading is not present, the whole provided Markdown is returned.
-String? extractVersionSection(String markdown, String version) {
-  // Build a regex that matches the exact version inside the square brackets.
-  final headingPattern = RegExp(
-      r'^##\s*$$\s*' + RegExp.escape(version) + r'\s*$$.*$',
-      multiLine: true);
+/// A version header is expected to be a markdown heading (`#`–`######`)
+/// containing the version string, e.g. `## [1.2.0] - 2025-05-08`.
+/// Extracts the body of a version section from a Keep-a-Changelog file.
+/// Returns `null` when the section is not found or is empty.
+// extractor.dart
+String? extractChangelogSection(String changelog, String version) {
+  final lines = changelog.split('\n');
+  final versionHeader = '## [$version]';
 
-  final match = headingPattern.firstMatch(markdown);
-  if (match == null) return markdown;
+  // Find the starting index of the version section
+  int startIndex = -1;
+  for (int i = 0; i < lines.length; i++) {
+    if (lines[i].contains(versionHeader)) {
+      startIndex = i;
+      break;
+    }
+  }
 
-  final start = match.start;
+  if (startIndex == -1) {
+    return null; // Version not found
+  }
 
-  // Look for the next level-2 heading after the one we just found.
-  final nextHeadingPattern = RegExp(r'^##\s*\[.*$', multiLine: true);
-  final nextMatch =
-      nextHeadingPattern.firstMatch(markdown.substring(match.end));
+  // Collect all lines until the next version section or end of file
+  final sectionLines = <String>[];
+  for (int i = startIndex; i < lines.length; i++) {
+    // Stop if we encounter the next version header
+    if (i > startIndex && lines[i].startsWith('## [')) {
+      break;
+    }
+    sectionLines.add(lines[i]);
+  }
 
-  final end = nextMatch == null ? markdown.length : match.end + nextMatch.start;
-
-  return markdown.substring(start, end).trimRight();
+  // Return the joined section content
+  final result = sectionLines.join('\n').trim();
+  return result.isNotEmpty ? result : null;
 }

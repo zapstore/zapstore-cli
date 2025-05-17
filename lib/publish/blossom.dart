@@ -5,6 +5,7 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class BlossomClient {
@@ -29,14 +30,21 @@ class BlossomClient {
         try {
           final headResponse = await http.head(Uri.parse(assetUrl));
 
-          if (headResponse.statusCode != 200) {
+          if (headResponse.statusCode == 200) {
+            uploadSpinner
+                .success('File $assetName already exists at $assetUrl');
+          } else {
             final bytes =
                 await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
+            var mimeType = authorization.mimeType;
+            if (mimeType == null) {
+              (mimeType, _, _) = await detectBytesMimeType(bytes);
+            }
             final response = await http.put(
               Uri.parse('$server/upload'),
               body: bytes,
               headers: {
-                'Content-Type': authorization.mimeType!,
+                'Content-Type': mimeType!,
                 'Authorization': 'Nostr ${authorization.toBase64()}',
               },
             );
@@ -51,10 +59,10 @@ class BlossomClient {
             } else {
               throw 'Error uploading $assetName: status code ${response.statusCode}, hash: $assetHash';
             }
+            uploadSpinner.success('Uploaded $assetName to $assetUrl');
           }
 
           urls.add(assetUrl);
-          uploadSpinner.success('Uploaded $assetName to $assetUrl');
         } catch (e) {
           uploadSpinner.fail(e.toString());
           rethrow;

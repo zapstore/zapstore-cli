@@ -42,9 +42,23 @@ const kZapstoreSupportedPlatforms = [
   'android-arm64-v8a',
 ];
 
+final kZapstoreSupportedMimeTypes = [
+  kMacOSArm64,
+  kLinuxAmd64,
+  kLinuxArm64,
+  kAndroidMimeType
+];
+
+const kLinux = 'application/x-executable';
+const kMacOS = 'application/x-mach-binary';
+const kLinuxAmd64 = '$kLinux; format=elf; arch=x86-64';
+const kLinuxArm64 = '$kLinux; format=elf; arch=arm';
+const kMacOSAmd64 = '$kMacOS; arch=x86-64';
+const kMacOSArm64 = '$kMacOS; arch=arm64';
+
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
-const kAppRelays = {'wss://relay.zapstore.dev'};
+const kAppRelays = {'wss://brelay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};
 
 const kZapstoreBlossomUrl = 'https://bcdn.zapstore.dev';

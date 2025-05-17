@@ -8,7 +8,6 @@ import 'package:riverpod/riverpod.dart';
 
 Future<List<Model<dynamic>>> signModels({
   required List<PartialModel<dynamic>> partialModels,
-  bool overwriteApp = false,
   required String signWith,
 }) async {
   final container = ProviderContainer();
@@ -30,6 +29,10 @@ Future<List<Model<dynamic>>> signModels({
       partialModels.whereType<PartialFileMetadata>().toSet();
   final partialBlossomAuthorizations =
       partialModels.whereType<PartialBlossomAuthorization>().toSet();
+
+  if (partialFileMetadatas.isEmpty) {
+    throw "No file metadatas produced";
+  }
 
   for (final fm in partialFileMetadatas) {
     final eid = Utils.getEventId(fm.event, signingPubkey);

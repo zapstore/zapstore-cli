@@ -1,14 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
+import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubParser extends AssetParser {
-  GithubParser(super.appMap) : super(uploadToBlossom: false);
+  GithubParser(super.appMap, {super.uploadToBlossom = false});
 
   Map<String, dynamic>? releaseJson;
 
@@ -82,14 +84,11 @@ class GithubParser extends AssetParser {
             (a['label'] != null && r.hasMatch(a['label']));
       });
 
-      // if (assets.isEmpty) {
-      //   final message = 'No asset matching $key';
-      //   if (isDaemonMode) {
-      //     print(message);
-      //   }
-      //   assetSpinner.fail(message);
-      //   throw GracefullyAbortSignal();
-      // }
+      if (assets.isEmpty) {
+        final message = 'No asset matching $key';
+        stderr.writeln(message);
+        throw GracefullyAbortSignal();
+      }
 
       for (final asset in assets) {
         final assetSpinner = CliSpin(
@@ -99,15 +98,12 @@ class GithubParser extends AssetParser {
         ).start();
 
         final assetUrl = asset['browser_download_url'];
-        assetSpinner.text = 'Fetching asset $assetUrl...';
 
-        // if (!overwriteRelease) {
-        //   await checkReleaseOnRelay(
-        //     version: version,
-        //     assetUrl: assetUrl,
-        //     spinner: packageSpinner,
-        //   );
-        // }
+        if (!overwriteRelease) {
+          await checkFuzzyEarly(assetUrl, resolvedVersion!);
+        }
+
+        assetSpinner.text = 'Fetching asset $assetUrl...';
 
         final fileHash =
             await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
@@ -121,15 +117,17 @@ class GithubParser extends AssetParser {
 
   @override
   Future<void> applyFileMetadata() async {
-    if (partialRelease.event.content.isEmpty) {
-      partialRelease.event.content = releaseJson?['body'] ?? '';
-    }
+    partialRelease.releaseNotes ??= releaseJson?['body'];
+
     partialRelease.event.createdAt =
         DateTime.tryParse(releaseJson?['created_at']) ?? DateTime.now();
     partialRelease.url = releaseJson?['html_url'];
 
-    // Default to repo name if no identifier
-    identifier ??= repositoryName.split('/').lastOrNull;
+    // Default to repo name if no identifier (if no metadatas are APKs)
+    if (!partialFileMetadatas.any((m) => m.mimeType == kAndroidMimeType)) {
+      identifier ??=
+          partialApp.identifier ?? repositoryName.split('/').lastOrNull;
+    }
 
     return super.applyFileMetadata();
   }

@@ -130,16 +130,18 @@ class RemoveCommand extends Command {
   }
 }
 
+late final String configPath;
+late final bool overwriteRelease;
 late final bool isDaemonMode;
-// String? releaseNotes;
-late String configPath;
 
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',
         abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
-    argParser.addOption('release-notes',
-        abbr: 'n', help: 'File containing release notes');
+    argParser.addFlag('overwrite-release',
+        help:
+            'Publishes the release regardless of the latest version on relays',
+        defaultsTo: false);
     argParser.addFlag('daemon-mode',
         abbr: 'd',
         help:
@@ -162,7 +164,8 @@ class PublishCommand extends Command {
     // Load env next to config file
     env.load([path.join(path.dirname(configPath), '.env')]);
 
-    // Set daemon mode
+    overwriteRelease = argResults!.flag('overwrite-release');
+
     isDaemonMode = argResults!.flag('daemon-mode');
 
     await Publisher().run();

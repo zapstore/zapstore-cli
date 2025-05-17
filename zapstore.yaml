@@ -6,3 +6,4 @@ assets:
   - zapstore-\d+.\d+.\d+-darwin-arm64
   - zapstore-\d+.\d+.\d+-linux-aarch64
   - zapstore-\d+.\d+.\d+-linux-x86_64
+changelog: CHANGELOG.md

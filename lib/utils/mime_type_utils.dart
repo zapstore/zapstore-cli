@@ -35,7 +35,7 @@ Future<
   mimeType = switch (MagicNumber.detectFileType(data)) {
     MagicNumberType.zip => 'application/zip',
     MagicNumberType.tar => 'application/x-gtar',
-    MagicNumberType.elf => 'application/x-elf',
+    MagicNumberType.elf => kLinux,
     MagicNumberType.exe => 'application/x-msdownload',
     MagicNumberType.png => 'image/png',
     MagicNumberType.jpg => 'image/jpeg',
@@ -66,7 +66,7 @@ Future<
     }
   }
 
-  if (mimeType == 'application/x-elf') {
+  if (mimeType == kLinux) {
     mimeType = _detectELFMimeType(data)!;
   }
 
@@ -97,10 +97,10 @@ String? _detectMachOMimeType(Uint8List data) {
 
   // Mach-O CPU types
   // ARM64 CPU type is 0x0100000C (CPU_TYPE_ARM64)
-  if (cpuType == 0x0100000C) return "application/x-mach-binary-arm64";
+  if (cpuType == 0x0100000C) return kMacOSArm64;
 
   // x86_64 (64-bit) CPU type is 0x01000007 (CPU_TYPE_X86_64 = CPU_TYPE_I386 | CPU_ARCH_ABI64)
-  if (cpuType == 0x01000007) return "application/x-mach-binary-amd64";
+  if (cpuType == 0x01000007) return kMacOSAmd64;
 
   return null;
 }
@@ -124,10 +124,14 @@ String? _detectELFMimeType(Uint8List data) {
       .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
 
   // e_machine of 62 means x86-64 => Linux amd64.
-  if (eMachine == 62) return "application/x-elf-amd64";
+  if (eMachine == 62) {
+    return kLinuxAmd64;
+  }
 
   // e_machine of 183 means ARM AArch64.
-  if (eMachine == 183) return "application/x-elf-aarch64";
+  if (eMachine == 183) {
+    return kLinuxArm64;
+  }
 
   return null;
 }
@@ -160,12 +164,6 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
   // Default to everything: (.*)
   final executableRegexps = (executablePatterns ?? {'.*'}).map(RegExp.new);
 
-  final supportedExecutablePlatforms = [
-    'application/x-mach-binary-arm64',
-    'application/x-elf-aarch64',
-    'application/x-elf-amd64'
-  ];
-
   final internalMimeTypes = <String>{};
   final executablePaths = <String>{};
 
@@ -175,7 +173,7 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
         if (r.hasMatch(f.name)) {
           final bytes = f.readBytes()!;
           final mimeTypes = await detectBytesMimeType(bytes);
-          if (supportedExecutablePlatforms.contains(mimeTypes.$1)) {
+          if (kZapstoreSupportedMimeTypes.contains(mimeTypes.$1)) {
             executablePaths.add(f.name);
             internalMimeTypes.add(mimeTypes.$1!);
           }

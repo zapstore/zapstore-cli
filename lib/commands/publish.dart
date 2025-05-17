@@ -6,27 +6,22 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
-import 'package:zapstore_cli/publish/blossom.dart';
 import 'package:zapstore_cli/publish/events.dart';
 import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/publish/web_parser.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
-import 'package:zapstore_cli/utils/utils.dart';
 
 class Publisher {
-  final blossom = BlossomClient(servers: {kZapstoreBlossomUrl});
-
   Future<void> run() async {
-    // (1) Find parser
-    final parser = await _findParser();
+    // (1) Validate input and find an appropriate asset parser
+    final parser = await _validateAndFindParser();
 
-    // (2) Parse: Produces initial app, release, metadatas
+    // (2) Parse metadata and assets into partial models
     final partialModels = await parser.run();
 
     // (3) Sign events and Blossom authorizations
-
     final signWith = env['SIGN_WITH'];
 
     if (signWith == null) {
@@ -43,18 +38,19 @@ class Publisher {
       signWith: signWith,
     );
 
-    // (4) Upload to Blossom
-    await blossom
+    final app = signedModels.whereType<App>().first;
+    final release = signedModels.whereType<Release>().first;
+    final fileMetadatas = signedModels.whereType<FileMetadata>().toSet();
+
+    // (5) Upload to Blossom
+    await parser.blossomClient
         .upload(signedModels.whereType<BlossomAuthorization>().toSet());
 
-    // (5) Publish
-    await _sendToRelays(
-        signedModels.whereType<App>().first,
-        signedModels.whereType<Release>().first,
-        signedModels.whereType<FileMetadata>().toSet());
+    // (6) Publish
+    await _sendToRelays(app, release, fileMetadatas);
   }
 
-  Future<AssetParser> _findParser() async {
+  Future<AssetParser> _validateAndFindParser() async {
     final configYaml = File(configPath);
 
     if (!await configYaml.exists()) {
@@ -64,7 +60,6 @@ class Publisher {
 
     final yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
 
-    // (1) Validate input and determine parser
     final appMap = {...yamlAppMap.value};
     if (!appMap.containsKey('assets')) {
       final usage = appMap['artifacts'] is List
@@ -112,39 +107,29 @@ class Publisher {
     var publishEvents = true;
 
     if (!isDaemonMode) {
-      final viewEvents = Select(
-        prompt: 'Events signed! How do you want to proceed?',
-        options: [
-          'Inspect the events and confirm before publishing to relays',
-          'Publish the events to relays now',
-        ],
-      ).interact();
+      stderr.writeln();
+      stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
+      stderr.writeln();
+      printJsonEncodeColored(signedApp.toMap());
 
-      if (viewEvents == 0) {
+      stderr.writeln();
+      stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
+      stderr.writeln();
+      printJsonEncodeColored(signedRelease.toMap());
+      stderr.writeln();
+      stderr
+          .writeln('File metadata events (kind 1063)'.bold().black().onWhite());
+      stderr.writeln();
+      for (final m in signedFileMetadatas) {
+        printJsonEncodeColored(m.toMap());
         stderr.writeln();
-        stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
-        stderr.writeln();
-        printJsonEncodeColored(signedApp.toMap());
-
-        stderr.writeln();
-        stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
-        stderr.writeln();
-        printJsonEncodeColored(signedRelease.toMap());
-        stderr.writeln();
-        stderr.writeln(
-            'File metadata events (kind 1063)'.bold().black().onWhite());
-        stderr.writeln();
-        for (final m in signedFileMetadatas) {
-          printJsonEncodeColored(m.toMap());
-          stderr.writeln();
-        }
-
-        publishEvents = Confirm(
-          prompt:
-              'Scroll up to check the events and press `y` when you\'re ready to publish',
-          defaultValue: true,
-        ).interact();
       }
+
+      publishEvents = Confirm(
+        prompt:
+            'Events signed with SIGN_WITH! Scroll up to verify and press `y` when ready to publish',
+        defaultValue: true,
+      ).interact();
     }
 
     var showWhitelistMessage = false;
@@ -186,33 +171,5 @@ class Publisher {
     }
   }
 }
-
-/// We check for apps with this same identifier (of any author, for simplicity)
-/// NOTE: This logic is rerun during event signing once we know the author's pubkey
-/// This allows us to be roughly correct about the correct overwriteApp value,
-/// which will trigger fetching app information through the appropriate parser below.
-Future<bool> ensureOverwriteApp(bool overwriteApp, String appIdentifier) async {
-  final appsWithIdentifier =
-      await storage.query<App>(RequestFilter(remote: true, tags: {
-    '#d': {appIdentifier}
-  }));
-
-  // If none were found (first time publishing), we ignore the
-  // overwrite argument and set it to true
-  if (appsWithIdentifier.isEmpty) {
-    print('First time publishing? Creating an app event (kind 32267)');
-    overwriteApp = true;
-  }
-  return overwriteApp;
-}
-
-// enum SupportedOS {
-//   cli,
-//   android;
-
-//   static SupportedOS from(dynamic value) {
-//     return SupportedOS.values.firstWhere((os) => os.name == value.toString());
-//   }
-// }
 
 final fileRegex = RegExp(r'^[^\/<>|:&]*');

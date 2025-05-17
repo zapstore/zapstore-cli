@@ -1,11 +1,12 @@
 import 'package:cli_spin/cli_spin.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class WebParser extends AssetParser {
-  WebParser(super.appMap) : super(uploadToBlossom: false);
+  WebParser(super.appMap, {super.uploadToBlossom = false});
 
   @override
   Future<Set<String>> resolveHashes() async {
@@ -24,12 +25,9 @@ class WebParser extends AssetParser {
     for (final key in appMap['assets']) {
       final assetUrl = key.toString().replaceAll('\$version', resolvedVersion!);
 
-      // if (!overwriteRelease) {
-      //   await checkReleaseOnRelay(
-      //     version: version,
-      //     assetUrl: assetUrl,
-      //   );
-      // }
+      if (!overwriteRelease) {
+        await checkFuzzyEarly(assetUrl, resolvedVersion!);
+      }
 
       final assetSpinner = CliSpin(
         text: 'Fetching asset $assetUrl...',

@@ -9,8 +9,7 @@ import 'package:zapstore_cli/parser/signature_parser.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
-Future<PartialFileMetadata> extractMetadataFromFile(
-    String assetHash, Set<String> blossomServers,
+Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
     {String? resolvedVersion, Set<String>? executablePatterns}) async {
   final metadata = PartialFileMetadata();
 
@@ -52,7 +51,8 @@ Future<PartialFileMetadata> extractMetadataFromFile(
     final manifest = manifestDocument.querySelector('manifest')!;
     metadata.version = manifest.attributes['android:versionName'];
 
-    metadata.versionCode = manifest.attributes['android:versionCode'];
+    metadata.versionCode =
+        int.tryParse(manifest.attributes['android:versionCode'] ?? '');
 
     final usesSdk = manifest.querySelector('uses-sdk')!;
     metadata.minSdkVersion = usesSdk.attributes['android:minSdkVersion'];
@@ -70,12 +70,20 @@ Future<PartialFileMetadata> extractMetadataFromFile(
     metadata.platforms = {
       for (final type in [mimeType, ...?internalMimeTypes])
         switch (type) {
-          'application/x-mach-binary-arm64' => 'darwin-arm64',
-          'application/x-elf-aarch64' => 'linux-aarch64',
-          'application/x-elf-amd64' => 'linux-x86_64',
+          kMacOSArm64 => 'darwin-arm64',
+          kLinuxArm64 => 'linux-aarch64',
+          kLinuxAmd64 => 'linux-x86_64',
           _ => null,
         }
     }.nonNulls.toSet();
+
+    // Rewrite proper mime types for Linux and Mac
+    if ([kLinuxAmd64, kLinuxArm64].contains(mimeType)) {
+      metadata.mimeType = kLinux;
+    }
+    if (mimeType == kMacOSArm64) {
+      metadata.mimeType = kMacOS;
+    }
 
     if (executablePaths != null) {
       metadata.executables = executablePaths;
@@ -83,7 +91,7 @@ Future<PartialFileMetadata> extractMetadataFromFile(
   }
 
   // Default mime type, we query by platform anyway
-  metadata.mimeType = mimeType ?? 'application/octet-stream';
+  metadata.mimeType ??= 'application/octet-stream';
 
   _validatePlatforms(metadata, hashPathMap[assetHash] ?? '');
 
