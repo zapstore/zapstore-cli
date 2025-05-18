@@ -3,6 +3,7 @@ import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class WebParser extends AssetParser {
@@ -26,7 +27,7 @@ class WebParser extends AssetParser {
       final assetUrl = key.toString().replaceAll('\$version', resolvedVersion!);
 
       if (!overwriteRelease) {
-        await checkFuzzyEarly(assetUrl, resolvedVersion!);
+        await checkUrl(assetUrl, resolvedVersion!);
       }
 
       final assetSpinner = CliSpin(
@@ -36,6 +37,10 @@ class WebParser extends AssetParser {
       ).start();
 
       final assetHash = await fetchFile(assetUrl, spinner: assetSpinner);
+      final assetPath = getFilePathInTempDirectory(assetHash);
+      if (await acceptAsset(assetPath)) {
+        assetHashes.add(assetPath);
+      }
       assetHashes.add(assetHash);
 
       assetSpinner.success('Fetched asset: $assetUrl');

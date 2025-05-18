@@ -13,6 +13,7 @@ import 'package:zapstore_cli/publish/fetchers/playstore_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/parser_utils.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
@@ -29,23 +30,29 @@ class AssetParser {
 
   final bool uploadToBlossom;
 
-  String? identifier;
   late String? resolvedVersion;
   late var assetHashes = <String>{};
   late final BlossomClient blossomClient;
 
   AssetParser(this.appMap, {this.uploadToBlossom = true}) {
-    identifier = appMap['identifier'];
+    partialApp.identifier =
+        appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
+    partialApp.name = appMap['name'];
     blossomClient = BlossomClient(servers: {
       ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
     });
   }
 
   Future<List<PartialModel>> run() async {
+    // Find a version
     resolvedVersion = await resolveVersion();
+    // Resolve hashes (filters out unwanted mime types)
     assetHashes = await resolveHashes();
+    // Applies metadata found in assets
     await applyFileMetadata();
+    // Applies metadata from configurable remote APIs
     await applyRemoteMetadata();
+
     if (!overwriteRelease) {
       await checkVersionOnRelays(
           partialApp.identifier!, partialRelease.version!,
@@ -122,7 +129,9 @@ class AssetParser {
           .map((e) => e.path);
 
       for (final assetPath in assetPaths) {
-        assetHashes.add(await copyToHash(assetPath));
+        if (await acceptAsset(assetPath)) {
+          assetHashes.add(await copyToHash(assetPath));
+        }
       }
     }
     return assetHashes;
@@ -132,11 +141,13 @@ class AssetParser {
   @mustCallSuper
   Future<void> applyFileMetadata() async {
     for (final assetHash in assetHashes) {
-      final partialFileMetadata = await extractMetadataFromFile(assetHash,
-          resolvedVersion: resolvedVersion,
-          executablePatterns: appMap['executables'] != null
-              ? {...appMap['executables']}
-              : null);
+      final partialFileMetadata = await extractMetadataFromFile(
+        assetHash,
+        resolvedIdentifier: partialApp.identifier,
+        resolvedVersion: resolvedVersion,
+        executablePatterns:
+            appMap['executables'] != null ? {...appMap['executables']} : null,
+      );
 
       // Place first the original URL and leave Blossom servers as backup
       if (hashUrlMap.containsKey(assetHash)) {
@@ -159,19 +170,31 @@ class AssetParser {
         partialBlossomAuthorizations.add(partialBlossomAuthorization);
       }
 
-      identifier = _validatePropertyMatch(
-          identifier, partialFileMetadata.identifier,
-          type: 'identifier');
-      resolvedVersion = _validatePropertyMatch(
-          resolvedVersion, partialFileMetadata.version,
-          type: 'version');
-
       partialFileMetadatas.add(partialFileMetadata);
     }
 
-    partialApp.name ??= appMap['name']?.toString().toLowerCase();
-    partialApp.identifier = identifier ?? partialApp.name;
-    partialRelease.identifier = '$identifier@$resolvedVersion';
+    // The source of truth now for identifier/version
+    // are the file metadatas, so ensure they are all
+    // equal and then assign to main app and release identifiers
+    final allIdentifiers = partialFileMetadatas.map((m) => m.identifier);
+    final uniqueIdentifier =
+        DeepCollectionEquality().equals(allIdentifiers, {allIdentifiers.first});
+    if (!uniqueIdentifier) {
+      throw 'Identifiers not unique: $allIdentifiers';
+    }
+
+    final allVersions = partialFileMetadatas.map((m) => m.version);
+    final uniqueVersions =
+        DeepCollectionEquality().equals(allVersions, {allVersions.first});
+    if (!uniqueVersions) {
+      throw 'Versions not unique: $allVersions';
+    }
+    partialApp.identifier = allIdentifiers.first!;
+
+    // If no name so far, set it to the identifier
+    partialApp.name ??= partialApp.identifier;
+    partialRelease.identifier =
+        '${partialApp.identifier}@${allVersions.first!}';
 
     partialApp.url ??= appMap['homepage'];
     if (partialApp.tags.isEmpty) {
@@ -192,8 +215,6 @@ class AssetParser {
       partialApp.addImage(await copyToHash(image));
     }
 
-    partialRelease.identifier = '$identifier@$resolvedVersion';
-
     // App's platforms are the sum of file metadatas' platforms
     partialApp.platforms =
         partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
@@ -205,14 +226,14 @@ class AssetParser {
     // If changelog file was provided, it takes precedence
     if (appMap.containsKey('changelog')) {
       partialRelease.releaseNotes =
-          extractChangelogSection(md, resolvedVersion!);
+          extractChangelogSection(md, partialRelease.version!);
     }
     // Only change here if no notes, whether from the call before
     // or from another parser
     partialRelease.releaseNotes ??=
-        extractChangelogSection(md, resolvedVersion!);
+        extractChangelogSection(md, partialRelease.version!);
 
-    // Always use the latest release timestamp
+    // Always use the release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
   }
 
@@ -265,18 +286,5 @@ class AssetParser {
         .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
         .expand((e) => e)
         .toSet();
-  }
-
-  // Helpers
-
-  String _validatePropertyMatch(String? s1, String? s2,
-      {required String type}) {
-    s1 ??= s2;
-    if (s1 == null || s1.isEmpty) {
-      throw 'Please provide $type in the config';
-    } else if (s2 != null && s1 != s2) {
-      throw '$s1 != $s2 - mismatching $type, abort';
-    }
-    return s1;
   }
 }

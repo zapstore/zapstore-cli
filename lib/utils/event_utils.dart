@@ -12,18 +12,7 @@ String formatProfile(Profile profile) {
   return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'} - https://npub.world/${profile.npub}';
 }
 
-showInRelayWarning(String v1, String v2) {
-  stderr.writeln(
-      '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.');
-  throw GracefullyAbortSignal();
-}
-
-showInRelayVersionCodeWarning(int v1, int v2) {
-  stderr.writeln(
-      '⚠️  Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.');
-  throw GracefullyAbortSignal();
-}
-
+// TODO: Should account for publishedAt thingy here too
 Future<void> checkVersionOnRelays(String identifier, String version,
     {int? versionCode}) async {
   final releases = await storage.fetch<Release>(RequestFilter(
@@ -46,7 +35,7 @@ Future<void> checkVersionOnRelays(String identifier, String version,
       final maxVersionCode = fileMetadatas.fold(0,
           (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0));
       if (maxVersionCode >= versionCode) {
-        showInRelayVersionCodeWarning(maxVersionCode, versionCode);
+        exitWithVersionCodeWarning(maxVersionCode, versionCode);
       }
       return;
     }
@@ -57,27 +46,50 @@ Future<void> checkVersionOnRelays(String identifier, String version,
   if (isDaemonMode) {
     print('  $version OK, skipping');
   } else {
-    showInRelayWarning(releases.first.version, version);
+    exitWithWarning(releases.first.version, version);
   }
 }
 
 // Early check just with assetUrl to prevent downloads & processing
-Future<void> checkFuzzyEarly(String assetUrl, String version) async {
+Future<void> checkUrl(String assetUrl, String version,
+    {DateTime? publishedAt}) async {
   final assets = await storage.fetch<FileMetadata>(RequestFilter(
     remote: true,
     search: assetUrl,
     limit: 1,
   ));
 
-  print('got assets ${assets.length}');
-
   final matchingAssets = assets.where((r) {
     return r.urls.any((u) => u == assetUrl);
   });
 
   if (matchingAssets.isNotEmpty) {
-    showInRelayWarning(matchingAssets.first.version, version);
+    if (publishedAt != null) {
+      final maxExistingPublishedAt = matchingAssets.fold(
+          0,
+          (acc, e) =>
+              acc > e.createdAt.toSeconds() ? acc : e.createdAt.toSeconds());
+      if (maxExistingPublishedAt < publishedAt.toSeconds()) {
+        // Do not exit with warning, continue processing
+        // and set overwriteRelease to skip next check
+        overwriteRelease = true;
+        return;
+      }
+    }
+    exitWithWarning(matchingAssets.first.version, version);
   }
+}
+
+void exitWithWarning(String v1, String v2) {
+  stderr.writeln(
+      '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.');
+  throw GracefullyAbortSignal();
+}
+
+void exitWithVersionCodeWarning(int v1, int v2) {
+  stderr.writeln(
+      '⚠️  Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.');
+  throw GracefullyAbortSignal();
 }
 
 void printJsonEncodeColored(Object obj) {

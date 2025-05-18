@@ -20,6 +20,11 @@ Future<
   return detectBytesMimeType(data, executablePatterns: executablePatterns);
 }
 
+Future<bool> acceptAsset(String assetPath) async {
+  final (mimeType, _, _) = await detectMimeTypes(assetPath);
+  return kZapstoreAcceptedMimeTypes.contains(mimeType);
+}
+
 Future<
         (
           String? mimeType,

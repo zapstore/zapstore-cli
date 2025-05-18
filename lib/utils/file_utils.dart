@@ -12,8 +12,8 @@ import 'package:zapstore_cli/utils/utils.dart';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
-String getFilePathInTempDirectory(String name) {
-  return path.join(kTempDir, path.basename(name));
+String getFilePathInTempDirectory(String hash) {
+  return path.join(kTempDir, path.basename(hash));
 }
 
 /// Returns the hash of the downloaded file

@@ -61,26 +61,30 @@ class Publisher {
     final yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
 
     final appMap = {...yamlAppMap.value};
-    if (!appMap.containsKey('assets')) {
-      final usage = appMap['artifacts'] is List
-          ? 'You are listing artifacts, update to the new format (artifacts -> assets).'
-          : 'You must have an asset list in your config file.';
-      throw UsageException('Asset list not found', usage);
+    if (appMap['artifacts'] is List) {
+      final usage =
+          'You are listing artifacts, update to the new format (artifacts is now assets).';
+      throw UsageException('Wrong format', usage);
     }
 
-    final assets = appMap['assets'] as List;
+    final assets = appMap['assets'] as List?;
 
     late final AssetParser parser;
 
-    final hasRemoteAssets = assets.any((k) {
-      // Paths with a scheme are fetched from the web
-      return Uri.tryParse(k)?.hasScheme ?? false;
-    });
-    final hasLocalAssets = assets.any((k) {
-      // Paths are considered local only when they have
-      // a forward slash, if needed write: ./file.apk
-      return k.toString().contains('/');
-    });
+    // If no assets, it will end up in Github if-branch,
+    // we later default to all assets in a release
+
+    final hasRemoteAssets = assets != null &&
+        assets.any((k) {
+          // Paths with a scheme are fetched from the web
+          return Uri.tryParse(k)?.hasScheme ?? false;
+        });
+    final hasLocalAssets = assets != null &&
+        assets.any((k) {
+          // Paths are considered local only when they have
+          // a forward slash, if needed write: ./file.apk
+          return k.toString().contains('/');
+        });
 
     if (hasRemoteAssets) {
       parser = WebParser(appMap);
@@ -125,9 +129,11 @@ class Publisher {
         stderr.writeln();
       }
 
+      final relayUrls = storage.config.getRelays();
+
       publishEvents = Confirm(
         prompt:
-            'Events signed with SIGN_WITH! Scroll up to verify and press `y` when ready to publish',
+            'Events signed! Scroll up to verify and press `y` to publish to ${relayUrls.join(', ')}',
         defaultValue: true,
       ).interact();
     }
@@ -160,9 +166,6 @@ class Publisher {
           }
         }
       }
-    } else {
-      stderr
-          .writeln('No events published nor Blossom assets uploaded, exiting');
     }
 
     if (showWhitelistMessage) {

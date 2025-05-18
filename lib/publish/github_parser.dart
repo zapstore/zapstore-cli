@@ -7,6 +7,7 @@ import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
 import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
+import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubParser extends AssetParser {
@@ -23,6 +24,8 @@ class GithubParser extends AssetParser {
       ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
       : <String, String>{};
 
+  late final Set<RegExp> assetRegexps;
+
   @override
   Future<String?> resolveVersion() async {
     final metadataSpinner = CliSpin(
@@ -31,22 +34,26 @@ class GithubParser extends AssetParser {
       isSilent: isDaemonMode,
     ).start();
 
-    final latestReleaseUrl =
-        'https://api.github.com/repos/$repositoryName/releases/latest';
+    assetRegexps =
+        (appMap.containsKey('assets') ? <String>{...appMap['assets']} : {'.*'})
+            .map(RegExp.new)
+            .toSet();
+
+    final releasesUrl = 'https://api.github.com/repos/$repositoryName/releases';
+    final latestReleaseUrl = '$releasesUrl/latest';
     releaseJson =
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
     // If there's a message it's an error (or no matching assets were found)
-    if (releaseJson!['message'] != null ||
-        !(releaseJson!['assets'] as Iterable)
-            .any((a) => <String>{...appMap['assets']}.any((e) {
-                  final r = RegExp(e);
-                  return r.hasMatch(a['name']) ||
-                      (a['label'] != null && r.hasMatch(a['label']));
-                }))) {
-      final response = await http.get(
-          Uri.parse('https://api.github.com/repos/$repositoryName/releases'),
-          headers: headers);
+    final ok = releaseJson!['message'] != null ||
+        !(releaseJson!['assets'] as Iterable).any((a) {
+          return assetRegexps.any((r) {
+            return r.hasMatch(a['name']) ||
+                (a['label'] != null && r.hasMatch(a['label']));
+          });
+        });
+    if (ok) {
+      final response = await http.get(Uri.parse(releasesUrl), headers: headers);
       final releases = jsonDecode(response.body);
 
       if (releases is Map && releases['message'] != null) {
@@ -77,15 +84,14 @@ class GithubParser extends AssetParser {
   @override
   Future<Set<String>> resolveHashes() async {
     final assetHashes = <String>{};
-    for (final key in appMap['assets']) {
+    for (final r in assetRegexps) {
       final assets = (releaseJson!['assets'] as Iterable).where((a) {
-        final r = RegExp(key);
         return r.hasMatch(a['name']) ||
             (a['label'] != null && r.hasMatch(a['label']));
       });
 
       if (assets.isEmpty) {
-        final message = 'No asset matching $key';
+        final message = 'No asset matching $r';
         stderr.writeln(message);
         throw GracefullyAbortSignal();
       }
@@ -100,14 +106,18 @@ class GithubParser extends AssetParser {
         final assetUrl = asset['browser_download_url'];
 
         if (!overwriteRelease) {
-          await checkFuzzyEarly(assetUrl, resolvedVersion!);
+          final publishedAt = DateTime.tryParse(releaseJson?['published_at']);
+          await checkUrl(assetUrl, resolvedVersion!, publishedAt: publishedAt);
         }
 
         assetSpinner.text = 'Fetching asset $assetUrl...';
 
         final fileHash =
             await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
-        assetHashes.add(fileHash);
+        final filePath = getFilePathInTempDirectory(fileHash);
+        if (await acceptAsset(filePath)) {
+          assetHashes.add(fileHash);
+        }
 
         assetSpinner.success('Fetched asset: $assetUrl');
       }
@@ -120,14 +130,12 @@ class GithubParser extends AssetParser {
     partialRelease.releaseNotes ??= releaseJson?['body'];
 
     partialRelease.event.createdAt =
-        DateTime.tryParse(releaseJson?['created_at']) ?? DateTime.now();
+        DateTime.tryParse(releaseJson?['published_at']) ?? DateTime.now();
     partialRelease.url = releaseJson?['html_url'];
 
-    // Default to repo name if no identifier (if no metadatas are APKs)
-    if (!partialFileMetadatas.any((m) => m.mimeType == kAndroidMimeType)) {
-      identifier ??=
-          partialApp.identifier ?? repositoryName.split('/').lastOrNull;
-    }
+    // If no identifier set yet, apply repo name (may be overridden later)
+    partialApp.identifier ??= repositoryName.split('/').lastOrNull;
+    partialApp.name ??= releaseJson?['name'];
 
     return super.applyFileMetadata();
   }

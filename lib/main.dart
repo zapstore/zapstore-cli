@@ -156,7 +156,7 @@ class RemoveCommand extends Command {
 }
 
 late final String configPath;
-late final bool overwriteRelease;
+late bool overwriteRelease;
 late final bool isDaemonMode;
 
 class PublishCommand extends Command {

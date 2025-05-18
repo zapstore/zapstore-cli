@@ -10,10 +10,10 @@ import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
-    {String? resolvedVersion, Set<String>? executablePatterns}) async {
+    {String? resolvedIdentifier,
+    String? resolvedVersion,
+    Set<String>? executablePatterns}) async {
   final metadata = PartialFileMetadata();
-
-  String? identifier;
 
   final assetPath = getFilePathInTempDirectory(assetHash);
   final (mimeType, internalMimeTypes, executablePaths) =
@@ -45,7 +45,7 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
     final rawAndroidManifest = AxmlParser.toXml(binaryManifestFile.content);
     final manifestDocument = parseHtmlDocument(rawAndroidManifest);
 
-    identifier =
+    metadata.identifier =
         manifestDocument.querySelector('manifest')!.attributes['package']!;
 
     final manifest = manifestDocument.querySelector('manifest')!;
@@ -59,12 +59,12 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
     metadata.targetSdkVersion = usesSdk.attributes['android:targetSdkVersion'];
 
     metadata.mimeType = kAndroidMimeType;
-    metadata.identifier = identifier;
 
     // For backwards-compatibility
     metadata.event.content = '${metadata.identifier}@${metadata.version}';
   } else {
     // CLI
+    metadata.identifier = resolvedIdentifier;
     metadata.version = resolvedVersion;
 
     metadata.platforms = {
@@ -90,8 +90,8 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
     }
   }
 
-  // Default mime type, we query by platform anyway
-  metadata.mimeType ??= 'application/octet-stream';
+  // Default mime type
+  metadata.mimeType ??= mimeType ?? 'application/octet-stream';
 
   _validatePlatforms(metadata, hashPathMap[assetHash] ?? '');
 

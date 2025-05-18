@@ -72,6 +72,12 @@ final kZapstoreSupportedMimeTypes = [
   kAndroidMimeType
 ];
 
+final kZapstoreAcceptedMimeTypes = [
+  ...kZapstoreSupportedMimeTypes,
+  ...kArchiveMimeTypes,
+  kAndroidMimeType,
+];
+
 const kLinux = 'application/x-executable';
 const kMacOS = 'application/x-mach-binary';
 const kLinuxAmd64 = '$kLinux; format=elf; arch=x86-64';
