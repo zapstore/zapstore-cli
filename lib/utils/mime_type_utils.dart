@@ -51,7 +51,10 @@ Future<
 
   mimeType ??= lookupMimeType('', headerBytes: data);
 
-  mimeType ??= _getTypeForCompressed(data);
+  // If type is still null or the default binary type, check if compressed
+  if (mimeType == null || mimeType == 'application/octet-stream') {
+    mimeType = _getTypeForCompressed(data);
+  }
 
   if (kArchiveMimeTypes.contains(mimeType)) {
     (internalMimeTypes, executablePaths) = await _detectCompressed(

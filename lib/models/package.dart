@@ -39,14 +39,17 @@ class Package {
 
     final filePath = getFilePathInTempDirectory(fileHash);
 
+    final bytes = await File(filePath).readAsBytes();
+    var (mimeType, _, _) = await detectBytesMimeType(bytes);
+
     // Extract compressed file
-    if (kArchiveMimeTypes.contains(metadata.mimeType)) {
-      final bytes = await File(filePath).readAsBytes();
-      final (mimeType, _, _) = await detectBytesMimeType(bytes);
+    if (kArchiveMimeTypes.contains(mimeType)) {
       final archive = getArchive(bytes, mimeType!);
       await writeArchiveToDisk(archive, outDir: versionPath);
 
-      for (final executablePath in metadata.executables) {
+      for (final executablePath in (metadata.executables.isNotEmpty
+          ? metadata.executables
+          : {identifier})) {
         await linkExecutable(versionPath, executablePath);
       }
       await deleteRecursive(filePath);
@@ -87,12 +90,12 @@ class Package {
     return '$identifier {version: $version, executables: $executables}';
   }
 
-  static Future<Map<String, Package>> loadAll() async {
+  static Future<Map<String, Package>> loadAll({bool fromCommand = true}) async {
     final dir = Directory(kBaseDir);
     final systemPath = env['PATH']!;
 
     if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
-      print('${'Welcome to zapstore!'.bold().white().onBlue()}\n');
+      print('\n${'Welcome to'.bold().white().onBlue()}\n$figure');
 
       if (!await dir.exists()) {
         final setUp = Confirm(
@@ -109,10 +112,9 @@ class Package {
       }
 
       if (!systemPath.contains(kBaseDir)) {
-        print('''\n
-Make sure ${kBaseDir.bold()} is in your PATH
-
-You can run ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent.
+        print('\nMake sure ${kBaseDir.bold()} is in your PATH.\n'.red());
+        print('''
+Run ${'echo \'export PATH="$kBaseDir:\$PATH"\' >> ~/.bashrc'.bold()} or equivalent.
 This will make programs installed by zapstore available in your system.
 
 After that, open a new shell and re-run this program.
@@ -151,15 +153,30 @@ After that, open a new shell and re-run this program.
           executables: {kZapstoreId});
 
       final filePath = Platform.script.toFilePath();
-      final hash = await copyToHash(filePath);
 
       final versionPath = path.join(zapstorePackage.directory.path, kVersion);
+      await Directory(versionPath).create(recursive: true);
       final executablePath = path.join(versionPath, kZapstoreId);
-      await File(getFilePathInTempDirectory(hash)).rename(executablePath);
+      await File(filePath).copy(executablePath);
       await zapstorePackage.linkExecutable(versionPath, executablePath);
-      // Try again with zapstore installed/updated
-      print('Successfully updated zapstore to ${kVersion.bold()}!\n'.green());
-      return await loadAll();
+
+      var relativeFilePath =
+          path.relative(filePath, from: Directory.current.path);
+      if (relativeFilePath.startsWith('..')) {
+        relativeFilePath = filePath;
+      }
+
+      print('\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'.green());
+      print(
+          'You can now delete this executable ($relativeFilePath)\nand directly use `zapstore` in the terminal.'
+              .bold());
+      if (fromCommand) {
+        // Try again with zapstore installed/updated
+        return await loadAll();
+      } else {
+        // If invoked from binary without any specific command, exit here
+        exit(0);
+      }
     }
     return db;
   }

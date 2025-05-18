@@ -5,19 +5,13 @@ import 'package:models/models.dart';
 import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
 import 'package:riverpod/riverpod.dart';
+import 'package:zapstore_cli/main.dart';
 
 Future<List<Model<dynamic>>> signModels({
   required List<PartialModel<dynamic>> partialModels,
   required String signWith,
 }) async {
-  final container = ProviderContainer();
-  final ref = container.read(refProvider);
-  final signer = switch (signWith) {
-    'NIP07' => NIP07Signer(ref),
-    _ when signWith.startsWith('bunker://') =>
-      NakNIP46Signer(ref, connectionString: signWith),
-    _ => Bip340PrivateKeySigner(signWith, ref),
-  };
+  final signer = signerFromString(signWith);
 
   await signer.initialize();
 
@@ -52,6 +46,16 @@ Future<List<Model<dynamic>>> signModels({
   await signer.dispose();
 
   return signedModels;
+}
+
+Signer signerFromString(String signWith) {
+  final ref = container.read(refProvider);
+  return switch (signWith) {
+    'NIP07' => NIP07Signer(ref),
+    _ when signWith.startsWith('bunker://') =>
+      NakNIP46Signer(ref, connectionString: signWith),
+    _ => Bip340PrivateKeySigner(signWith, ref),
+  };
 }
 
 class NakNIP46Signer extends Signer {

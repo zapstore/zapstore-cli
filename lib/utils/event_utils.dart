@@ -1,51 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
-import 'package:path/path.dart' as path;
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
-Future<Map<String, dynamic>> checkUser() async {
-  final file = File(path.join(kBaseDir, '_.json'));
-  final user = await file.exists()
-      ? Map<String, dynamic>.from(jsonDecode(await file.readAsString()))
-      : <String, dynamic>{};
-
-  if (user['npub'] == null) {
-    print(
-        '\nYour npub will be used to check your web of trust before installing any new packages'
-            .bold());
-    print(
-        '\nIf you prefer to skip this, leave it blank and press enter to proceed to install');
-    final npub = Input(
-        prompt: 'npub',
-        validator: (str) {
-          try {
-            if (str.trim().isEmpty) {
-              return true;
-            }
-            Utils.npubFromHex(Utils.hexFromNpub(str.trim()));
-            return true;
-          } catch (e) {
-            throw ValidationError('Invalid npub');
-          }
-        }).interact();
-    if (npub.trim().isNotEmpty) {
-      user['npub'] = npub.trim();
-      file.writeAsString(jsonEncode(user));
-    }
-  }
-
-  return user;
-}
-
 String formatProfile(Profile profile) {
   final name = profile.name ?? '';
-  return '${name.toString().bold()}${profile.nip05?.isEmpty ?? false ? '' : ' (${profile.nip05})'} - https://nostr.com/${profile.npub}';
+  return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'} - https://npub.world/${profile.npub}';
 }
 
 showInRelayWarning(String v1, String v2) {
@@ -77,7 +41,7 @@ Future<void> checkVersionOnRelays(String identifier, String version,
     final req = releases.first.fileMetadatas.req!.copyWith(tags: {
       'm': {kAndroidMimeType}
     });
-    final fileMetadatas = await storage.query(req);
+    final fileMetadatas = await storage.fetch(req);
     if (fileMetadatas.isNotEmpty) {
       final maxVersionCode = fileMetadatas.fold(0,
           (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0));
@@ -99,7 +63,7 @@ Future<void> checkVersionOnRelays(String identifier, String version,
 
 // Early check just with assetUrl to prevent downloads & processing
 Future<void> checkFuzzyEarly(String assetUrl, String version) async {
-  final assets = await storage.query<FileMetadata>(RequestFilter(
+  final assets = await storage.fetch<FileMetadata>(RequestFilter(
     remote: true,
     search: assetUrl,
     limit: 1,

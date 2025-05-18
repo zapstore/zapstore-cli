@@ -160,6 +160,14 @@ packages:
       relative: true
     source: path
     version: "4.1.2"
+  dart_emoji:
+    dependency: "direct main"
+    description:
+      name: dart_emoji
+      sha256: "88d5e37174751aeabaecdbf153fdca46eb9fa12d6b626d6c70447058d444724e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.0+2"
   dotenv:
     dependency: "direct main"
     description:
@@ -289,13 +297,13 @@ packages:
     source: hosted
     version: "2.4.0"
   intl:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: intl
-      sha256: "3bc132a9dbce73a7e4a21a17d06e1878839ffbf975568bc875c60537824b0c4d"
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
       url: "https://pub.dev"
     source: hosted
-    version: "0.18.1"
+    version: "0.20.2"
   io:
     dependency: transitive
     description:

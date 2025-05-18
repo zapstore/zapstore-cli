@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dart_emoji/dart_emoji.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
@@ -13,14 +14,36 @@ final kBaseDir = Platform.isWindows
     ? path.join(env['USERPROFILE']!, '.zapstore')
     : path.join(env['HOME']!, '.zapstore');
 final shell = Shell(workingDirectory: kBaseDir, verbose: false);
+
 final startsWithHexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
 final hashUrlMap = <String, String>{};
 final hashPathMap = <String, String>{};
 
+String get hostPlatform {
+  final platformVersion = Platform.version.split('on').lastOrNull?.trim();
+
+  return switch (platformVersion) {
+    '"macos_arm64"' => 'darwin-arm64',
+    '"linux_arm64"' => 'linux-aarch64',
+    '"linux_amd64"' => 'linux-amd64',
+    _ => throw UnsupportedError('$platformVersion'),
+  };
+}
+
 extension HttpResponseExtension on Future<http.Response> {
   Future<Map<String, dynamic>> getJson() async {
     return Map<String, dynamic>.from(jsonDecode((await this).body));
+  }
+}
+
+final emojiParser = EmojiParser();
+
+extension StringExtension on String {
+  String parseEmojis() {
+    return replaceAllMapped(EmojiParser.REGEX_NAME, (m) {
+      return emojiParser.hasName(m[1]!) ? emojiParser.get(m[1]!).code : m[0]!;
+    });
   }
 }
 
@@ -58,7 +81,7 @@ const kMacOSArm64 = '$kMacOS; arch=arm64';
 
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
-const kAppRelays = {'wss://brelay.zapstore.dev'};
+const kAppRelays = {'wss://relay.zapstore.dev'};
 // const kAppRelays = {'ws://localhost:3000'};
 
 const kZapstoreBlossomUrl = 'https://bcdn.zapstore.dev';

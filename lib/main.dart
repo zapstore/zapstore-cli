@@ -7,10 +7,12 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
+import 'package:zapstore_cli/commands/discover.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
+import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
@@ -21,19 +23,23 @@ final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
 
 late final StorageNotifier storage;
+late final ProviderContainer container;
 
 void main(List<String> args) async {
-  final container = ProviderContainer(overrides: [
+  container = ProviderContainer(overrides: [
     storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
   ]);
   var wasError = false;
   try {
     storage = container.read(storageNotifierProvider.notifier);
+
+    await Package.loadAll(fromCommand: false);
+
     await storage.initialize(StorageConfiguration(
       databasePath: path.join(kBaseDir, 'storage.db'),
       relayGroups: {
         'zapstore': kAppRelays,
-        'social': {'wss://relay.nostr.band', 'wss://relay.primal.net'}
+        'vertex': {'wss://relay.vertexlab.io'},
       },
       defaultRelayGroup: 'zapstore',
     ));
@@ -41,6 +47,7 @@ void main(List<String> args) async {
     final runner = CommandRunner("zapstore",
         "$figure\nThe permissionless app store powered by your social network")
       ..addCommand(InstallCommand())
+      ..addCommand(DiscoverCommand())
       ..addCommand(ListCommand())
       ..addCommand(RemoveCommand())
       ..addCommand(PublishCommand());
@@ -96,6 +103,22 @@ class InstallCommand extends Command {
   }
 }
 
+class DiscoverCommand extends Command {
+  @override
+  String get name => 'discover';
+
+  @override
+  String get description => 'Discover new packages';
+
+  @override
+  List<String> get aliases => ['d'];
+
+  @override
+  Future<void> run() async {
+    await discover();
+  }
+}
+
 class ListCommand extends Command {
   @override
   String get name => 'list';
@@ -107,7 +130,9 @@ class ListCommand extends Command {
   List<String> get aliases => ['l'];
 
   @override
-  Future<void> run() async => list();
+  Future<void> run() async {
+    return list(argResults!.rest.firstOrNull);
+  }
 }
 
 class RemoveCommand extends Command {
