@@ -23,18 +23,19 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
     final assetBytes = await File(assetPath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(assetBytes);
 
-    var architectures = {'arm64-v8a'};
-    try {
-      architectures = archive.files
-          .where((a) => a.name.startsWith('lib/'))
-          .map((a) => a.name.split('/')[1])
-          .toSet();
-    } catch (_) {
-      // If expected format is not there assume default
+    final architectures = archive.files
+        .where((a) => a.name.startsWith('lib/'))
+        .map((a) => a.name.split('/')[1])
+        .toSet();
+
+    if (architectures.isEmpty) {
+      // Set default
+      architectures.add('arm64-v8a');
     }
 
     metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
+    // TODO: Try-catch and fall back to apksigner if this fails
     metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
     if (metadata.apkSignatureHashes.isEmpty) {
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';

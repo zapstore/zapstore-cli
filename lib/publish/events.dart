@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cli_spin/cli_spin.dart';
 import 'package:models/models.dart';
 import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
@@ -13,39 +14,53 @@ Future<List<Model<dynamic>>> signModels({
 }) async {
   final signer = signerFromString(signWith);
 
-  await signer.initialize();
+  final spinner = CliSpin(
+    text:
+        'Signing with ${signer.runtimeType}: ${partialModels.length} models of kinds ${partialModels.map((m) => m.event.kind).toSet()}...',
+    spinner: CliSpinners.dots,
+    isSilent: isDaemonMode,
+  ).start();
 
-  final signingPubkey = await signer.getPublicKey();
+  try {
+    await signer.initialize();
 
-  final partialApp = partialModels.whereType<PartialApp>().first;
-  final partialRelease = partialModels.whereType<PartialRelease>().first;
-  final partialFileMetadatas =
-      partialModels.whereType<PartialFileMetadata>().toSet();
-  final partialBlossomAuthorizations =
-      partialModels.whereType<PartialBlossomAuthorization>().toSet();
+    final signingPubkey = await signer.getPublicKey();
 
-  if (partialFileMetadatas.isEmpty) {
-    throw "No file metadatas produced";
+    final partialApp = partialModels.whereType<PartialApp>().first;
+    final partialRelease = partialModels.whereType<PartialRelease>().first;
+    final partialFileMetadatas =
+        partialModels.whereType<PartialFileMetadata>().toSet();
+    final partialBlossomAuthorizations =
+        partialModels.whereType<PartialBlossomAuthorization>().toSet();
+
+    if (partialFileMetadatas.isEmpty) {
+      throw "No file metadatas produced";
+    }
+
+    for (final fm in partialFileMetadatas) {
+      final eid = Utils.getEventId(fm.event, signingPubkey);
+      partialRelease.event.addTagValue('e', eid);
+    }
+    partialRelease.event
+        .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
+    partialApp.event
+        .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
+
+    final signedModels = await signer.sign([
+      partialApp,
+      partialRelease,
+      ...partialFileMetadatas,
+      ...partialBlossomAuthorizations
+    ]);
+    await signer.dispose();
+
+    spinner.success('Signed ${signedModels.length} models');
+
+    return signedModels;
+  } catch (e) {
+    spinner.fail(e.toString());
+    rethrow;
   }
-
-  for (final fm in partialFileMetadatas) {
-    final eid = Utils.getEventId(fm.event, signingPubkey);
-    partialRelease.event.addTagValue('e', eid);
-  }
-  partialRelease.event
-      .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
-  partialApp.event
-      .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
-
-  final signedModels = await signer.sign([
-    partialApp,
-    partialRelease,
-    ...partialFileMetadatas,
-    ...partialBlossomAuthorizations
-  ]);
-  await signer.dispose();
-
-  return signedModels;
 }
 
 Signer signerFromString(String signWith) {
@@ -65,7 +80,8 @@ class NakNIP46Signer extends Signer {
 
   @override
   Future<String> getPublicKey() async {
-    return '';
+    final note = await PartialNote('note to find out pubkey').signWith(this);
+    return note.event.pubkey;
   }
 
   @override
@@ -79,6 +95,7 @@ class NakNIP46Signer extends Signer {
       {String? withPubkey}) async {
     final result = await run('nak event --connect $connectionString',
         runInShell: true,
+        verbose: false,
         stdin: Stream.value(utf8.encode(
             partialModels.map((p) => jsonEncode(p.toMap())).join('\n'))));
     return result.outText

@@ -176,14 +176,15 @@ class AssetParser {
     // The source of truth now for identifier/version
     // are the file metadatas, so ensure they are all
     // equal and then assign to main app and release identifiers
-    final allIdentifiers = partialFileMetadatas.map((m) => m.identifier);
+    final allIdentifiers =
+        partialFileMetadatas.map((m) => m.identifier).toSet();
     final uniqueIdentifier =
         DeepCollectionEquality().equals(allIdentifiers, {allIdentifiers.first});
     if (!uniqueIdentifier) {
       throw 'Identifiers not unique: $allIdentifiers';
     }
 
-    final allVersions = partialFileMetadatas.map((m) => m.version);
+    final allVersions = partialFileMetadatas.map((m) => m.version).toSet();
     final uniqueVersions =
         DeepCollectionEquality().equals(allVersions, {allVersions.first});
     if (!uniqueVersions) {

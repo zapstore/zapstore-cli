@@ -87,7 +87,10 @@ const kMacOSArm64 = '$kMacOS; arch=arm64';
 
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
-const kAppRelays = {'wss://relay.zapstore.dev'};
-// const kAppRelays = {'ws://localhost:3000'};
 
+// TODO: Switch
+// const kAppRelays = {'wss://relay.zapstore.dev'};
+// const kZapstoreBlossomUrl = 'https://cdn.zapstore.dev';
+
+const kAppRelays = {'wss://brelay.zapstore.dev'};
 const kZapstoreBlossomUrl = 'https://bcdn.zapstore.dev';

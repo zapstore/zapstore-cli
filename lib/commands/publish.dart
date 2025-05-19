@@ -138,7 +138,6 @@ class Publisher {
       ).interact();
     }
 
-    var showWhitelistMessage = false;
     if (publishEvents) {
       for (final Model model in [
         signedApp,
@@ -146,31 +145,26 @@ class Publisher {
         ...signedFileMetadatas
       ]) {
         final kind = model.event.kind;
-        try {
-          final spinner = CliSpin(
-            text: 'Publishing kind $kind...',
-            spinner: CliSpinners.dots,
-            isSilent: isDaemonMode,
-          ).start();
-          await storage.save({model}, publish: true);
+
+        final spinner = CliSpin(
+          text: 'Publishing kind $kind...',
+          spinner: CliSpinners.dots,
+          isSilent: isDaemonMode,
+        ).start();
+        await storage.save({model});
+        final statuses = await storage.publish({model});
+        final status = statuses.first;
+        if (status.accepted) {
           spinner.success(
               '${'Published'.bold()}: ${model.id.toString()} (kind $kind)');
           if (isDaemonMode) {
             print('Published kind $kind');
           }
-        } catch (e) {
-          stderr.writeln(
-              '${e.toString().bold().black().onRed()}: ${model.id} (kind $kind)');
-          if (e.toString().contains('not accepted')) {
-            showWhitelistMessage = true;
-          }
+        } else {
+          spinner.fail(
+              '${status.message.bold().black().onRed()}: ${model.id} (kind $kind)');
         }
       }
-    }
-
-    if (showWhitelistMessage) {
-      stderr.writeln(
-          '\n${'Your npub is not whitelisted on the relay'.bold()}! If you want to self-publish your app, reach out.\n');
     }
   }
 }

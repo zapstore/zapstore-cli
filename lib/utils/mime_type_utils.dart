@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:crypto/crypto.dart';
 import 'package:file_magic_number/magic_number_type.dart';
 import 'package:mime/mime.dart';
 import 'package:zapstore_cli/utils/utils.dart';
@@ -22,7 +21,12 @@ Future<
 
 Future<bool> acceptAsset(String assetPath) async {
   final (mimeType, _, _) = await detectMimeTypes(assetPath);
-  return kZapstoreAcceptedMimeTypes.contains(mimeType);
+  final accepted = kZapstoreAcceptedMimeTypes.contains(mimeType);
+  if (!accepted) {
+    stderr.writeln(
+        'Asset $assetPath not accepted, consider adjusting patterns in your asset list');
+  }
+  return accepted;
 }
 
 Future<
@@ -58,7 +62,7 @@ Future<
 
   // If type is still null or the default binary type, check if compressed
   if (mimeType == null || mimeType == 'application/octet-stream') {
-    mimeType = _getTypeForCompressed(data);
+    mimeType = getTypeForCompressed(data);
   }
 
   if (kArchiveMimeTypes.contains(mimeType)) {
@@ -68,14 +72,14 @@ Future<
       executablePatterns: executablePatterns,
     );
     if (executablePaths != null && executablePaths.isEmpty) {
-      final hash = sha256.convert(data).toString().toLowerCase();
-      throw UnsupportedError(
-          'Executables $executablePatterns inside archive ${hashPathMap[hash]} ($mimeType) must match at least one supported executable');
+      // If it has no matching executables, set type to null
+      // which will make this asset be discarded
+      mimeType = null;
     }
   }
 
   if (mimeType == kLinux) {
-    mimeType = _detectELFMimeType(data)!;
+    mimeType = _detectELFMimeType(data);
   }
 
   mimeType ??= _detectMachOMimeType(data);
@@ -116,7 +120,7 @@ String? _detectMachOMimeType(Uint8List data) {
 /// Detect a arch of ELF file
 String? _detectELFMimeType(Uint8List data) {
   // Check for ELF magic: 0x7F 'E' 'L' 'F'
-  if (data.length < 20 ||
+  if (data.length < 40 ||
       data[0] != 0x7F ||
       data[1] != 0x45 ||
       data[2] != 0x4C ||
@@ -124,8 +128,77 @@ String? _detectELFMimeType(Uint8List data) {
     return null;
   }
 
+  // Byte 4 (EI_CLASS) tells us if it's 32-bit (1) or 64-bit (2)
+  bool is64bit = (data[4] == 2);
+
   // Byte 5 (EI_DATA) tells us the endianness.
   bool isLittleEndian = (data[5] == 1);
+
+  // Read e_type (2 bytes) at offset 16 from the ELF header.
+  // ET_EXEC (2) = executable, ET_DYN (3) = shared object or PIE executable
+  int eType = ByteData.sublistView(data, 16, 18)
+      .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+
+  // Distinguish shared libraries from executables using header information
+  if (eType == 3) {
+    // For ET_DYN (3), attempt to distinguish shared libraries from PIE executables
+    // Read program header entry size and number of entries
+    int phentsize = ByteData.sublistView(data, 54, 56)
+        .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+    int phnum = ByteData.sublistView(data, 56, 58)
+        .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+
+    // If there are no program headers, it's likely a shared library
+    if (phnum == 0) {
+      return null;
+    }
+
+    // Look for an PT_INTERP segment (indicates it's an executable)
+    bool hasInterp = false;
+    int phoff = is64bit
+        ? ByteData.sublistView(data, 32, 40)
+            .getUint64(0, isLittleEndian ? Endian.little : Endian.big)
+        : ByteData.sublistView(data, 28, 32)
+            .getUint32(0, isLittleEndian ? Endian.little : Endian.big);
+
+    // Search through program headers for PT_INTERP (type 3)
+    // This isn't always reliable, but it's a good heuristic
+    for (int i = 0;
+        i < phnum && phoff + i * phentsize + 4 <= data.length;
+        i++) {
+      int pType = ByteData.sublistView(
+              data, phoff + i * phentsize, phoff + i * phentsize + 4)
+          .getUint32(0, isLittleEndian ? Endian.little : Endian.big);
+      if (pType == 3) {
+        // PT_INTERP
+        hasInterp = true;
+        break;
+      }
+    }
+
+    // Check for ".so" in the entire data - a more thorough heuristic
+    bool hasSoExtension = false;
+
+    // Scan binary data for ".so" sequence
+    for (int i = 0; i < data.length - 3; i++) {
+      if (data[i] == 0x2E && // '.'
+          data[i + 1] == 0x73 && // 's'
+          data[i + 2] == 0x6F) {
+        // 'o'
+        hasSoExtension = true;
+        break;
+      }
+    }
+
+    // For shared libraries, return null
+    // Shared libraries have '.so' in them and usually don't have an interpreter
+    if (hasSoExtension && !hasInterp) {
+      return null;
+    }
+  } else if (eType != 2) {
+    // If not ET_EXEC (2) or ET_DYN (3), it's not an executable we care about
+    return null;
+  }
 
   // Read e_machine (2 bytes) at offset 18 from the ELF header.
   int eMachine = ByteData.sublistView(data, 18, 20)
@@ -156,7 +229,8 @@ Archive getArchive(Uint8List data, String mimeType) {
     'application/zip' => ZipDecoder().decodeBytes(data),
     'application/gzip' => () {
         final bytes = GZipDecoder().decodeBytes(data);
-        return getArchive(bytes, _getTypeForCompressed(bytes)!);
+        final mimeType = getTypeForCompressed(bytes);
+        return getArchive(bytes, mimeType!);
       }(),
     'application/x-tar' => TarDecoder().decodeBytes(data),
     'application/x-xz' =>
@@ -180,10 +254,13 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
       for (final r in executableRegexps) {
         if (r.hasMatch(f.name)) {
           final bytes = f.readBytes()!;
-          final mimeTypes = await detectBytesMimeType(bytes);
-          if (kZapstoreSupportedMimeTypes.contains(mimeTypes.$1)) {
+          // Detect Linux or Mac mime type for executables inside this archive
+          final mimeType =
+              _detectELFMimeType(bytes) ?? _detectMachOMimeType(bytes);
+          print('mac or linux ${f.name}? $mimeType');
+          if (kZapstoreSupportedMimeTypes.contains(mimeType)) {
             executablePaths.add(f.name);
-            internalMimeTypes.add(mimeTypes.$1!);
+            internalMimeTypes.add(mimeType!);
           }
         }
       }
@@ -199,7 +276,7 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
 /// • application/x-tar (ASCII "ustar" at offset 257)
 /// • application/x-xz  (magic: FD 37 7A 58 5A 00)
 /// • application/x-bzip2 (magic: 42 5A 68)
-String? _getTypeForCompressed(Uint8List data) {
+String? getTypeForCompressed(Uint8List data) {
   if (data.length < 6) return null;
 
   bool startsWith(List<int> magic) {

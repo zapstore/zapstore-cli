@@ -141,11 +141,11 @@ class GithubParser extends AssetParser {
   }
 
   Map<String, dynamic>? _findRelease(Iterable releases) {
-    for (final r in releases) {
-      for (final asset in r['assets']) {
-        for (final e in appMap['assets']) {
-          if (RegExp(e).hasMatch(asset['name'])) {
-            return r;
+    for (final release in releases) {
+      for (final asset in release['assets']) {
+        for (final r in assetRegexps) {
+          if (r.hasMatch(asset['name'])) {
+            return release;
           }
         }
       }

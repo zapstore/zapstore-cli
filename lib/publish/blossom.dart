@@ -57,7 +57,7 @@ class BlossomClient {
                 throw 'Hash mismatch for $assetName despite successful upload: local hash: $assetHash, server hash: ${responseMap['sha256']}';
               }
             } else {
-              throw 'Error uploading $assetName: status code ${response.statusCode}, hash: $assetHash';
+              throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
             }
             uploadSpinner.success('Uploaded $assetName to $assetUrl');
           }
