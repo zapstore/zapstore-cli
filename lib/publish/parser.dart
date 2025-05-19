@@ -157,7 +157,8 @@ class AssetParser {
       }
 
       // Place first the original URL and leave Blossom servers as backup
-      if (hashPathMap.containsKey(assetHash)) {
+      if (hashPathMap.containsKey(assetHash) &&
+          Uri.parse(hashPathMap[assetHash]!).scheme.startsWith('http')) {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
@@ -169,7 +170,7 @@ class AssetParser {
 
         final partialBlossomAuthorization = PartialBlossomAuthorization()
           // content should be the name of the original file
-          ..content = 'Upload'
+          ..content = 'Upload ${hashPathMap[assetHash]}'
           ..type = BlossomAuthorizationType.upload
           ..mimeType = partialFileMetadata.mimeType!
           ..expiration = DateTime.now().add(Duration(days: 1))
@@ -184,25 +185,31 @@ class AssetParser {
     // are the file metadatas, so ensure they are all
     // equal and then assign to main app and release identifiers
     final allIdentifiers =
-        partialFileMetadatas.map((m) => m.identifier).toSet();
+        partialFileMetadatas.map((m) => m.identifier).nonNulls.toSet();
+    if (allIdentifiers.isEmpty) {
+      throw 'Missing identifier. Did you add it to your config?';
+    }
     final uniqueIdentifier =
         DeepCollectionEquality().equals(allIdentifiers, {allIdentifiers.first});
     if (!uniqueIdentifier) {
-      throw 'Identifiers not unique: $allIdentifiers';
+      throw 'Identifier should be unique: $allIdentifiers';
     }
 
-    final allVersions = partialFileMetadatas.map((m) => m.version).toSet();
+    final allVersions =
+        partialFileMetadatas.map((m) => m.version).nonNulls.toSet();
+    if (allVersions.isEmpty) {
+      throw 'Missing version. Did you add it to your config?';
+    }
     final uniqueVersions =
         DeepCollectionEquality().equals(allVersions, {allVersions.first});
     if (!uniqueVersions) {
-      throw 'Versions not unique: $allVersions';
+      throw 'Version should be unique: $allVersions';
     }
-    partialApp.identifier = allIdentifiers.first!;
+    partialApp.identifier = allIdentifiers.first;
 
     // If no name so far, set it to the identifier
     partialApp.name ??= partialApp.identifier;
-    partialRelease.identifier =
-        '${partialApp.identifier}@${allVersions.first!}';
+    partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
 
     partialApp.url ??= appMap['homepage'];
     if (partialApp.tags.isEmpty) {

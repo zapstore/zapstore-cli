@@ -64,11 +64,11 @@ class BlossomClient {
                 case HttpStatus.unauthorized:
                   uploadSpinner.fail(
                       'You are unauthorized to upload $assetName to $server');
-                  break;
+                  throw GracefullyAbortSignal();
                 case HttpStatus.unsupportedMediaType:
                   uploadSpinner.fail(
                       'Media type ($mimeType) for $assetName is unsupported by $server');
-                  break;
+                  throw GracefullyAbortSignal();
                 default:
                   throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
               }

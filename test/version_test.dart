@@ -7,7 +7,7 @@ void main() {
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.1.0] - 2023-05-15
+## [1.1.0-rc1] - 2023-05-15
 ### Added
 - New feature X
 - New feature Y
@@ -40,8 +40,8 @@ All notable changes to this project will be documented in this file.
     });
 
     test('should extract changelog for latest version', () {
-      final result = extractChangelogSection(testChangelog, '1.1.0');
-      expect(result, '''## [1.1.0] - 2023-05-15
+      final result = extractChangelogSection(testChangelog, '1.1.0-rc1');
+      expect(result, '''## [1.1.0-rc1] - 2023-05-15
 ### Added
 - New feature X
 - New feature Y
