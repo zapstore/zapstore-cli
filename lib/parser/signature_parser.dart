@@ -6,7 +6,6 @@ import 'package:convert/convert.dart' as cv;
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
 
-// TODO: More through testing
 Future<Set<String>> getSignatureHashes(String apkPath) async {
   // 1. read the complete signing-block (our fixed code from the last reply)
   final sigBlock = ApkSigningBlock.fromPath(apkPath);
@@ -30,9 +29,9 @@ Future<Set<String>> getSignatureHashes(String apkPath) async {
 
 //  Port of apk-signature parsing code from Rust  ➜  pure Dart
 //
-//  The code is intentionally written “line-by-line”, i.e. every helper that
+//  The code is intentionally written "line-by-line", i.e. every helper that
 //  exists in the Rust version exists here under the same name and performs
-//  the same low-level job.  Nothing new or “clever” was invented – only the
+//  the same low-level job.  Nothing new or "clever" was invented – only the
 //  syntax had to change.
 //
 //  Usage (synchronous):
@@ -50,8 +49,8 @@ Future<Set<String>> getSignatureHashes(String apkPath) async {
 //  • ApkSigningBlock.fromPath()       – reads the whole APK and finds the block
 //  • ApkSigningBlock.getSignatures()  – returns V2 / V3 certificate blocks
 //
-//  This file has no external dependencies except “dart:io”, “dart:typed_data”
-//  and “package:convert” (for hex encoding).
+//  This file has no external dependencies except "dart:io", "dart:typed_data"
+//  and "package:convert" (for hex encoding).
 //
 // ---------------------------------------------------------------------------
 
@@ -197,33 +196,85 @@ class ApkSigningBlock {
         case v3Id:
           {
             Uint8List vv = _slice(v, 4, v.length - 4);
-            var v3Block = _takeLvU32(vv);
 
-            var signedData = _takeLvU32(v3Block);
-            final digests = _getSequenceKv(_takeLvU32(signedData));
-            final certificates = _getLvSequence(_takeLvU32(signedData));
-            final minSdkSigned = _leU32(signedData, 0);
-            final maxSdkSigned = _leU32(signedData, 4);
-            signedData = _slice(signedData, 8, signedData.length - 8);
-            final attributes = _getSequenceKv(_takeLvU32(signedData));
+            // ─────────────────────────────────────────────────────────────
+            //  Correctly parse the v3 signer structure.
+            //  The layout is (after the 4-byte version already skipped):
+            //    • LV-prefixed signedData
+            //    • u32  minSdk
+            //    • u32  maxSdk
+            //    • LV-prefixed signatures
+            //    • LV-prefixed publicKey
+            //
+            //  We advance through the buffer with an explicit offset
+            //  pointer to avoid the previous double-read problems that
+            //  caused "Invalid LV sequence" exceptions.
+            // -----------------------------------------------------------------
 
-            final minSdk = _leU32(v3Block, 0);
-            final maxSdk = _leU32(v3Block, 4);
-            v3Block = _slice(v3Block, 8, v3Block.length - 8);
+            final v3Block = _getLvU32(vv); // signer block (without version)
+
+            int off = 0;
+            Uint8List readLv() {
+              final len = _leU32(v3Block, off);
+              if (len > v3Block.length - off - 4) {
+                throw ApkException(
+                    'Invalid LV sequence $len > ${v3Block.length - off - 4}');
+              }
+              final data = _slice(v3Block, off + 4, len);
+              off += 4 + len;
+              return data;
+            }
+
+            // 1. signedData
+            final signedData = readLv();
+
+            // Parse signedData: digests, certificates, min/max sdk, attributes
+            int sdOff = 0;
+            Uint8List sdReadLv() {
+              final len = _leU32(signedData, sdOff);
+              if (len > signedData.length - sdOff - 4) {
+                throw ApkException('Invalid LV sequence $len > '
+                    '${signedData.length - sdOff - 4}');
+              }
+              final data = _slice(signedData, sdOff + 4, len);
+              sdOff += 4 + len;
+              return data;
+            }
+
+            final digests = _getSequenceKv(sdReadLv());
+            final certificates = _getLvSequence(sdReadLv());
+
+            // min/max sdk (u32)
+            if (sdOff + 8 > signedData.length) {
+              throw ApkException('Malformed signedData in v3 block');
+            }
+            final minSdkSigned = _leU32(signedData, sdOff);
+            final maxSdkSigned = _leU32(signedData, sdOff + 4);
+            sdOff += 8;
+
+            // additional attributes
+            final attributes = _getSequenceKv(sdReadLv());
+
+            // 2. signer-level min/max sdk (must match signedData)
+            if (off + 8 > v3Block.length) {
+              throw ApkException('Malformed v3 signer block');
+            }
+            final minSdk = _leU32(v3Block, off);
+            final maxSdk = _leU32(v3Block, off + 4);
+            off += 8;
 
             if (minSdkSigned != minSdk) {
               throw ApkException(
-                'Invalid min_sdk in signing block V3 $minSdkSigned != $minSdk',
-              );
+                  'Invalid min_sdk in signing block V3 $minSdkSigned != $minSdk');
             }
             if (maxSdkSigned != maxSdk) {
               throw ApkException(
-                'Invalid max_sdk in signing block V3 $maxSdkSigned != $maxSdk',
-              );
+                  'Invalid max_sdk in signing block V3 $maxSdkSigned != $maxSdk');
             }
 
-            final signatures = _getSequenceKv(_takeLvU32(v3Block));
-            final publicKey = _takeLvU32(v3Block);
+            // 3. signatures and public key
+            final signatures = _getSequenceKv(readLv());
+            final publicKey = readLv();
 
             final digestsM = {for (final (a, b) in digests) a: b};
 
@@ -390,14 +441,6 @@ enum ApkSignatureAlgo {
 // ────────────────────────────────────────────────────────────────────────────
 
 Uint8List _getLvU32(Uint8List slice) {
-  final len = _leU32(slice, 0);
-  if (len > slice.length - 4) {
-    throw ApkException('Invalid LV sequence $len > ${slice.length}');
-  }
-  return _slice(slice, 4, len);
-}
-
-Uint8List _takeLvU32(Uint8List slice) {
   final len = _leU32(slice, 0);
   if (len > slice.length - 4) {
     throw ApkException('Invalid LV sequence $len > ${slice.length}');

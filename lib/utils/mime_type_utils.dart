@@ -71,7 +71,7 @@ Future<
       mimeType!,
       executablePatterns: executablePatterns,
     );
-    if (executablePaths != null && executablePaths.isEmpty) {
+    if (executablePaths.isEmpty) {
       // If it has no matching executables, set type to null
       // which will make this asset be discarded
       mimeType = null;
@@ -217,7 +217,7 @@ String? _detectELFMimeType(Uint8List data) {
   return null;
 }
 
-Future<(Set<String>, Set<String>?)> _detectCompressed(
+Future<(Set<String>, Set<String>)> _detectCompressed(
     Uint8List data, String mimeType,
     {Set<String>? executablePatterns}) async {
   final archive = getArchive(data, mimeType);
@@ -227,16 +227,29 @@ Future<(Set<String>, Set<String>?)> _detectCompressed(
 Archive getArchive(Uint8List data, String mimeType) {
   return switch (mimeType) {
     'application/zip' => ZipDecoder().decodeBytes(data),
+    'application/x-tar' => () {
+        try {
+          return TarDecoder().decodeBytes(data);
+        } catch (_) {
+          // Use our custom binary tar decoder if the regular one fails
+          return BinaryTarDecoder().decodeBytes(data);
+        }
+      }(),
     'application/gzip' => () {
         final bytes = GZipDecoder().decodeBytes(data);
         final mimeType = getTypeForCompressed(bytes);
         return getArchive(bytes, mimeType!);
       }(),
-    'application/x-tar' => TarDecoder().decodeBytes(data),
-    'application/x-xz' =>
-      TarDecoder().decodeBytes(XZDecoder().decodeBytes(data)),
-    'application/x-bzip2' =>
-      TarDecoder().decodeBytes(BZip2Decoder().decodeBytes(data)),
+    'application/x-xz' => () {
+        final bytes = XZDecoder().decodeBytes(data);
+        final mimeType = getTypeForCompressed(bytes);
+        return getArchive(bytes, mimeType!);
+      }(),
+    'application/x-bzip2' => () {
+        final bytes = BZip2Decoder().decodeBytes(data);
+        final mimeType = getTypeForCompressed(bytes);
+        return getArchive(bytes, mimeType!);
+      }(),
     _ => throw UnsupportedError(mimeType),
   };
 }
@@ -311,4 +324,62 @@ String? getTypeForCompressed(Uint8List data) {
   }
 
   return null;
+}
+
+class BinaryTarDecoder extends TarDecoder {
+  @override
+  Archive decodeStream(InputStream input,
+      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
+    final archive = Archive();
+    files.clear();
+
+    while (!input.isEOS) {
+      // End of archive when two consecutive 0's are found.
+      final endCheck = input.peekBytes(2).toUint8List();
+      if (endCheck.length < 2 || (endCheck[0] == 0 && endCheck[1] == 0)) {
+        break;
+      }
+
+      // Read raw header bytes
+      final headerBytes = input.readBytes(512).toUint8List();
+      if (headerBytes.length != 512) {
+        break;
+      }
+
+      // Extract filename from header (first 100 bytes)
+      // Find the first null byte to trim the filename
+      int nameEnd = 0;
+      while (nameEnd < 100 && headerBytes[nameEnd] != 0) {
+        nameEnd++;
+      }
+      final filename = String.fromCharCodes(headerBytes.sublist(0, nameEnd));
+
+      // Extract size from header (octal string at offset 124, length 12)
+      final sizeStr =
+          String.fromCharCodes(headerBytes.sublist(124, 136)).trim();
+      final size = int.tryParse(sizeStr, radix: 8) ?? 0;
+
+      // Read file data
+      final data =
+          size > 0 ? input.readBytes(size).toUint8List() : Uint8List(0);
+
+      // Skip padding
+      if (size > 0) {
+        final padding = (512 - (size % 512)) % 512;
+        if (padding > 0) {
+          input.skip(padding);
+        }
+      }
+
+      // Create archive file with raw data
+      final file = ArchiveFile(filename, size, data);
+      archive.addFile(file);
+
+      if (callback != null) {
+        callback(file);
+      }
+    }
+
+    return archive;
+  }
 }

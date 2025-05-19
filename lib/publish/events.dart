@@ -9,6 +9,7 @@ import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 Future<List<Model<dynamic>>> signModels({
   required Signer signer,
@@ -79,11 +80,15 @@ Signer? getSignerFromString(String? signWith) {
 Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   if (signer is NIP07Signer) {
     final ok = Confirm(
-      prompt: 'Server running at port 17007, open browser in window?',
-      defaultValue: false,
+      prompt:
+          'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
+      defaultValue: true,
     ).interact();
     if (ok) {
       await signer.initialize(port: 17007);
+    } else {
+      print('kthxbye');
+      throw GracefullyAbortSignal();
     }
   } else {
     await signer.initialize();

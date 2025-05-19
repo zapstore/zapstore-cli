@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:models/models.dart';
+import 'package:path/path.dart' as path;
+import 'package:process_run/process_run.dart';
 import 'package:universal_html/parsing.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/parser/axml_parser.dart';
 import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/parser/signature_parser.dart';
@@ -41,7 +44,11 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
         throw '';
       }
     } catch (e) {
-      // TODO: Fall back to apksigner if this fails
+      // Try with apksigner (if in path)
+      final sigHash = await getSignatureHashFromApkSigner(assetPath);
+      if (sigHash != null) {
+        metadata.apkSignatureHashes = {sigHash};
+      }
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
@@ -118,4 +125,25 @@ bool _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
     return false;
   }
   return true;
+}
+
+Future<String?> getSignatureHashFromApkSigner(String apkPath) async {
+  final dir = Directory(env['ANDROID_SDK_ROOT']!);
+
+  late final String apkSignerPath;
+  final files = await dir.list(recursive: true).toList();
+  for (final file in files) {
+    if (file is File && path.basename(file.path) == 'apksigner') {
+      apkSignerPath = file.path;
+      break;
+    }
+  }
+
+  final result = await run('$apkSignerPath verify --print-certs $apkPath',
+      runInShell: true, verbose: false);
+  return result.outText
+      .split('\n')
+      .where((l) => l.contains('SHA-256'))
+      .map((l) => l.split('digest: ').lastOrNull?.trim())
+      .firstOrNull;
 }

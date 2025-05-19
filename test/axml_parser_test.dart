@@ -12,7 +12,6 @@ void main() {
 
     final bytes = file.readAsBytesSync();
     final xml = AxmlParser.toXml(Uint8List.fromList(bytes));
-    print(xml);
 
     // Basic sanity checks
     expect(xml.trim().startsWith('<?xml'), isTrue);
