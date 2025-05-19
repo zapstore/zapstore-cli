@@ -10,14 +10,14 @@ class GithubMetadataFetcher extends MetadataFetcher {
 
   @override
   Future<void> run({required PartialApp app}) async {
-    final repoUrl = 'https://api.github.com/repos/${app.repository}';
+    final repositoryEndpoint =
+        'https://api.github.com/repos/${GithubParser.getRepositoryName(app.repository!)}';
     final repoJson = await http
-        .get(Uri.parse(repoUrl), headers: GithubParser.headers)
+        .get(Uri.parse(repositoryEndpoint), headers: GithubParser.headers)
         .getJson();
 
-    if (app.description.isEmpty) {
-      app.description = repoJson['description'];
-    }
+    app.description ??= repoJson['description'];
+
     app.tags.addAll([...repoJson['topics']]);
   }
 }

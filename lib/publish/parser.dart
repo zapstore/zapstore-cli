@@ -39,7 +39,7 @@ class AssetParser {
         appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
     partialApp.name = appMap['name'];
     blossomClient = BlossomClient(servers: {
-      ...?appMap['blossom'] ?? {kZapstoreBlossomUrl}
+      ...?appMap['blossom_servers'] ?? {kZapstoreBlossomUrl}
     });
   }
 
@@ -149,9 +149,16 @@ class AssetParser {
             appMap['executables'] != null ? {...appMap['executables']} : null,
       );
 
+      if (partialFileMetadata == null) {
+        final assetPath = hashPathMap[assetHash];
+        stderr.writeln(
+            '⚠️  Ignoring asset $assetPath with architecture not in $kZapstoreSupportedPlatforms');
+        continue;
+      }
+
       // Place first the original URL and leave Blossom servers as backup
-      if (hashUrlMap.containsKey(assetHash)) {
-        partialFileMetadata.event.addTagValue('url', hashUrlMap[assetHash]);
+      if (hashPathMap.containsKey(assetHash)) {
+        partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
       if (uploadToBlossom) {
@@ -261,20 +268,21 @@ class AssetParser {
 
       try {
         await fetcher.run(app: partialApp);
-        extraMetadataSpinner.success('[${fetcher.name}] Fetched metadata');
+        extraMetadataSpinner.success(
+            '[${fetcher.name}] Fetched remote metadata for ${partialApp.identifier}');
       } catch (e) {
         extraMetadataSpinner.fail(
-            '[${fetcher.name}] ${partialApp.identifier} was not found, no extra metadata added');
+            '[${fetcher.name}] No remote metadata for ${partialApp.identifier} found');
       }
     }
 
     // Generate Blossom authorizations (icons, images hold hashes until here)
-    for (final i in [...partialApp.icons, ...partialApp.images]) {
+    for (final hash in [...partialApp.icons, ...partialApp.images]) {
       final auth = PartialBlossomAuthorization()
-        ..content = 'Upload asset'
+        ..content = 'Upload asset ${hashPathMap[hash]}'
         ..type = BlossomAuthorizationType.upload
         ..expiration = DateTime.now().add(Duration(hours: 1))
-        ..addHash(i);
+        ..addHash(hash);
       partialBlossomAuthorizations.add(auth);
     }
 

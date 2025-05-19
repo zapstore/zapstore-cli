@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cli_spin/cli_spin.dart';
+import 'package:collection/collection.dart';
+import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
@@ -9,23 +11,24 @@ import 'package:riverpod/riverpod.dart';
 import 'package:zapstore_cli/main.dart';
 
 Future<List<Model<dynamic>>> signModels({
+  required Signer signer,
   required List<PartialModel<dynamic>> partialModels,
-  required String signWith,
+  required String signingPubkey,
 }) async {
-  final signer = signerFromString(signWith);
-
+  final kindsAmount = partialModels
+      .map((m) => m.event.kind)
+      .groupListsBy((k) => k)
+      .entries
+      .map((e) =>
+          'kind ${e.key}: ${e.value.length} event${e.value.length > 1 ? 's' : ''}')
+      .join(', ');
   final spinner = CliSpin(
-    text:
-        'Signing with ${signer.runtimeType}: ${partialModels.length} models of kinds ${partialModels.map((m) => m.event.kind).toSet()}...',
+    text: 'Signing with ${signer.runtimeType}: $kindsAmount...',
     spinner: CliSpinners.dots,
     isSilent: isDaemonMode,
   ).start();
 
   try {
-    await signer.initialize();
-
-    final signingPubkey = await signer.getPublicKey();
-
     final partialApp = partialModels.whereType<PartialApp>().first;
     final partialRelease = partialModels.whereType<PartialRelease>().first;
     final partialFileMetadatas =
@@ -50,9 +53,8 @@ Future<List<Model<dynamic>>> signModels({
       partialApp,
       partialRelease,
       ...partialFileMetadatas,
-      ...partialBlossomAuthorizations
+      ...partialBlossomAuthorizations,
     ]);
-    await signer.dispose();
 
     spinner.success('Signed ${signedModels.length} models');
 
@@ -63,7 +65,8 @@ Future<List<Model<dynamic>>> signModels({
   }
 }
 
-Signer signerFromString(String signWith) {
+Signer? getSignerFromString(String? signWith) {
+  if (signWith == null) return null;
   final ref = container.read(refProvider);
   return switch (signWith) {
     'NIP07' => NIP07Signer(ref),
@@ -71,6 +74,22 @@ Signer signerFromString(String signWith) {
       NakNIP46Signer(ref, connectionString: signWith),
     _ => Bip340PrivateKeySigner(signWith, ref),
   };
+}
+
+Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
+  if (signer is NIP07Signer) {
+    final ok = Confirm(
+      prompt: 'Server running at port 17007, open browser in window?',
+      defaultValue: false,
+    ).interact();
+    if (ok) {
+      await signer.initialize(port: 17007);
+    }
+  } else {
+    await signer.initialize();
+  }
+  await callback(signer);
+  await signer.dispose();
 }
 
 class NakNIP46Signer extends Signer {

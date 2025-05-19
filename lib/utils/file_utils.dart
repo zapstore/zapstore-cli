@@ -57,7 +57,7 @@ Future<String> fetchFile(
     final file = File(getFilePathInTempDirectory(hash));
     await deleteRecursive(file.path);
     await file.writeAsBytes(bytes);
-    hashUrlMap[hash] = url;
+    hashPathMap[hash] = url;
     completer.complete(hash);
   });
   return completer.future;

@@ -13,12 +13,13 @@ class BlossomClient {
 
   BlossomClient({this.servers = const {}});
 
-  Future<Set<String>> upload(Set<BlossomAuthorization> authorizations) async {
-    final urls = <String>{};
+  Future<Map<String, String>> upload(
+      List<BlossomAuthorization> authorizations) async {
+    final hashUrlMap = <String, String>{};
 
     for (final server in servers) {
       for (final authorization in authorizations) {
-        final assetUrl = '$server/${authorization.hashes.first}';
+        final assetUploadUrl = '$server/${authorization.hashes.first}';
         final assetHash = authorization.hashes.first;
         final assetName = hashPathMap[assetHash];
 
@@ -28,11 +29,10 @@ class BlossomClient {
         ).start();
 
         try {
-          final headResponse = await http.head(Uri.parse(assetUrl));
+          final headResponse = await http.head(Uri.parse(assetUploadUrl));
 
           if (headResponse.statusCode == 200) {
-            uploadSpinner
-                .success('File $assetName already exists at $assetUrl');
+            uploadSpinner.success('File $assetName already exists at $server');
           } else {
             final bytes =
                 await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
@@ -56,19 +56,30 @@ class BlossomClient {
               if (assetHash != responseMap['sha256']) {
                 throw 'Hash mismatch for $assetName despite successful upload: local hash: $assetHash, server hash: ${responseMap['sha256']}';
               }
+              hashUrlMap[assetHash] = responseMap['url'];
+              uploadSpinner
+                  .success('Uploaded $assetName to ${responseMap['url']}');
             } else {
-              throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
+              switch (response.statusCode) {
+                case HttpStatus.unauthorized:
+                  uploadSpinner.fail(
+                      'You are unauthorized to upload $assetName to $server');
+                  break;
+                case HttpStatus.unsupportedMediaType:
+                  uploadSpinner.fail(
+                      'Media type ($mimeType) for $assetName is unsupported by $server');
+                  break;
+                default:
+                  throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
+              }
             }
-            uploadSpinner.success('Uploaded $assetName to $assetUrl');
           }
-
-          urls.add(assetUrl);
         } catch (e) {
           uploadSpinner.fail(e.toString());
           rethrow;
         }
       }
     }
-    return urls;
+    return hashUrlMap;
   }
 }

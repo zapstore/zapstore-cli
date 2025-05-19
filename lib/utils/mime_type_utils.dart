@@ -257,7 +257,6 @@ Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
           // Detect Linux or Mac mime type for executables inside this archive
           final mimeType =
               _detectELFMimeType(bytes) ?? _detectMachOMimeType(bytes);
-          print('mac or linux ${f.name}? $mimeType');
           if (kZapstoreSupportedMimeTypes.contains(mimeType)) {
             executablePaths.add(f.name);
             internalMimeTypes.add(mimeType!);

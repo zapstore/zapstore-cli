@@ -17,7 +17,6 @@ final shell = Shell(workingDirectory: kBaseDir, verbose: false);
 
 final startsWithHexRegexp = RegExp(r'^[a-fA-F0-9]{64}');
 
-final hashUrlMap = <String, String>{};
 final hashPathMap = <String, String>{};
 
 String get hostPlatform {

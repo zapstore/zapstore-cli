@@ -1,6 +1,8 @@
-name: Voyage
-repository: https://github.com/dluvian/voyage
+repository: https://github.com/protonmail/android-mail
 assets:
-  - app-arm64-v8a-release.apk
+  - ProtonMail-.*.apk
 metadata:
+  - github
   - playstore
+blossom_servers:
+  - https://blossom.band

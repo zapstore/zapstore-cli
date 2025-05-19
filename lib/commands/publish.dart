@@ -12,6 +12,7 @@ import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/publish/web_parser.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 class Publisher {
   Future<void> run() async {
@@ -21,30 +22,35 @@ class Publisher {
     // (2) Parse metadata and assets into partial models
     final partialModels = await parser.run();
 
-    // (3) Sign events and Blossom authorizations
-    final signWith = env['SIGN_WITH'];
+    // (3) Sign events
+    final signer = getSignerFromString(env['SIGN_WITH']);
 
-    if (signWith == null) {
+    if (signer == null) {
       stderr.writeln(
-          '⚠️  ${'Nothing to sign with, returning unsigned events'.bold()}');
+          '⚠️  ${'Nothing to sign with, returning unsigned events. Final Blossom URLs may be incorrect.'.bold()}');
       for (final model in partialModels) {
         print(model);
       }
-      return;
+      throw GracefullyAbortSignal();
     }
 
-    final signedModels = await signModels(
-      partialModels: partialModels,
-      signWith: signWith,
-    );
+    late final List<Model<dynamic>> signedModels;
+    await withSigner(signer, (signer) async {
+      final signingPubkey = await signer.getPublicKey();
+      signedModels = await signModels(
+          signer: signer,
+          partialModels: partialModels,
+          signingPubkey: signingPubkey);
+    });
 
     final app = signedModels.whereType<App>().first;
     final release = signedModels.whereType<Release>().first;
     final fileMetadatas = signedModels.whereType<FileMetadata>().toSet();
+    final authorizations =
+        signedModels.whereType<BlossomAuthorization>().toList();
 
     // (5) Upload to Blossom
-    await parser.blossomClient
-        .upload(signedModels.whereType<BlossomAuthorization>().toSet());
+    await parser.blossomClient.upload(authorizations);
 
     // (6) Publish
     await _sendToRelays(app, release, fileMetadatas);

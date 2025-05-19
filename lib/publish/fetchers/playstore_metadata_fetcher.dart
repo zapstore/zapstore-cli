@@ -11,7 +11,6 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
 
   @override
   Future<void> run({required PartialApp app}) async {
-    final app = PartialApp();
     final url =
         'https://play.google.com/store/apps/details?id=${app.identifier}';
 
@@ -25,7 +24,7 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
 
     app.name = document.querySelector('[itemprop="name"]')!.innerText.trim();
 
-    if (app.description.isEmpty) {
+    if (app.description != null) {
       final appDescription = document
           .querySelector('[data-g-id="description"]')!
           .innerHtml!

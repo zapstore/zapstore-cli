@@ -121,7 +121,12 @@ Future<void> install(String value,
         spinner: CliSpinners.dots,
       ).start();
 
-      final signer = signerFromString(env['SIGN_WITH']!);
+      final signer = getSignerFromString(env['SIGN_WITH']!);
+      if (signer == null) {
+        wotSpinner.fail('No signer available, skipping check');
+        return;
+      }
+
       await signer.initialize();
       final pubkey = await signer.getPublicKey();
       final partialRequest =

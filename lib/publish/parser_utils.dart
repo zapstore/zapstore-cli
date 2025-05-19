@@ -9,7 +9,7 @@ import 'package:zapstore_cli/parser/signature_parser.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
-Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
+Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
     {String? resolvedIdentifier,
     String? resolvedVersion,
     Set<String>? executablePatterns}) async {
@@ -35,9 +35,13 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
 
     metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
-    // TODO: Try-catch and fall back to apksigner if this fails
-    metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
-    if (metadata.apkSignatureHashes.isEmpty) {
+    try {
+      metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
+      if (metadata.apkSignatureHashes.isEmpty) {
+        throw '';
+      }
+    } catch (e) {
+      // TODO: Fall back to apksigner if this fails
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
@@ -94,7 +98,9 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
   // Default mime type
   metadata.mimeType ??= mimeType ?? 'application/octet-stream';
 
-  _validatePlatforms(metadata, hashPathMap[assetHash] ?? '');
+  if (!_validatePlatforms(metadata, hashPathMap[assetHash] ?? '')) {
+    return null;
+  }
 
   metadata.hash = assetHash;
   metadata.size = await File(getFilePathInTempDirectory(assetHash)).length();
@@ -102,15 +108,14 @@ Future<PartialFileMetadata> extractMetadataFromFile(String assetHash,
   return metadata;
 }
 
-void _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
+bool _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
   if (metadata.mimeType == kAndroidMimeType) {
     if (!metadata.platforms.contains('android-arm64-v8a')) {
-      throw UnsupportedError(
-          'APK $assetPath does not support arm64-v8a: ${metadata.platforms}');
+      return false;
     }
   } else if (!metadata.platforms
       .every((platform) => kZapstoreSupportedPlatforms.contains(platform))) {
-    throw UnsupportedError(
-        'asset has platforms ${metadata.platforms} but some are not in $kZapstoreSupportedPlatforms');
+    return false;
   }
+  return true;
 }

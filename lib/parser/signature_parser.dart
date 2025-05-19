@@ -4,8 +4,9 @@ import 'dart:typed_data';
 import 'package:collection/collection.dart';
 import 'package:convert/convert.dart' as cv;
 import 'package:convert/convert.dart';
-import 'package:crypto/crypto.dart'; // for hex.encode
+import 'package:crypto/crypto.dart';
 
+// TODO: More through testing
 Future<Set<String>> getSignatureHashes(String apkPath) async {
   // 1. read the complete signing-block (our fixed code from the last reply)
   final sigBlock = ApkSigningBlock.fromPath(apkPath);

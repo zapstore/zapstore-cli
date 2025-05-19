@@ -15,16 +15,15 @@ class GithubParser extends AssetParser {
 
   Map<String, dynamic>? releaseJson;
 
-  String get repositoryName =>
-      Uri.parse(appMap['release_repository'] ?? appMap['repository']!)
-          .path
-          .substring(1);
+  static String getRepositoryName(String repository) =>
+      Uri.parse(repository).path.substring(1);
 
   static Map<String, String> get headers => env['GITHUB_TOKEN'] != null
       ? {'Authorization': 'Bearer ${env['GITHUB_TOKEN']}'}
       : <String, String>{};
 
   late final Set<RegExp> assetRegexps;
+  late final String repositoryName;
 
   @override
   Future<String?> resolveVersion() async {
@@ -38,6 +37,8 @@ class GithubParser extends AssetParser {
         (appMap.containsKey('assets') ? <String>{...appMap['assets']} : {'.*'})
             .map(RegExp.new)
             .toSet();
+    repositoryName = getRepositoryName(
+        appMap['release_repository'] ?? appMap['repository']!);
 
     final releasesUrl = 'https://api.github.com/repos/$repositoryName/releases';
     final latestReleaseUrl = '$releasesUrl/latest';
@@ -134,6 +135,7 @@ class GithubParser extends AssetParser {
     partialRelease.url = releaseJson?['html_url'];
 
     // If no identifier set yet, apply repo name (may be overridden later)
+
     partialApp.identifier ??= repositoryName.split('/').lastOrNull;
     partialApp.name ??= releaseJson?['name'];
 
