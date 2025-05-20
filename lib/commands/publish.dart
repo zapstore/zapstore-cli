@@ -27,7 +27,7 @@ class Publisher {
 
     if (signer == null) {
       stderr.writeln(
-          '⚠️  ${'Nothing to sign with, returning unsigned events. Final Blossom URLs may be incorrect.'.bold()}');
+          '⚠️  ${'Nothing to sign with, returning unsigned events.'.bold()}');
       for (final model in partialModels) {
         print(model);
       }

@@ -111,6 +111,9 @@ Future<void> install(String value,
       if (!installAnyway) {
         exit(0);
       }
+    } else {
+      print(
+          'Upgrading from installed version ${installedPackage.version.bold()}\n');
     }
   }
 

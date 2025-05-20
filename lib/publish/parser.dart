@@ -236,17 +236,19 @@ class AssetParser {
 
     // Set release notes
     final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
-    final md = await changelogFile.readAsString();
+    if (await changelogFile.exists()) {
+      final md = await changelogFile.readAsString();
 
-    // If changelog file was provided, it takes precedence
-    if (appMap.containsKey('changelog')) {
-      partialRelease.releaseNotes =
+      // If changelog file was provided, it takes precedence
+      if (appMap.containsKey('changelog')) {
+        partialRelease.releaseNotes =
+            extractChangelogSection(md, partialRelease.version!);
+      }
+      // Only change here if no notes, whether from the call before
+      // or from another parser
+      partialRelease.releaseNotes ??=
           extractChangelogSection(md, partialRelease.version!);
     }
-    // Only change here if no notes, whether from the call before
-    // or from another parser
-    partialRelease.releaseNotes ??=
-        extractChangelogSection(md, partialRelease.version!);
 
     // Always use the release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;

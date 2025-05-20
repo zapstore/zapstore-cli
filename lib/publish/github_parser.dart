@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
+import 'package:tint/tint.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
@@ -46,14 +47,15 @@ class GithubParser extends AssetParser {
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
     // If there's a message it's an error (or no matching assets were found)
-    final ok = releaseJson!['message'] != null ||
+    final isFailure = releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable).any((a) {
           return assetRegexps.any((r) {
             return r.hasMatch(a['name']) ||
                 (a['label'] != null && r.hasMatch(a['label']));
           });
         });
-    if (ok) {
+    if (isFailure) {
+      // Get all releases and try again
       final response = await http.get(Uri.parse(releasesUrl), headers: headers);
       final releases = jsonDecode(response.body);
 
@@ -77,9 +79,10 @@ class GithubParser extends AssetParser {
       }
     }
 
-    metadataSpinner.success('Fetched release from Github');
+    final version = releaseJson!['tag_name']!.toString();
+    metadataSpinner.success('Fetched release ${version.bold()} from Github');
 
-    return appMap['version'] ?? releaseJson!['tag_name']!.toString();
+    return version;
   }
 
   @override
@@ -135,9 +138,7 @@ class GithubParser extends AssetParser {
     partialRelease.url = releaseJson?['html_url'];
 
     // If no identifier set yet, apply repo name (may be overridden later)
-
     partialApp.identifier ??= repositoryName.split('/').lastOrNull;
-    partialApp.name ??= releaseJson?['name'];
 
     return super.applyFileMetadata();
   }
