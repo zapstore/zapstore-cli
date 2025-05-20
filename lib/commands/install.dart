@@ -5,11 +5,13 @@ import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:intl/intl.dart';
 import 'package:models/models.dart';
+import 'package:nip07_signer/main.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/publish/events.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/markdown.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
@@ -112,6 +114,22 @@ Future<void> install(String value,
     }
   }
 
+  if (releases.first.releaseNotes != null) {
+    final viewReleaseNotes = Confirm(
+      prompt: 'See release notes for ${releases.first.version}?',
+      defaultValue: true,
+    ).interact();
+    if (viewReleaseNotes) {
+      print('\n${mdToTerminal(releases.first.releaseNotes!)}');
+      if (!Confirm(
+        prompt: 'Continue?',
+        defaultValue: true,
+      ).interact()) {
+        exit(0);
+      }
+    }
+  }
+
   final signerPubkey = app.event.pubkey;
 
   if (!skipWot) {
@@ -121,20 +139,24 @@ Future<void> install(String value,
         spinner: CliSpinners.dots,
       ).start();
 
-      final signer = getSignerFromString(env['SIGN_WITH']!);
+      final signer = env['SIGN_WITH'] != null
+          ? getSignerFromString(env['SIGN_WITH'])
+          : null;
       if (signer == null) {
         wotSpinner.fail('No signer available, skipping check');
         return;
       }
 
-      final ok = Confirm(
-        prompt:
-            'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
-        defaultValue: true,
-      ).interact();
-      if (!ok) {
-        wotSpinner.fail('Skipping check');
-        return;
+      if (signer is NIP07Signer) {
+        final ok = Confirm(
+          prompt:
+              'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
+          defaultValue: true,
+        ).interact();
+        if (!ok) {
+          wotSpinner.fail('Skipping check');
+          return;
+        }
       }
 
       await signer.initialize();
@@ -173,7 +195,6 @@ Future<void> install(String value,
           print(' - ${formatProfile(users.firstWhere((e) => e.pubkey == k))}');
         }
       }
-      print('');
 
       final installPackage = Confirm(
         prompt:

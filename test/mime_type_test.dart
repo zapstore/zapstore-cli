@@ -34,5 +34,11 @@ void main() {
         await File('test/assets/libwindow_to_front_plugin.so').readAsBytes();
     final mimeType2 = await detectBytesMimeType(bytes2);
     expect(mimeType2.$1, isNull);
+
+    final executables = await Directory('bin').list().toList();
+
+    for (final e in executables) {
+      print(await detectMimeTypes(e.path));
+    }
   });
 }

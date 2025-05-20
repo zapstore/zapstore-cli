@@ -12,7 +12,6 @@ String formatProfile(Profile profile) {
   return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'} - https://npub.world/${profile.npub}';
 }
 
-// TODO: Should account for publishedAt thingy here too
 Future<void> checkVersionOnRelays(String identifier, String version,
     {int? versionCode}) async {
   final releases = await storage.fetch<Release>(RequestFilter(
