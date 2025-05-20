@@ -1,6 +1,6 @@
 name: zapstore_cli
 description: The permissionless social package manager
-version: 0.2.0 # (!) Also update kVersion (!)
+version: 0.2.0-rc1 # (!) Also update kVersion (!)
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:
@@ -33,20 +33,29 @@ dependencies:
   ffi: ^2.1.4
   intl: ^0.20.2
   dart_emoji: ^0.2.0+2
+  markdown: ^7.3.0
 
 dependency_overrides:
   # patched dart_console to use stderr
   dart_console:
-    path: ../dart_console
+    git:
+      url: https://github.com/zapstore/dart_console
+      ref: b365647d9292af547baf7e6fc0b479914ce1fc84
   models:
-    path: ../../purplebase/models
+    # path: ../../purplebase/models
+    git:
+      url: https://github.com/purplebase/models
+      ref: 1d75de2
   purplebase:
-    path: ../../purplebase/purplebase
-    # git:
-    #   url: https://github.com/purplebase/purplebase
-    #   ref: 512eab9828d2d1ca9e1b7e48a5742a3b08b9b99f
+    # path: ../../purplebase/purplebase
+    git:
+      url: https://github.com/purplebase/purplebase
+      ref: d6dba0e
   nip07_signer:
-    path: ../../purplebase/nip07_signer
+    # path: ../../purplebase/nip07_signer
+    git:
+      url: https://github.com/purplebase/nip07_signer
+      ref: f960630
 
 dev_dependencies:
   lints: ^3.0.0

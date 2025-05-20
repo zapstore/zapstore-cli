@@ -257,7 +257,7 @@ class AssetParser {
   /// Applies metadata from remote sources: Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    final metadataSources = appMap['metadata'] ?? [];
+    final metadataSources = appMap['remote_metadata'] ?? [];
 
     for (final source in metadataSources) {
       final fetcher = switch (source) {

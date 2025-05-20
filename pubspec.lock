@@ -156,9 +156,11 @@ packages:
   dart_console:
     dependency: "direct overridden"
     description:
-      path: "../dart_console"
-      relative: true
-    source: path
+      path: "."
+      ref: b365647d9292af547baf7e6fc0b479914ce1fc84
+      resolved-ref: b365647d9292af547baf7e6fc0b479914ce1fc84
+      url: "https://github.com/zapstore/dart_console"
+    source: git
     version: "4.1.2"
   dart_emoji:
     dependency: "direct main"
@@ -360,6 +362,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.2.0"
+  markdown:
+    dependency: "direct main"
+    description:
+      name: markdown
+      sha256: "935e23e1ff3bc02d390bad4d4be001208ee92cc217cb5b5a6c19bc14aaa318c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.3.0"
   matcher:
     dependency: transitive
     description:
@@ -395,16 +405,20 @@ packages:
   models:
     dependency: "direct main"
     description:
-      path: "../../purplebase/models"
-      relative: true
-    source: path
+      path: "."
+      ref: "1d75de2"
+      resolved-ref: "1d75de2e29a3b16c44759b1bf9a8cf8d9384c104"
+      url: "https://github.com/purplebase/models"
+    source: git
     version: "0.1.1"
   nip07_signer:
     dependency: "direct main"
     description:
-      path: "../../purplebase/nip07_signer"
-      relative: true
-    source: path
+      path: "."
+      ref: f960630
+      resolved-ref: f9606307f84da54780bf6a3b3e8477023e9a54ad
+      url: "https://github.com/purplebase/nip07_signer"
+    source: git
     version: "0.1.1"
   node_preamble:
     dependency: transitive
@@ -481,9 +495,11 @@ packages:
   purplebase:
     dependency: "direct main"
     description:
-      path: "../../purplebase/purplebase"
-      relative: true
-    source: path
+      path: "."
+      ref: d6dba0e
+      resolved-ref: d6dba0e94e3ad537a665b295392d8cf010db2943
+      url: "https://github.com/purplebase/purplebase"
+    source: git
     version: "0.2.0"
   rfc_6901:
     dependency: transitive

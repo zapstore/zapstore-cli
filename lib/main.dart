@@ -17,7 +17,7 @@ import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 
-const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.2.0-rc1'; // (!) Also update pubspec.yaml (!)
 
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
