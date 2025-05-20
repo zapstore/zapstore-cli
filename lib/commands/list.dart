@@ -1,14 +1,20 @@
+import 'package:collection/collection.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/models/package.dart';
 
-void list() async {
-  final db = await loadPackages();
+void list([String? filter]) async {
+  final db = await Package.loadAll();
 
   if (db.isEmpty) {
     print('No packages installed');
   }
-  for (final MapEntry(:key, value: package) in db.entries) {
-    print(
-        '${key.bold()} ${package.versions.map((v) => v == package.enabledVersion ? '${v.bold()} (enabled)' : v).toList().reversed.join(', ')}');
+
+  final regexp = filter != null ? RegExp(filter) : null;
+
+  final orderedEntries = db.entries
+      .where((e) => regexp?.hasMatch(e.key) ?? true)
+      .sortedBy((e) => e.key);
+  for (final MapEntry(:key, value: package) in orderedEntries) {
+    print('${key.bold()}: ${package.version}');
   }
 }

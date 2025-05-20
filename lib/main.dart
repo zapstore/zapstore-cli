@@ -4,25 +4,50 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:dotenv/dotenv.dart';
 import 'package:interact_cli/interact_cli.dart';
+import 'package:models/models.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:tint/tint.dart';
+import 'package:zapstore_cli/commands/discover.dart';
 import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
-import 'package:zapstore_cli/utils.dart';
+import 'package:zapstore_cli/models/package.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
+import 'package:purplebase/purplebase.dart';
 
-const kVersion = '0.1.2'; // (!) Also update pubspec.yaml (!)
+const kVersion = '0.2.0'; // (!) Also update pubspec.yaml (!)
 
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
 
+late final StorageNotifier storage;
+late final ProviderContainer container;
+
 void main(List<String> args) async {
+  container = ProviderContainer(overrides: [
+    storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
+  ]);
   var wasError = false;
   try {
+    storage = container.read(storageNotifierProvider.notifier);
+
+    await Package.loadAll(fromCommand: false);
+
+    await storage.initialize(StorageConfiguration(
+      databasePath: path.join(kBaseDir, 'storage.db'),
+      relayGroups: {
+        'zapstore': kAppRelays,
+        'vertex': {'wss://relay.vertexlab.io'},
+      },
+      defaultRelayGroup: 'zapstore',
+    ));
+
     final runner = CommandRunner("zapstore",
         "$figure\nThe permissionless app store powered by your social network")
       ..addCommand(InstallCommand())
+      ..addCommand(DiscoverCommand())
       ..addCommand(ListCommand())
       ..addCommand(RemoveCommand())
       ..addCommand(PublishCommand());
@@ -47,6 +72,8 @@ void main(List<String> args) async {
     wasError = true;
     reset();
   } finally {
+    storage.dispose();
+    container.dispose();
     exit(wasError ? 127 : 0);
   }
 }
@@ -76,6 +103,22 @@ class InstallCommand extends Command {
   }
 }
 
+class DiscoverCommand extends Command {
+  @override
+  String get name => 'discover';
+
+  @override
+  String get description => 'Discover new packages';
+
+  @override
+  List<String> get aliases => ['d'];
+
+  @override
+  Future<void> run() async {
+    await discover();
+  }
+}
+
 class ListCommand extends Command {
   @override
   String get name => 'list';
@@ -87,7 +130,9 @@ class ListCommand extends Command {
   List<String> get aliases => ['l'];
 
   @override
-  Future<void> run() async => list();
+  Future<void> run() async {
+    return list(argResults!.rest.firstOrNull);
+  }
 }
 
 class RemoveCommand extends Command {
@@ -110,24 +155,18 @@ class RemoveCommand extends Command {
   }
 }
 
+late final String configPath;
+late bool overwriteRelease;
 late final bool isDaemonMode;
 
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',
         abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
-    argParser.addMultiOption('artifact',
-        abbr: 'a', help: 'Artifact to be uploaded');
-    argParser.addOption('release-version', abbr: 'v', help: 'Release version');
-    argParser.addOption('release-notes',
-        abbr: 'n', help: 'File containing release notes');
-    argParser.addOption('icon', help: 'Icon file');
-    argParser.addMultiOption('image', abbr: 'i', help: 'Image file');
-
-    argParser.addFlag('overwrite-app',
-        help: 'Generate a new kind 32267 to publish', defaultsTo: false);
     argParser.addFlag('overwrite-release',
-        help: 'Generate a new kind 30063 to publish', defaultsTo: false);
+        help:
+            'Publishes the release regardless of the latest version on relays',
+        defaultsTo: false);
     argParser.addFlag('daemon-mode',
         abbr: 'd',
         help:
@@ -145,44 +184,16 @@ class PublishCommand extends Command {
 
   @override
   Future<void> run() async {
-    final value = argResults!.rest.firstOrNull;
-    final configFile = argResults!.option('config');
-    final artifacts = argResults!.multiOption('artifact');
-    final releaseVersion = argResults!.option('release-version');
-    if (artifacts.isNotEmpty && releaseVersion == null) {
-      usageException(
-          'Please provide a release version when you pass local artifacts');
-    }
-    final releaseNotesFile = argResults!.option('release-notes');
-    final icon = argResults!.option('icon');
-    final images = argResults!.multiOption('image');
-
-    String? releaseNotes;
-    if (releaseNotesFile != null) {
-      if (File(releaseNotesFile).existsSync()) {
-        releaseNotes = File(releaseNotesFile).readAsStringSync();
-      } else {
-        usageException('Please provide a valid release notes file');
-      }
-    }
+    configPath = argResults!.option('config')!;
 
     // Load env next to config file
-    env.load([path.join(path.dirname(configFile!), '.env')]);
+    env.load([path.join(path.dirname(configPath), '.env')]);
 
-    // Set daemon mode
+    overwriteRelease = argResults!.flag('overwrite-release');
+
     isDaemonMode = argResults!.flag('daemon-mode');
 
-    await publish(
-      configFile: configFile,
-      requestedId: value,
-      artifacts: artifacts,
-      version: releaseVersion,
-      releaseNotes: releaseNotes,
-      icon: icon,
-      images: images,
-      overwriteApp: argResults!.flag('overwrite-app'),
-      overwriteRelease: argResults!.flag('overwrite-release'),
-    );
+    await Publisher().run();
   }
 }
 

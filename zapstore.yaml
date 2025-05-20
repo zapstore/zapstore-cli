@@ -1,13 +1,9 @@
-zapstore:
-  cli:
-    name: zapstore
-    description: The permissionless package manager
-    repository: https://github.com/zapstore/zapstore-cli
-    license: MIT
-    artifacts:
-      zapstore-%v-darwin-arm64:
-        platforms: [darwin-arm64]
-      zapstore-%v-linux-aarch64:
-        platforms: [linux-aarch64]
-      zapstore-%v-linux-x86_64:
-        platforms: [linux-x86_64]
+name: zapstore
+description: The permissionless package manager
+repository: https://github.com/zapstore/zapstore-cli
+license: MIT
+assets:
+  - zapstore-\d+.\d+.\d+-darwin-arm64
+  - zapstore-\d+.\d+.\d+-linux-aarch64
+  - zapstore-\d+.\d+.\d+-linux-x86_64
+changelog: CHANGELOG.md

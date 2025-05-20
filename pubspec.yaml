@@ -1,33 +1,52 @@
 name: zapstore_cli
 description: The permissionless social package manager
-version: 0.1.2 # (!) Also update kVersion (!)
+version: 0.2.0 # (!) Also update kVersion (!)
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:
   sdk: ^3.3.4
 
 dependencies:
+  archive: ^4.0.7
   args: ^2.5.0
   cli_spin: ^1.0.1
   collection: ^1.18.0
+  crypto: ^3.0.6
   dotenv: ^4.2.0
   html2md: ^1.3.2
   http: ^1.2.2
   interact_cli: ^2.3.0
+  meta: ^1.16.0
+  mime: ^2.0.0
   path: ^1.9.0
-  process_run: ^1.0.0+1
+  models: ^0.1.0
   purplebase: ^0.1.1
+  process_run: ^1.0.0+1
   riverpod: ^2.5.1
   tint: ^2.0.1
   universal_html: ^2.2.4
-  yaml: ^3.1.2
+  yaml: ^3.1.3
+  convert: ^3.1.2
+  nip07_signer: ^0.1.1
+  json_path: ^0.7.5
+  file_magic_number: ^0.7.2
+  ffi: ^2.1.4
+  intl: ^0.20.2
+  dart_emoji: ^0.2.0+2
 
 dependency_overrides:
+  # patched dart_console to use stderr
+  dart_console:
+    path: ../dart_console
+  models:
+    path: ../../purplebase/models
   purplebase:
-    # path: ../purplebase
-    git:
-      url: https://github.com/purplebase/purplebase
-      ref: cbe8342031adf908c8243125e176f52739d400d8
+    path: ../../purplebase/purplebase
+    # git:
+    #   url: https://github.com/purplebase/purplebase
+    #   ref: 512eab9828d2d1ca9e1b7e48a5742a3b08b9b99f
+  nip07_signer:
+    path: ../../purplebase/nip07_signer
 
 dev_dependencies:
   lints: ^3.0.0

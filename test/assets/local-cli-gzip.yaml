@@ -1,0 +1,7 @@
+
+identifier: fzf
+version: 0.62.0
+assets:
+  - test/assets/fzf.*
+executables:
+  - fzf

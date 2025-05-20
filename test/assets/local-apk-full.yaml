@@ -1,0 +1,13 @@
+name: Sample
+description: Just a sample APK
+version: 1.0.0 # should fail
+summary: Sample summary
+homepage: https://zapstore.dev
+tags: zapstore repository blah
+icon: test/assets/icon.png
+license: MIT
+repository: https://github.com/zapstore/zapstore
+# assets containing slashes are considered local (so no github)
+assets:
+  - test/assets/.*.apk
+changelog: CHANGELOG.md

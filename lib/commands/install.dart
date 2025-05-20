@@ -3,44 +3,43 @@ import 'dart:io';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:interact_cli/interact_cli.dart';
-import 'package:process_run/process_run.dart';
-import 'package:purplebase/purplebase.dart';
-import 'package:riverpod/riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:models/models.dart';
+import 'package:nip07_signer/main.dart';
 import 'package:tint/tint.dart';
-import 'package:zapstore_cli/models/nostr.dart';
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/package.dart';
-import 'package:zapstore_cli/utils.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
+import 'package:zapstore_cli/publish/events.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/markdown.dart';
+import 'package:zapstore_cli/utils/utils.dart';
+import 'package:zapstore_cli/utils/version_utils.dart';
 
-Future<void> install(String value, {bool skipWot = false}) async {
-  final container = ProviderContainer();
-  RelayMessageNotifier? relay;
-  try {
-    final db = await loadPackages();
+Future<void> install(String value,
+    {bool skipWot = false, App? fromDiscover}) async {
+  final db = await Package.loadAll();
 
-    final hostPlatform = (await shell.run('uname -sm'))
-        .outText
-        .toLowerCase()
-        .replaceAll(' ', '-');
+  App app;
 
-    final spinner = CliSpin(
-      text: 'Searching for $value...',
-      spinner: CliSpinners.dots,
-    ).start();
+  final spinner = CliSpin(
+    text: fromDiscover == null ? 'Searching for $value...' : 'Loading...',
+    spinner: CliSpinners.dots,
+  ).start();
 
-    relay = container.read(relayProviderFamily(kAppRelays).notifier);
-
-    final apps = await relay!.query<App>(search: value, tags: {
-      '#f': [hostPlatform]
-    });
+  if (fromDiscover != null) {
+    app = fromDiscover;
+  } else {
+    final apps = await storage
+        .fetch<App>(RequestFilter(remote: true, search: value, tags: {
+      '#f': {hostPlatform}
+    }));
 
     if (apps.isEmpty) {
       spinner.fail('No packages found for $value');
       throw GracefullyAbortSignal();
     }
 
-    var app = apps.first;
+    app = apps.first;
 
     if (apps.length > 1) {
       final packages = [
@@ -54,206 +53,179 @@ Future<void> install(String value, {bool skipWot = false}) async {
 
       app = apps[selection];
     }
+  }
 
-    final releases = await relay.query<Release>(limit: 1, tags: {
-      '#a': [app.getReplaceableEventLink().formatted]
-    });
+  final releases =
+      await storage.fetch(app.latestRelease.req!.copyWith(remote: true));
 
-    if (releases.isEmpty) {
-      spinner.fail('No releases found');
+  if (releases.isEmpty) {
+    spinner.fail('No releases found');
+    throw GracefullyAbortSignal();
+  }
+
+  final fileMetadatas = await storage.fetch<FileMetadata>(RequestFilter(
+    remote: true,
+    ids: releases.first.event.getTagSetValues('e'),
+    tags: {
+      '#f': {hostPlatform}
+    },
+  ));
+
+  if (fileMetadatas.isEmpty) {
+    spinner.fail('No file metadatas found');
+    throw GracefullyAbortSignal();
+  }
+
+  final metadata = fileMetadatas[0];
+
+  final date = DateFormat('EEE, MMM d, yyyy').format(metadata.createdAt);
+  spinner.success(
+      '''Found ${app.identifier}@${metadata.version.bold()} (released $date)
+  ${(app.summary ?? app.description).parseEmojis()}
+''');
+
+  final installedPackage = db[app.identifier];
+
+  var isUpdatable = false;
+  var isAuthorTrusted = false;
+
+  if (installedPackage != null) {
+    if (installedPackage.version == metadata.version) {
+      spinner.success(
+          'Package ${app.identifier} is already up to date (version ${installedPackage.version.bold()})');
       throw GracefullyAbortSignal();
     }
 
-    final fileMetadatas = await relay.query<FileMetadata>(
-      ids: releases.first.linkedEvents,
-      tags: {
-        '#f': [hostPlatform]
-      },
-    );
+    isAuthorTrusted = installedPackage.pubkey == metadata.event.pubkey;
 
-    if (fileMetadatas.isEmpty) {
-      spinner.fail('No file metadatas found');
-      throw GracefullyAbortSignal();
-    }
+    isUpdatable = canUpgrade(installedPackage.version, metadata.version);
 
-    final meta = fileMetadatas[0];
+    if (!isUpdatable) {
+      // Then it must be a downgrade
+      final installAnyway = Confirm(
+        prompt:
+            'Are you sure you want to downgrade ${app.identifier} from ${installedPackage.version} to ${metadata.version}?',
+        defaultValue: false,
+      ).interact();
 
-    spinner.success(
-        'Found ${app.identifier}@${meta.version?.bold()} (released on ${meta.createdAt!.toIso8601String()})\n  ${app.summary ?? app.content}');
-
-    final installedPackage = db[app.identifier];
-
-    var isUpdatable = false;
-    var isAuthorTrusted = false;
-    if (installedPackage != null) {
-      final appVersionInstalled =
-          installedPackage.versions.firstWhereOrNull((v) => v == meta.version);
-      if (appVersionInstalled != null) {
-        if (appVersionInstalled == installedPackage.enabledVersion) {
-          spinner.success('Package ${app.identifier} is already up to date');
-        } else {
-          installedPackage.linkVersion(meta.version!);
-          spinner.success('Package ${app.identifier} re-enabled');
-        }
+      if (!installAnyway) {
         exit(0);
       }
+    }
+  }
 
-      isAuthorTrusted = installedPackage.pubkey == meta.pubkey;
-
-      isUpdatable = installedPackage.versions
-          .every((version) => compareVersions(meta.version!, version) == 1);
-
-      if (!isUpdatable) {
-        final upToDate = installedPackage.versions
-            .any((version) => compareVersions(meta.version!, version) == 0);
-        if (upToDate) {
-          print('Package already up to date ${app.identifier} ${meta.version}');
-          exit(0);
-        }
-
-        // Then there must be a -1 (downgrade)
-        final higherVersion = installedPackage.versions.firstWhereOrNull(
-            (version) => compareVersions(meta.version!, version) == -1);
-
-        final installAnyway = Confirm(
-          prompt:
-              'Are you sure you want to downgrade ${app.identifier} from $higherVersion to ${meta.version}?',
-          defaultValue: false,
-        ).interact();
-
-        if (!installAnyway) {
-          exit(0);
-        }
+  if (releases.first.releaseNotes != null) {
+    final viewReleaseNotes = Confirm(
+      prompt: 'See release notes for ${releases.first.version}?',
+      defaultValue: true,
+    ).interact();
+    if (viewReleaseNotes) {
+      print('\n${mdToTerminal(releases.first.releaseNotes!)}');
+      if (!Confirm(
+        prompt: 'Continue?',
+        defaultValue: true,
+      ).interact()) {
+        exit(0);
       }
     }
+  }
 
-    final packageDeveloper = app.pubkeys.firstOrNull ?? app.pubkey;
-    final developerNpub = packageDeveloper.npub;
-    final packageSigner = app.pubkey;
-    final signerNpub = packageSigner.npub;
+  final signerPubkey = app.event.pubkey;
 
-    if (!skipWot) {
-      final authorRelays = container.read(relayProviderFamily(
-          {'wss://relay.nostr.band', 'wss://relay.primal.net'}).notifier);
+  if (!skipWot) {
+    if (!isAuthorTrusted) {
+      final wotSpinner = CliSpin(
+        text: 'Checking web of trust...',
+        spinner: CliSpinners.dots,
+      ).start();
 
-      if (!isAuthorTrusted) {
-        final user = await checkUser();
-
-        if (user['npub'] != null) {
-          final wotSpinner = CliSpin(
-            text: 'Checking web of trust...',
-            spinner: CliSpinners.dots,
-          ).start();
-
-          late final Map<String, dynamic> trust;
-
-          try {
-            trust = await http
-                .get(Uri.parse(
-                    'https://trustgraph.live/api/fwf/${user['npub']}/$signerNpub'))
-                .getJson();
-          } catch (e) {
-            wotSpinner.fail(
-                'Error returned from web of trust service, please try again later or re-run with -t to skip this check.');
-            throw GracefullyAbortSignal();
-          }
-
-          // Separate querying user from result
-          final userFollows = trust.remove(user['npub']);
-
-          final authors = {
-            ...trust.keys.map((npub) => npub.hexKey),
-            packageDeveloper,
-            packageSigner
-          };
-
-          final users = await authorRelays.query<BaseUser>(authors: authors);
-
-          final signerUser =
-              users.firstWhereOrNull((e) => e.npub == signerNpub)!;
-          final developerUser =
-              users.firstWhereOrNull((e) => e.npub == developerNpub)!;
-
-          wotSpinner.success();
-
-          print('Package developer: ${formatProfile(developerUser)}');
-          print('Package signer: ${formatProfile(signerUser)}\n');
-
-          if (userFollows != null) {
-            print('You follow ${signerUser.name!.toString().bold()}!\n');
-          }
-
-          print(
-              '${userFollows != null ? 'Other profiles' : 'Profiles'} you follow who follow ${signerUser.name!.bold()}:');
-          for (final k in trust.keys) {
-            print(
-                ' - ${formatProfile(users.firstWhereOrNull((e) => e.npub == k)!)}');
-          }
-          print('\n');
-
-          final installPackage = Confirm(
-            prompt:
-                'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.identifier}${isUpdatable ? ' to ${meta.version}' : ''}?',
-            defaultValue: false,
-          ).interact();
-
-          if (!installPackage) {
-            exit(0);
-          }
-        } else {
-          print('Skipping web of trust check...\n');
-        }
-      } else {
-        final users =
-            await authorRelays.query<BaseUser>(authors: {packageSigner});
-        print(
-            'Package signed by ${formatProfile(users.first)} who was previously trusted for this app');
+      final signer = env['SIGN_WITH'] != null
+          ? getSignerFromString(env['SIGN_WITH'])
+          : null;
+      if (signer == null) {
+        wotSpinner.fail('No signer available, skipping check');
+        return;
       }
-      await authorRelays.dispose();
-    }
 
-    // On first install, check if other executables are present in PATH
-    if (db[app.identifier!] == null) {
-      final presentInPath = (meta.tagMap['executables'] ??
-              meta.tagMap['executable'] ??
-              {app.identifier!})
-          .map((e) {
-        final p = whichSync(path.basename(e));
-        return p != null ? path.basename(e) : null;
-      }).nonNulls;
-
-      if (presentInPath.isNotEmpty) {
-        final installAnyway = Confirm(
+      if (signer is NIP07Signer) {
+        final ok = Confirm(
           prompt:
-              'The executables $presentInPath already exist in PATH, likely from another package manager. Would you like to continue installation?',
+              'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
           defaultValue: true,
         ).interact();
-        if (!installAnyway) {
-          exit(0);
+        if (!ok) {
+          wotSpinner.fail('Skipping check');
+          return;
         }
       }
+
+      await signer.initialize();
+      final pubkey = await signer.getPublicKey();
+      final partialRequest =
+          PartialVerifyReputationRequest(source: pubkey, target: signerPubkey);
+      final signedRequest = await partialRequest.signWith(signer);
+      await signer.dispose();
+
+      final response = await signedRequest.run('vertex');
+
+      if (response is DVMError?) {
+        if (response?.status?.contains('credits') ?? false) {
+          throw 'Unable to check followers';
+        }
+        throw response?.status ?? 'Error';
+      }
+
+      final pubkeys = (response as VerifyReputationResponse).pubkeys;
+
+      final authors = {...pubkeys, signerPubkey};
+
+      final users = await storage.fetch<Profile>(
+          RequestFilter(authors: authors, remote: true, relayGroup: 'vertex'));
+
+      final signerUser =
+          users.firstWhereOrNull((e) => e.pubkey == signerPubkey)!;
+
+      wotSpinner.success();
+
+      print('Package signer: ${formatProfile(signerUser)}\n');
+
+      print('Relevant profiles who follow ${signerUser.name!.bold()}:');
+      for (final k in pubkeys) {
+        if (k != signerPubkey) {
+          print(' - ${formatProfile(users.firstWhere((e) => e.pubkey == k))}');
+        }
+      }
+
+      final installPackage = Confirm(
+        prompt:
+            'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.identifier}${isUpdatable ? ' to ${metadata.version}' : ''}?',
+        defaultValue: false,
+      ).interact();
+
+      if (!installPackage) {
+        exit(0);
+      }
+    } else {
+      final users = await storage.query<Profile>(RequestFilter(
+          authors: {signerPubkey}, remote: true, relayGroup: 'vertex'));
+      print(
+          'Package signed by ${formatProfile(users.first)} who was previously trusted for this app');
     }
-
-    final installSpinner = CliSpin(
-      text: 'Installing package ${app.identifier}...',
-      spinner: CliSpinners.dots,
-    ).start();
-
-    final package = db[app.identifier!] ??
-        Package(
-            identifier: app.identifier!,
-            pubkey: meta.pubkey,
-            versions: {meta.version!},
-            enabledVersion: meta.version!);
-
-    await package.installFromUrl(meta, spinner: installSpinner);
-
-    installSpinner
-        .success('Installed package ${app.identifier!.bold()}@${meta.version}');
-  } catch (e) {
-    rethrow;
-  } finally {
-    await relay?.dispose();
-    container.dispose();
   }
+
+  final installSpinner = CliSpin(
+    text: 'Installing package ${app.identifier}...',
+    spinner: CliSpinners.dots,
+  ).start();
+
+  final package = db[app.identifier] ??
+      Package(
+          identifier: app.identifier,
+          pubkey: metadata.event.pubkey,
+          version: metadata.version);
+
+  await package.installRemote(metadata, spinner: installSpinner);
+
+  installSpinner.success(
+      'Installed package ${app.identifier.bold()}@${metadata.version}');
 }

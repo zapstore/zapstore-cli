@@ -5,3 +5,7 @@
 
 # FVM Version Cache
 .fvm/
+
+test/assets/apks
+test/assets/*.dylib
+bin/*

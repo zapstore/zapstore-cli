@@ -1,10 +1,18 @@
-## 0.1.2
+## [0.2.0]
+
+ - publisher is now separate library, can be used from zapstore android (almost)
+ - drastically changed zapstore.yaml format, must specify artifacts, can use regex
+ - removed most external dependencies, barely runs shell (no apktool necessary) so should work better in all operating systems
+ - can mix and match remote & local
+ - much more understandable code & reuse
+
+## [0.1.2]
 
  - Migration: zap.store to zapstore.dev
  - Bugfix: Use innerHTML for app description scraped from Play Store
  - Other minor bugfixes
 
-## 0.1.1
+## [0.1.1]
 
  - Feature: Add app pointer to latest release
  - Feature: Allow passing config file via argument
@@ -14,7 +22,7 @@
  - Bugfix: Silent env loading
  - Bugfix: Proper name parsing
 
-## 0.1.0
+## [0.1.0]
 
  - Bugfix: Stringify versions to generate valid nostr tags
  - Bugfix: Do not require identifier
@@ -26,7 +34,7 @@
  - Feature: Introduce `release_repository` attribute for closed-source apps
  - Feature: Allow passing icon and images as arguments
 
-## 0.0.6
+## [0.0.6]
 
  - Fix issue installing apktool
  - Make release version optional, add release notes argument
@@ -35,7 +43,7 @@
  - Better messaging
  - Upgrade dependencies
 
-## 0.0.5
+## [0.0.5]
 
  - Fix missing icon, now properly extracted from APK
  - Fix APK path failure when pulling from Github
@@ -44,18 +52,18 @@
  - Improve documentation (in program output and README.md)
  - Various minor fixes
 
-## 0.0.4
+## [0.0.4]
  
  - Add local parser
  - APK parsing and Play Store scraping
  - Fix auto-install/update
 
-## 0.0.3
+## [0.0.3]
 
  - Publish packages from the CLI
  - New basedir structure
  - Lots of validation and prompt fixes
 
-## 0.0.2
+## [0.0.2]
 
  - Initial version, rewritten in Dart
