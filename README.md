@@ -43,29 +43,47 @@ dart compile exe lib/main.dart -o zapstore
 
 ## New version 0.2.0
 
-This major refactor removes most external dependencies, so `apktool` and `apksigner` are no longer necessary on your 
+This major refactor removes most external dependencies, so `apktool` and `apksigner` are no longer necessary on your system.
 
-## Managing packages
+## Install or update a package
 
 ```bash
 zapstore install <package>
-zapstore remove <package>
-zapstore list <optional-filter>
+# or zapstore i
 ```
 
 Attempting to install will trigger a web of trust check via [Vertex DVMs](https://vertexlab.io) if the signer is not known. You can skip this by: passing the `-t` argument, or by having no `SIGN_WITH` env var to sign the DVM request with.
 
-## Discovering packages
+## Discover new packages
 
 An experimental command recently added:
 
 ```bash
 zapstore discover
+# or zapstore d
 ```
 
 It will show recommended packages that are currently not installed.
 
-## Publishing a package
+## List installed packages
+
+```bash
+zapstore list <optional-filter>
+# or zapstore l
+```
+
+If filter is provided it is treated as a regex to filter down installed packages.
+
+## Remove a package
+
+```bash
+zapstore remove <package>
+# or zapstore r
+```
+
+Run `zapstore --help` for more information.
+
+## Publishing apps or packages
 
 **Currently supported platforms**:
  - Android arm64-v8a (`android-arm64-v8a`)
