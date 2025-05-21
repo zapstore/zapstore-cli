@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
 import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
@@ -8,8 +9,12 @@ import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/publish/events.dart';
+import 'package:zapstore_cli/utils/event_utils.dart';
+import 'package:zapstore_cli/utils/utils.dart';
 
 Future<void> zap() async {
+  requireSignWith();
+
   final db = await Package.loadAll();
   final apps = await storage.fetch(RequestFilter<App>(
       relayGroup: 'zapstore',
@@ -23,11 +28,11 @@ Future<void> zap() async {
 
   final appIds = [
     for (final app in apps)
-      '${app.name} [${app.identifier}] by ${profiles.firstWhere((p) => p.event.pubkey == app.event.pubkey).nameOrNpub}'
+      '${app.name} [${app.identifier}] signed by ${formatProfile(profiles.firstWhereOrNull((p) => p.event.pubkey == app.event.pubkey), url: false)}'
   ];
 
   final selection = Select(
-    prompt: 'Select a package to zap',
+    prompt: 'These are your installed packages, select one to zap',
     options: appIds,
   ).interact();
 
@@ -46,7 +51,7 @@ Future<void> zap() async {
 
   final lnResponse = await fetchLightningAddress(profile);
 
-  final signer = getSignerFromString(env['SIGN_WITH'])!;
+  final signer = getSignerFromString(env['SIGN_WITH']!);
 
   final partialZapRequest = PartialZapRequest();
   partialZapRequest.event.addTagValue('e', app.event.id);

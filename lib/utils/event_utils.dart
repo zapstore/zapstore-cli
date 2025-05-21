@@ -7,12 +7,12 @@ import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
-String formatProfile(Profile? profile) {
+String formatProfile(Profile? profile, {bool url = true}) {
   if (profile == null) {
     return '(Could not load user)';
   }
   final name = profile.name ?? '';
-  return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'} - https://npub.world/${profile.npub}';
+  return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'}${url ? ' - https://npub.world/${profile.npub}' : ''}';
 }
 
 Future<void> checkVersionOnRelays(String identifier, String version,

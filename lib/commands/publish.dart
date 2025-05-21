@@ -89,10 +89,7 @@ Swear?''', defaultValue: false).interact();
           e.toString(), 'Provide a valid zapstore.yaml config file.');
     }
 
-    if (env['SIGN_WITH'] == null) {
-      throw UsageException('No SIGN_WITH environmental variable set',
-          'See the documentation for options.');
-    }
+    requireSignWith();
 
     final appMap = {...yamlAppMap.value};
     if (appMap['artifacts'] is List) {

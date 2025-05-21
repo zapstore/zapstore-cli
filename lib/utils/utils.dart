@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:dart_emoji/dart_emoji.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
@@ -43,6 +44,13 @@ extension StringExtension on String {
     return replaceAllMapped(EmojiParser.REGEX_NAME, (m) {
       return emojiParser.hasName(m[1]!) ? emojiParser.get(m[1]!).code : m[0]!;
     });
+  }
+}
+
+void requireSignWith() {
+  if (env['SIGN_WITH'] == null) {
+    throw UsageException('No SIGN_WITH environmental variable set',
+        'See the documentation for options.');
   }
 }
 
