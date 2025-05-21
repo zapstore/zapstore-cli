@@ -25,7 +25,7 @@ String get hostPlatform {
   return switch (platformVersion) {
     '"macos_arm64"' => 'darwin-arm64',
     '"linux_arm64"' => 'linux-aarch64',
-    '"linux_amd64"' => 'linux-amd64',
+    '"linux_x64"' => 'linux-amd64',
     _ => throw UnsupportedError('$platformVersion'),
   };
 }
