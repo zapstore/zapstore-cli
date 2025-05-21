@@ -34,6 +34,7 @@ dependencies:
   intl: ^0.20.2
   dart_emoji: ^0.2.0+2
   markdown: ^7.3.0
+  qr_terminal: ^1.1.1
 
 dependency_overrides:
   # patched dart_console to use stderr
@@ -42,15 +43,15 @@ dependency_overrides:
       url: https://github.com/zapstore/dart_console
       ref: b365647d9292af547baf7e6fc0b479914ce1fc84
   models:
-    # path: ../../purplebase/models
-    git:
-      url: https://github.com/purplebase/models
-      ref: 1d75de2
+    path: ../../purplebase/models
+    # git:
+    #   url: https://github.com/purplebase/models
+    #   ref: 1d75de2
   purplebase:
-    # path: ../../purplebase/purplebase
-    git:
-      url: https://github.com/purplebase/purplebase
-      ref: d6dba0e
+    path: ../../purplebase/purplebase
+    # git:
+    #   url: https://github.com/purplebase/purplebase
+    #   ref: d6dba0e
   nip07_signer:
     # path: ../../purplebase/nip07_signer
     git:

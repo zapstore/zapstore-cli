@@ -12,6 +12,7 @@ import 'package:zapstore_cli/commands/install.dart';
 import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
+import 'package:zapstore_cli/commands/zap.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
@@ -40,6 +41,7 @@ void main(List<String> args) async {
       relayGroups: {
         'zapstore': kAppRelays,
         'vertex': {'wss://relay.vertexlab.io'},
+        'social': {'wss://relay.primal.net'}
       },
       defaultRelayGroup: 'zapstore',
     ));
@@ -48,6 +50,7 @@ void main(List<String> args) async {
         "$figure\nThe permissionless app store powered by your social network")
       ..addCommand(InstallCommand())
       ..addCommand(DiscoverCommand())
+      ..addCommand(ZapCommand())
       ..addCommand(ListCommand())
       ..addCommand(RemoveCommand())
       ..addCommand(PublishCommand());
@@ -116,6 +119,19 @@ class DiscoverCommand extends Command {
   @override
   Future<void> run() async {
     await discover();
+  }
+}
+
+class ZapCommand extends Command {
+  @override
+  String get name => 'zap';
+
+  @override
+  String get description => 'Zap packages';
+
+  @override
+  Future<void> run() async {
+    await zap();
   }
 }
 
