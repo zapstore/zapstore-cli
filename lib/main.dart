@@ -158,6 +158,7 @@ class RemoveCommand extends Command {
 late final String configPath;
 late bool overwriteRelease;
 late final bool isDaemonMode;
+late final bool swear;
 
 class PublishCommand extends Command {
   PublishCommand() {
@@ -171,6 +172,7 @@ class PublishCommand extends Command {
         abbr: 'd',
         help:
             'Run publish in daemon mode (non-interactively and without spinners)');
+    argParser.addFlag('swear', help: 'Swear', defaultsTo: false);
   }
 
   @override
@@ -192,6 +194,8 @@ class PublishCommand extends Command {
     overwriteRelease = argResults!.flag('overwrite-release');
 
     isDaemonMode = argResults!.flag('daemon-mode');
+
+    swear = argResults!.flag('swear');
 
     await Publisher().run();
   }

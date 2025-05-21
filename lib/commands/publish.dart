@@ -23,11 +23,28 @@ class Publisher {
     final partialModels = await parser.run();
 
     // (3) Sign events
-    final signer = getSignerFromString(env['SIGN_WITH']);
+    final signer = getSignerFromString(env['SIGN_WITH']!);
 
-    if (signer == null) {
-      stderr.writeln(
-          '⚠️  ${'Nothing to sign with, returning unsigned events.'.bold()}');
+    if (signer is NpubFakeSigner) {
+      final proceed = swear || Confirm(prompt: '''⚠️  Can't use npub to sign!
+
+In order to send unsigned events to stdout you must swear under oath:
+  1. The provided npub ${await signer.getPublicKey()} will match the resulting pubkey from the signed events
+  2. Blossom assets will be manually uploaded to honor assets in URL tags
+
+The `--swear` argument can be used to hide this prompt.
+
+Swear?''', defaultValue: false).interact();
+
+      if (!proceed) {
+        throw GracefullyAbortSignal();
+      }
+
+      linkAppAndRelease(
+          partialApp: partialModels.whereType<PartialApp>().first,
+          partialRelease: partialModels.whereType<PartialRelease>().first,
+          signingPubkey: await signer.getPublicKey());
+
       for (final model in partialModels) {
         print(model);
       }
@@ -58,13 +75,24 @@ class Publisher {
 
   Future<AssetParser> _validateAndFindParser() async {
     final configYaml = File(configPath);
+    late YamlMap yamlAppMap;
 
     if (!await configYaml.exists()) {
       throw UsageException('Config not found at $configPath',
-          'Please create a zapstore.yaml file in this directory or pass it using `-c`.');
+          'Please create a zapstore.yaml config file in this directory or pass it using `-c`.');
     }
 
-    final yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
+    try {
+      yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
+    } catch (e) {
+      throw UsageException(
+          e.toString(), 'Provide a valid zapstore.yaml config file.');
+    }
+
+    if (env['SIGN_WITH'] == null) {
+      throw UsageException('No SIGN_WITH environmental variable set',
+          'See the documentation for options.');
+    }
 
     final appMap = {...yamlAppMap.value};
     if (appMap['artifacts'] is List) {

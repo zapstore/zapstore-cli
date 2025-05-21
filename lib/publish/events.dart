@@ -45,10 +45,10 @@ Future<List<Model<dynamic>>> signModels({
       final eid = Utils.getEventId(fm.event, signingPubkey);
       partialRelease.event.addTagValue('e', eid);
     }
-    partialRelease.event
-        .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
-    partialApp.event
-        .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
+    linkAppAndRelease(
+        partialApp: partialApp,
+        partialRelease: partialRelease,
+        signingPubkey: signingPubkey);
 
     final signedModels = await signer.sign([
       partialApp,
@@ -66,13 +66,23 @@ Future<List<Model<dynamic>>> signModels({
   }
 }
 
-Signer? getSignerFromString(String? signWith) {
-  if (signWith == null) return null;
+void linkAppAndRelease(
+    {required PartialApp partialApp,
+    required PartialRelease partialRelease,
+    required String signingPubkey}) {
+  partialRelease.event
+      .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
+  partialApp.event
+      .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
+}
+
+Signer getSignerFromString(String signWith) {
   final ref = container.read(refProvider);
   return switch (signWith) {
     'NIP07' => NIP07Signer(ref),
     _ when signWith.startsWith('bunker://') =>
       NakNIP46Signer(ref, connectionString: signWith),
+    _ when signWith.startsWith('npub') => NpubFakeSigner(ref, pubkey: signWith),
     _ => Bip340PrivateKeySigner(signWith, ref),
   };
 }
@@ -95,6 +105,33 @@ Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   }
   await callback(signer);
   await signer.dispose();
+}
+
+// Signers
+
+/// This signer is fake because it does not sign
+/// but we use it for convenience
+class NpubFakeSigner extends Signer {
+  final String _pubkey;
+
+  NpubFakeSigner(super.ref, {required String pubkey}) : _pubkey = pubkey;
+
+  @override
+  Future<String> getPublicKey() async {
+    return _pubkey;
+  }
+
+  @override
+  Future<Signer> initialize() async {
+    return this;
+  }
+
+  @override
+  Future<List<E>> sign<E extends Model<dynamic>>(
+      List<PartialModel<dynamic>> partialModels,
+      {String? withPubkey}) async {
+    throw UnimplementedError();
+  }
 }
 
 class NakNIP46Signer extends Signer {

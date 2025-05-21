@@ -231,20 +231,20 @@ Supported signing methods:
  - nsec
  - NIP-07 (opens a web browser with an extension)
  - NIP-46 (requires `nak` which can be installed with `zapstore i nak`)
+ - sending unsigned events to stdout (see section below)
 
-They are all supplied via the `SIGN_WITH` environmental variable. `.env` file is supported and recommended. Example:
+The method is passed via the `SIGN_WITH` environmental variable and it is required for publishing.
+
+The `.env` file approach is supported and recommended. Example:
 
 ```bash
 SIGN_WITH=176fa8c7a988df001bc062ce1443e5b8d3f24913b54ec49d322ddd638d0c17aa
+# or SIGN_WITH=nsec1zah633af3r0sqx7qvt8pgsl9hrflyjgnk48vf8fj9hwk8rgvz74q6xaqee
 SIGN_WITH=NIP07
 SIGN_WITH=bunker://9fb1f82f03c40b6063e95f18ce9006d5a3b15fc05dd244d230c12a4e21fe304c?relay=wss%3A%2F%2Frelay.primal.net%2F&secret=87412ffe-4e3e-551e-97fc-5686ac74bf23
 ```
 
-If no `SIGN_WITH` env var is found, events will be produced and printed to stdout, so it's possible to:
-
-`zapstore publish | nak event --sec 'bunker://...' relay.zapstore.dev` as well (or take those events to any other signer!).
-
-Please note that uploading to Blossom servers will also require signing Blossom authorization events of kind 24242.
+Note that uploading to Blossom servers will also require signing Blossom authorization events of kind 24242.
 
 The ability of pasting an nsec found in previous versions was removed. If you don't want to include your nsec in an `.env` file, here is the recommended command:
 
@@ -254,7 +254,20 @@ The ability of pasting an nsec found in previous versions was removed. If you do
 
 (Notice the leading space, this will prevent your shell from saving this command in history.)
 
-Events are only published to `relay.zapstore.dev` for now (this will change in the near future). Your pubkey must be whitelisted by zapstore in order for your events to be accepted. Get in touch!
+The program does not save any `SIGN_WITH` value or send it anywhere.
+
+Signed events are only published to `relay.zapstore.dev` for now (this will change in the near future). Your pubkey must be whitelisted by Zapstore in order for your events to be accepted. Get in touch!
+
+#### Sending unsigned events to stdout
+
+Events can be produced and printed to stdout unsigned, so it's possible to pipe to `nak` or other signers:
+
+`zapstore publish | nak event --sec 'bunker://...' relay.zapstore.dev`
+
+This approach has a few limitations:
+  - An npub MUST be passed as the `SIGN_WITH` environment variable
+  - The provided npub MUST match the resulting pubkey from the signed events
+  - Blossom assets MUST be manually uploaded
 
 ### Program arguments
 

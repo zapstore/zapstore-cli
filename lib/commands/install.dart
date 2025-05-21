@@ -78,10 +78,17 @@ Future<void> install(String value,
 
   final metadata = fileMetadatas[0];
 
+  final signerPubkey = app.event.pubkey;
+
+  final profiles = await storage.query<Profile>(RequestFilter(
+      authors: {signerPubkey}, remote: true, relayGroup: 'vertex'));
+  final signerProfile = profiles.firstOrNull;
+
   final date = DateFormat('EEE, MMM d, yyyy').format(metadata.createdAt);
   spinner.success(
       '''Found ${app.identifier}@${metadata.version.bold()} (released $date)
-  ${(app.summary ?? app.description).parseEmojis()}
+  ${(app.summary ?? app.description).parseEmojis().gray()}
+  ${'Signed by'.bold()}: ${formatProfile(signerProfile)}
 ''');
 
   final installedPackage = db[app.identifier];
@@ -133,86 +140,79 @@ Future<void> install(String value,
     }
   }
 
-  final signerPubkey = app.event.pubkey;
-
   if (!skipWot) {
-    if (!isAuthorTrusted) {
-      final wotSpinner = CliSpin(
-        text: 'Checking web of trust...',
-        spinner: CliSpinners.dots,
-      ).start();
+    final checkSucceeded = await Future<bool>(() async {
+      if (!isAuthorTrusted) {
+        final wotSpinner = CliSpin(
+          text: 'Checking web of trust...',
+          spinner: CliSpinners.dots,
+        ).start();
 
-      final signer = env['SIGN_WITH'] != null
-          ? getSignerFromString(env['SIGN_WITH'])
-          : null;
-      if (signer == null) {
-        wotSpinner.fail('No signer available, skipping check');
-        return;
-      }
-
-      if (signer is NIP07Signer) {
-        final ok = Confirm(
-          prompt:
-              'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
-          defaultValue: true,
-        ).interact();
-        if (!ok) {
-          wotSpinner.fail('Skipping check');
-          return;
+        late Signer signer;
+        if (env['SIGN_WITH'] == null ||
+            (signer = getSignerFromString(env['SIGN_WITH']!))
+                is NpubFakeSigner) {
+          wotSpinner.fail(
+              'No signer, not possible to sign a request to the web of trust service, skipping check');
+          return false;
         }
-      }
 
-      await signer.initialize();
-      final pubkey = await signer.getPublicKey();
-      final partialRequest =
-          PartialVerifyReputationRequest(source: pubkey, target: signerPubkey);
-      final signedRequest = await partialRequest.signWith(signer);
-      await signer.dispose();
-
-      final response = await signedRequest.run('vertex');
-
-      if (response is DVMError?) {
-        if (response?.status?.contains('credits') ?? false) {
-          throw 'Unable to check followers';
+        if (signer is NIP07Signer) {
+          final ok = Confirm(
+            prompt:
+                'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
+            defaultValue: true,
+          ).interact();
+          if (!ok) {
+            wotSpinner.fail('Skipping check');
+            return false;
+          }
         }
-        throw response?.status ?? 'Error';
-      }
 
-      final pubkeys = (response as VerifyReputationResponse).pubkeys;
+        await signer.initialize();
+        final pubkey = await signer.getPublicKey();
+        final partialRequest = PartialVerifyReputationRequest(
+            source: pubkey, target: signerPubkey);
+        final signedRequest = await partialRequest.signWith(signer);
+        await signer.dispose();
 
-      final authors = {...pubkeys, signerPubkey};
+        final response = await signedRequest.run('vertex');
 
-      final users = await storage.fetch<Profile>(
-          RequestFilter(authors: authors, remote: true, relayGroup: 'vertex'));
-
-      final signerUser =
-          users.firstWhereOrNull((e) => e.pubkey == signerPubkey)!;
-
-      wotSpinner.success();
-
-      print('Package signer: ${formatProfile(signerUser)}\n');
-
-      print('Relevant profiles who follow ${signerUser.name!.bold()}:');
-      for (final k in pubkeys) {
-        if (k != signerPubkey) {
-          print(' - ${formatProfile(users.firstWhere((e) => e.pubkey == k))}');
+        if (response is DVMError?) {
+          if (response?.status?.contains('credits') ?? false) {
+            throw 'Unable to check followers';
+          }
+          throw response?.status ?? 'Error';
         }
-      }
 
-      final installPackage = Confirm(
-        prompt:
-            'Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.identifier}${isUpdatable ? ' to ${metadata.version}' : ''}?',
-        defaultValue: false,
-      ).interact();
+        final pubkeys = (response as VerifyReputationResponse).pubkeys;
 
-      if (!installPackage) {
-        exit(0);
+        final relevantProfiles = await storage.fetch<Profile>(RequestFilter(
+            authors: pubkeys, remote: true, relayGroup: 'vertex'));
+
+        wotSpinner.success();
+
+        print('Package signer: ${formatProfile(signerProfile)}\n');
+
+        print('Relevant profiles who follow ${signerProfile?.name?.bold()}:');
+        for (final profile in relevantProfiles) {
+          print(' - ${formatProfile(profile)}');
+        }
+      } else {
+        print(
+            'Package signed by ${formatProfile(signerProfile)} who was previously trusted for this app');
       }
-    } else {
-      final users = await storage.query<Profile>(RequestFilter(
-          authors: {signerPubkey}, remote: true, relayGroup: 'vertex'));
-      print(
-          'Package signed by ${formatProfile(users.first)} who was previously trusted for this app');
+      return true;
+    });
+
+    final installPackage = Confirm(
+      prompt:
+          '${!checkSucceeded ? 'Web of trust check did not succeed. ' : ''}Are you sure you trust the signer and want to ${isUpdatable ? 'update' : 'install'} ${app.identifier}${isUpdatable ? ' to ${metadata.version}' : ''}?',
+      defaultValue: false,
+    ).interact();
+
+    if (!installPackage) {
+      exit(0);
     }
   }
 
