@@ -242,7 +242,7 @@ SIGN_WITH=bunker://9fb1f82f03c40b6063e95f18ce9006d5a3b15fc05dd244d230c12a4e21fe3
 
 If no `SIGN_WITH` env var is found, events will be produced and printed to stdout, so it's possible to:
 
-`zapstore publish | nak event --connect bunker://... wss://relay.zapstore.dev` as well (or take those events to any other signer!).
+`zapstore publish | nak event --sec 'bunker://...' relay.zapstore.dev` as well (or take those events to any other signer!).
 
 Please note that uploading to Blossom servers will also require signing Blossom authorization events of kind 24242.
 
