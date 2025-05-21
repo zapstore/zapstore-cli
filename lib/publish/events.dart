@@ -83,7 +83,11 @@ Signer getSignerFromString(String signWith) {
     _ when signWith.startsWith('bunker://') =>
       NakNIP46Signer(ref, connectionString: signWith),
     _ when signWith.startsWith('npub') => NpubFakeSigner(ref, pubkey: signWith),
-    _ => Bip340PrivateKeySigner(signWith, ref),
+    _ => (() {
+        final nsec =
+            signWith.startsWith('nsec') ? bech32Decode(signWith) : signWith;
+        return Bip340PrivateKeySigner(nsec, ref);
+      })(),
   };
 }
 
@@ -114,7 +118,8 @@ Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
 class NpubFakeSigner extends Signer {
   final String _pubkey;
 
-  NpubFakeSigner(super.ref, {required String pubkey}) : _pubkey = pubkey;
+  NpubFakeSigner(super.ref, {required String pubkey})
+      : _pubkey = Utils.hexFromNpub(pubkey);
 
   @override
   Future<String> getPublicKey() async {
