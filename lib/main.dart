@@ -174,7 +174,7 @@ class RemoveCommand extends Command {
 late final String configPath;
 late bool overwriteRelease;
 late final bool isDaemonMode;
-late final bool swear;
+late final bool honor;
 
 class PublishCommand extends Command {
   PublishCommand() {
@@ -188,7 +188,9 @@ class PublishCommand extends Command {
         abbr: 'd',
         help:
             'Run publish in daemon mode (non-interactively and without spinners)');
-    argParser.addFlag('swear', help: 'Swear', defaultsTo: false);
+    argParser.addFlag('honor',
+        help: 'Indicate you will honor tags when external signing',
+        defaultsTo: false);
   }
 
   @override
@@ -211,7 +213,7 @@ class PublishCommand extends Command {
 
     isDaemonMode = argResults!.flag('daemon-mode');
 
-    swear = argResults!.flag('swear');
+    honor = argResults!.flag('honor');
 
     await Publisher().run();
   }

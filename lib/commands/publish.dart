@@ -26,15 +26,15 @@ class Publisher {
     final signer = getSignerFromString(env['SIGN_WITH']!);
 
     if (signer is NpubFakeSigner) {
-      final proceed = swear || Confirm(prompt: '''⚠️  Can't use npub to sign!
+      final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must swear under oath:
-  1. The provided npub ${await signer.getPublicKey()} will match the resulting pubkey from the signed events
-  2. Blossom assets will be manually uploaded to honor assets in URL tags
+  1. The provided npub ${await signer.getPublicKey()} will match the resulting pubkey from the signed events to honor `a` tags
+  2. Blossom assets will be manually uploaded to honor assets in `url` tags
 
-The `--swear` argument can be used to hide this prompt.
+The `--honor` argument can be used to hide this prompt.
 
-Swear?''', defaultValue: false).interact();
+Okay?''', defaultValue: false).interact();
 
       if (!proceed) {
         throw GracefullyAbortSignal();
