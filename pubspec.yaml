@@ -1,6 +1,6 @@
 name: zapstore_cli
 description: The permissionless social package manager
-version: 0.2.0-rc1 # (!) Also update kVersion (!)
+version: 0.2.0-rc2 # (!) Also update kVersion AND zapstore.yaml (!)
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:

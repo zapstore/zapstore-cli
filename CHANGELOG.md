@@ -1,3 +1,11 @@
+## [0.2.0-rc2]
+
+  - Improvement: Sending events to stdout
+  - Bugfix: WoT failure upon install
+  - Bugfix: Install now works on Linux x86
+  - Improvement: Add signer in install
+  - Feature: Zap a package: `zapstore zap`
+
 ## [0.2.0-rc1]
 
   - Feature: New `AssetParser` base class for streamlined local and web asset handling
