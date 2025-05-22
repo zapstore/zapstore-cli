@@ -15,41 +15,21 @@ import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class Publisher {
+  late final AssetParser parser;
+  late final List<PartialModel> partialModels;
+  late final Signer signer;
+
   Future<void> run() async {
     // (1) Validate input and find an appropriate asset parser
-    final parser = await _validateAndFindParser();
+    await _validateAndFindParser();
 
     // (2) Parse metadata and assets into partial models
-    final partialModels = await parser.run();
+    partialModels = await parser.run();
 
     // (3) Sign events
-    final signer = getSignerFromString(env['SIGN_WITH']!);
+    signer = getSignerFromString(env['SIGN_WITH']!);
 
-    if (signer is NpubFakeSigner) {
-      final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
-
-In order to send unsigned events to stdout you must swear under oath:
-  1. The provided npub ${await signer.getPublicKey()} will match the resulting pubkey from the signed events to honor `a` tags
-  2. Blossom assets will be manually uploaded to honor assets in `url` tags
-
-The `--honor` argument can be used to hide this prompt.
-
-Okay?''', defaultValue: false).interact();
-
-      if (!proceed) {
-        throw GracefullyAbortSignal();
-      }
-
-      linkAppAndRelease(
-          partialApp: partialModels.whereType<PartialApp>().first,
-          partialRelease: partialModels.whereType<PartialRelease>().first,
-          signingPubkey: await signer.getPublicKey());
-
-      for (final model in partialModels) {
-        print(model);
-      }
-      throw GracefullyAbortSignal();
-    }
+    _handleEventsToStdout();
 
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
@@ -73,7 +53,7 @@ Okay?''', defaultValue: false).interact();
     await _sendToRelays(app, release, fileMetadatas);
   }
 
-  Future<AssetParser> _validateAndFindParser() async {
+  Future<void> _validateAndFindParser() async {
     final configYaml = File(configPath);
     late YamlMap yamlAppMap;
 
@@ -99,8 +79,6 @@ Okay?''', defaultValue: false).interact();
     }
 
     final assets = appMap['assets'] as List?;
-
-    late final AssetParser parser;
 
     final hasRemoteAssets = assets != null &&
         assets.any((k) {
@@ -131,7 +109,37 @@ Okay?''', defaultValue: false).interact();
         throw UsageException('No sources provided', '');
       }
     }
-    return parser;
+  }
+
+  Future<void> _handleEventsToStdout() async {
+    if (signer is NpubFakeSigner) {
+      final partialBlossomAuthorizations =
+          partialModels.whereType<PartialBlossomAuthorization>();
+      final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
+
+In order to send unsigned events to stdout you must:
+  - Ensure the SIGN_WITH provided pubkey (${await signer.getPublicKey()}) matches the resulting pubkey from the signed events to honor `a` tags
+${partialBlossomAuthorizations.isEmpty ? '' : ' - The following Blossom actions will be performed to honor assets in `url` tags'}
+${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a to servers: ${parser.blossomClient.servers.join(', ')}').join('\n')}
+
+The `--honor` argument can be used to hide this prompt.
+
+Okay?''', defaultValue: false).interact();
+
+      if (!proceed) {
+        throw GracefullyAbortSignal();
+      }
+    }
+
+    linkAppAndRelease(
+        partialApp: partialModels.whereType<PartialApp>().first,
+        partialRelease: partialModels.whereType<PartialRelease>().first,
+        signingPubkey: await signer.getPublicKey());
+
+    for (final model in partialModels) {
+      print(model);
+    }
+    throw GracefullyAbortSignal();
   }
 
   Future<void> _sendToRelays(App signedApp, Release signedRelease,
