@@ -12,7 +12,9 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubParser extends AssetParser {
-  GithubParser(super.appMap, {super.uploadToBlossom = false});
+  GithubParser(super.appMap, {super.uploadToBlossom = false}) {
+    remoteMetadata ??= {'github'};
+  }
 
   Map<String, dynamic>? releaseJson;
 

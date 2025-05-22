@@ -1,8 +1,5 @@
 repository: https://github.com/protonmail/android-mail
 assets:
   - ProtonMail-.*.apk
-remote_metadata:
-  - github
-  - playstore
 blossom_servers:
   - https://blossom.band

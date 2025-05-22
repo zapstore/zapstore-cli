@@ -33,6 +33,7 @@ class AssetParser {
   late String? resolvedVersion;
   late var assetHashes = <String>{};
   late final BlossomClient blossomClient;
+  Set<String>? remoteMetadata;
 
   AssetParser(this.appMap, {this.uploadToBlossom = true}) {
     partialApp.identifier =
@@ -41,6 +42,9 @@ class AssetParser {
     blossomClient = BlossomClient(servers: {
       ...?appMap['blossom_servers'] ?? {kZapstoreBlossomUrl}
     });
+    remoteMetadata = appMap.containsKey('remote_metadata')
+        ? {...appMap['remote_metadata']}
+        : null;
   }
 
   Future<List<PartialModel>> run() async {
@@ -58,6 +62,7 @@ class AssetParser {
           partialApp.identifier!, partialRelease.version!,
           versionCode: partialFileMetadatas.firstOrNull?.versionCode);
     }
+
     return [
       partialApp,
       partialRelease,
@@ -257,9 +262,7 @@ class AssetParser {
   /// Applies metadata from remote sources: Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    final metadataSources = appMap['remote_metadata'] ?? [];
-
-    for (final source in metadataSources) {
+    for (final source in remoteMetadata ?? {}) {
       final fetcher = switch (source) {
         'playstore' => PlayStoreMetadataFetcher(),
         'fdroid' => FDroidMetadataFetcher(),

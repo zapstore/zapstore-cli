@@ -102,9 +102,6 @@ Okay?''', defaultValue: false).interact();
 
     late final AssetParser parser;
 
-    // If no assets, it will end up in Github if-branch,
-    // we later default to all assets in a release
-
     final hasRemoteAssets = assets != null &&
         assets.any((k) {
           // Paths with a scheme are fetched from the web

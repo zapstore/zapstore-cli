@@ -155,7 +155,7 @@ Notes on properties:
   - `changelog`: Local path to the changelog in the [Keep a Changelog](https://keepachangelog.com) format, release notes for the resolved version can be extracted from here, defaults to `CHANGELOG.md`
   - `tags`: String with tags related to the app, separated by a space
   - `license`: Project license in [SPDX](https://spdx.org/licenses/) identifier format
-  - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `github`. More coming soon.
+  - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `github`. More coming soon. If `GithubParser` was used and no `remote_metadata` was specified, then by default `github` will be added as source
   - `blossom_servers`: List of Blossom servers where to upload assets, only applies to local assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to these Blossom servers which need to be valid.
   - `assets`: List of paths to assets **as regular expressions**. If paths contain a forward-slash they will trigger the local asset parser, if they don't, the Github parser (as long as there is a `github.com` repository). If they are an HTTP URI, the Web parser. If omitted, the list defaults to a single `.*` which means all assets in Github release, if applicable.
   - `executables`: Strictly for CLI apps that are packaged as a compressed archive, a list of in-archive paths as regular expressions. If omitted, all supported executables (see supported platforms above) inside the archive will be linked and installed.
@@ -185,8 +185,6 @@ name: Zapstore
 repository: https://github.com/zapstore/zapstore
 icon: assets/images/logo.png
 license: MIT
-remote_metadata:
-  - github
 ```
 
 Alby Go:
@@ -211,8 +209,6 @@ assets:
   - nak-v\d+\.\d+\.\d+-darwin-arm64
   - nak-v\d+\.\d+\.\d+-linux-amd64
   - nak-v\d+\.\d+\.\d+-linux-arm64
-remote_metadata:
-  - github
 ```
 
 Phoenix for servers (includes `phoenixd` and `phoenix-cli` inside the archive):
