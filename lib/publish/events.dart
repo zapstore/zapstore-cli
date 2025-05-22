@@ -159,7 +159,7 @@ class NakNIP46Signer extends Signer {
   Future<List<E>> sign<E extends Model<dynamic>>(
       List<PartialModel<dynamic>> partialModels,
       {String? withPubkey}) async {
-    final result = await run('nak event --connect $connectionString',
+    final result = await run('nak event --sec $connectionString',
         runInShell: true,
         verbose: false,
         stdin: Stream.value(utf8.encode(
