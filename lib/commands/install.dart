@@ -170,7 +170,7 @@ Future<void> install(String value,
         }
 
         await signer.initialize();
-        final pubkey = await signer.getPublicKey();
+        final pubkey = signer.pubkey;
         final partialRequest = PartialVerifyReputationRequest(
             source: pubkey, target: signerPubkey);
         final signedRequest = await partialRequest.signWith(signer);

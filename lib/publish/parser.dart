@@ -179,7 +179,7 @@ class AssetParser {
           ..type = BlossomAuthorizationType.upload
           ..mimeType = partialFileMetadata.mimeType!
           ..expiration = DateTime.now().add(Duration(days: 1))
-          ..addHash(assetHash);
+          ..hash = assetHash;
         partialBlossomAuthorizations.add(partialBlossomAuthorization);
       }
 
@@ -294,7 +294,7 @@ class AssetParser {
         ..content = 'Upload asset ${hashPathMap[hash]}'
         ..type = BlossomAuthorizationType.upload
         ..expiration = DateTime.now().add(Duration(hours: 1))
-        ..addHash(hash);
+        ..hash = hash;
       partialBlossomAuthorizations.add(auth);
     }
 

@@ -19,8 +19,8 @@ class BlossomClient {
 
     for (final server in servers) {
       for (final authorization in authorizations) {
-        final assetUploadUrl = '$server/${authorization.hashes.first}';
-        final assetHash = authorization.hashes.first;
+        final assetHash = authorization.hash;
+        final assetUploadUrl = '$server/$assetHash';
         final assetName = hashPathMap[assetHash];
 
         final uploadSpinner = CliSpin(

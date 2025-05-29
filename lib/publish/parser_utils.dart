@@ -39,15 +39,13 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
     metadata.platforms = architectures.map((a) => 'android-$a').toSet();
 
     try {
-      metadata.apkSignatureHashes = await getSignatureHashes(assetPath);
-      if (metadata.apkSignatureHashes.isEmpty) {
-        throw '';
-      }
+      final sigHashes = await getSignatureHashes(assetPath);
+      metadata.apkSignatureHash = sigHashes.first;
     } catch (e) {
       // Try with apksigner (if in path)
       final sigHash = await getSignatureHashFromApkSigner(assetPath);
       if (sigHash != null) {
-        metadata.apkSignatureHashes = {sigHash};
+        metadata.apkSignatureHash = sigHash;
       }
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }

@@ -33,11 +33,8 @@ class Publisher {
 
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
-      final signingPubkey = await signer.getPublicKey();
-      signedModels = await signModels(
-          signer: signer,
-          partialModels: partialModels,
-          signingPubkey: signingPubkey);
+      signedModels =
+          await signModels(signer: signer, partialModels: partialModels);
     });
 
     final app = signedModels.whereType<App>().first;
@@ -118,7 +115,7 @@ class Publisher {
       final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must:
-  - Ensure the SIGN_WITH provided pubkey (${await signer.getPublicKey()}) matches the resulting pubkey from the signed events to honor `a` tags
+  - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
 ${partialBlossomAuthorizations.isEmpty ? '' : ' - The following Blossom actions will be performed to honor assets in `url` tags'}
 ${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a to servers: ${parser.blossomClient.servers.join(', ')}').join('\n')}
 
@@ -134,7 +131,7 @@ Okay?''', defaultValue: false).interact();
     linkAppAndRelease(
         partialApp: partialModels.whereType<PartialApp>().first,
         partialRelease: partialModels.whereType<PartialRelease>().first,
-        signingPubkey: await signer.getPublicKey());
+        signingPubkey: signer.pubkey);
 
     for (final model in partialModels) {
       print(model);

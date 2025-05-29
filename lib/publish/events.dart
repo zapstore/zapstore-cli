@@ -14,7 +14,6 @@ import 'package:zapstore_cli/utils/utils.dart';
 Future<List<Model<dynamic>>> signModels({
   required Signer signer,
   required List<PartialModel<dynamic>> partialModels,
-  required String signingPubkey,
 }) async {
   final kindsAmount = partialModels
       .map((m) => m.event.kind)
@@ -42,13 +41,13 @@ Future<List<Model<dynamic>>> signModels({
     }
 
     for (final fm in partialFileMetadatas) {
-      final eid = Utils.getEventId(fm.event, signingPubkey);
+      final eid = Utils.getEventId(fm.event, signer.pubkey);
       partialRelease.event.addTagValue('e', eid);
     }
     linkAppAndRelease(
         partialApp: partialApp,
         partialRelease: partialRelease,
-        signingPubkey: signingPubkey);
+        signingPubkey: signer.pubkey);
 
     final signedModels = await signer.sign([
       partialApp,
@@ -99,7 +98,7 @@ Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
       defaultValue: true,
     ).interact();
     if (ok) {
-      await signer.initialize(port: 17007);
+      await signer.initialize();
     } else {
       print('kthxbye');
       throw GracefullyAbortSignal();
@@ -122,13 +121,9 @@ class NpubFakeSigner extends Signer {
       : _pubkey = Utils.hexFromNpub(pubkey);
 
   @override
-  Future<String> getPublicKey() async {
-    return _pubkey;
-  }
-
-  @override
-  Future<Signer> initialize() async {
-    return this;
+  Future<void> initialize({bool active = true}) async {
+    internalSetPubkey(_pubkey);
+    super.initialize(active: active);
   }
 
   @override
@@ -145,14 +140,11 @@ class NakNIP46Signer extends Signer {
   NakNIP46Signer(super.ref, {required this.connectionString});
 
   @override
-  Future<String> getPublicKey() async {
+  Future<void> initialize({bool active = true}) async {
     final note = await PartialNote('note to find out pubkey').signWith(this);
-    return note.event.pubkey;
-  }
-
-  @override
-  Future<Signer> initialize() async {
-    return this;
+    final pubkey = note.event.pubkey;
+    internalSetPubkey(pubkey);
+    super.initialize(active: active);
   }
 
   @override

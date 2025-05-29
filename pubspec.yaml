@@ -43,20 +43,20 @@ dependency_overrides:
       url: https://github.com/zapstore/dart_console
       ref: b365647d9292af547baf7e6fc0b479914ce1fc84
   models:
-    # path: ../../purplebase/models
-    git:
-      url: https://github.com/purplebase/models
-      ref: 3bd82be
+    path: ../../purplebase/models
+    # git:
+    #   url: https://github.com/purplebase/models
+    #   ref: 3bd82be
   purplebase:
     # path: ../../purplebase/purplebase
     git:
       url: https://github.com/purplebase/purplebase
       ref: d6dba0e
   nip07_signer:
-    # path: ../../purplebase/nip07_signer
-    git:
-      url: https://github.com/purplebase/nip07_signer
-      ref: f960630
+    path: ../../purplebase/nip07_signer
+    # git:
+    #   url: https://github.com/purplebase/nip07_signer
+    #   ref: f960630
 
 dev_dependencies:
   lints: ^3.0.0
