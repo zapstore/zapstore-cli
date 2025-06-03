@@ -7,7 +7,7 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class WebParser extends AssetParser {
-  WebParser(super.appMap, {super.uploadToBlossom = false});
+  WebParser(super.appMap);
 
   @override
   Future<Set<String>> resolveHashes() async {

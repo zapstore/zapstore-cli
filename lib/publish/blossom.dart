@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
@@ -9,9 +10,15 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class BlossomClient {
-  final Set<String> servers;
+  final Set<Uri> servers;
 
-  BlossomClient({this.servers = const {}});
+  BlossomClient({required Set<String> servers})
+      : servers = servers.map(Uri.parse).toSet() {
+    if (this.servers.any((s) => s.scheme != 'https')) {
+      throw UsageException(
+          'One or more invalid Blossom server URLs: $servers', '');
+    }
+  }
 
   Future<Map<String, String>> upload(
       List<BlossomAuthorization> authorizations) async {

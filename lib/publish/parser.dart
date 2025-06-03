@@ -28,20 +28,22 @@ class AssetParser {
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
-  final bool uploadToBlossom;
-
   late String? resolvedVersion;
   late var assetHashes = <String>{};
   late final BlossomClient blossomClient;
   Set<String>? remoteMetadata;
 
-  AssetParser(this.appMap, {this.uploadToBlossom = true}) {
+  AssetParser(this.appMap) {
     partialApp.identifier =
         appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
     partialApp.name = appMap['name'];
-    blossomClient = BlossomClient(servers: {
-      ...?appMap['blossom_servers'] ?? {kZapstoreBlossomUrl}
-    });
+    blossomClient = BlossomClient(
+      servers: {
+        ...?appMap['blossom_servers'] ??
+            // If it's the local asset parser, default to Zapstore Blossom server
+            (runtimeType == AssetParser ? {kZapstoreBlossomUrl} : {})
+      },
+    );
     remoteMetadata = appMap.containsKey('remote_metadata')
         ? {...appMap['remote_metadata']}
         : null;
@@ -167,10 +169,10 @@ class AssetParser {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
-      if (uploadToBlossom) {
+      if (blossomClient.servers.isNotEmpty) {
         for (final server in blossomClient.servers) {
           partialFileMetadata.event
-              .addTagValue('url', path.join(server, assetHash));
+              .addTagValue('url', server.replace(path: assetHash).toString());
         }
 
         final partialBlossomAuthorization = PartialBlossomAuthorization()

@@ -12,7 +12,7 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class GithubParser extends AssetParser {
-  GithubParser(super.appMap, {super.uploadToBlossom = false}) {
+  GithubParser(super.appMap) {
     remoteMetadata ??= {'github'};
   }
 
@@ -103,12 +103,6 @@ class GithubParser extends AssetParser {
       }
 
       for (final asset in assets) {
-        final assetSpinner = CliSpin(
-          text: 'Fetching asset...',
-          spinner: CliSpinners.dots,
-          isSilent: isDaemonMode,
-        ).start();
-
         final assetUrl = asset['browser_download_url'];
 
         if (!overwriteRelease) {
@@ -116,7 +110,11 @@ class GithubParser extends AssetParser {
           await checkUrl(assetUrl, resolvedVersion!, publishedAt: publishedAt);
         }
 
-        assetSpinner.text = 'Fetching asset $assetUrl...';
+        final assetSpinner = CliSpin(
+          text: 'Fetching asset $assetUrl...',
+          spinner: CliSpinners.dots,
+          isSilent: isDaemonMode,
+        ).start();
 
         final fileHash =
             await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
