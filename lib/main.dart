@@ -27,11 +27,38 @@ final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
 late final StorageNotifier storage;
 late final ProviderContainer container;
 
+late final bool autoUpdate;
+
 void main(List<String> args) async {
   container = ProviderContainer(overrides: [
     storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
   ]);
   var wasError = false;
+
+  final runner = CommandRunner("zapstore",
+      "$figure\nThe permissionless app store powered by your social network")
+    ..addCommand(InstallCommand())
+    ..addCommand(DiscoverCommand())
+    ..addCommand(ZapCommand())
+    ..addCommand(ListCommand())
+    ..addCommand(RemoveCommand())
+    ..addCommand(PublishCommand());
+  runner.argParser.addFlag('version', abbr: 'v', negatable: false);
+
+  final isDevBuild = Platform.script.path.endsWith('.dart');
+  runner.argParser.addFlag('auto-update',
+      help: 'Auto-updates the currently installed zapstore',
+      defaultsTo: !isDevBuild);
+
+  final argResults = runner.argParser.parse(args);
+
+  autoUpdate = argResults.flag('auto-update');
+
+  if (argResults.flag('version')) {
+    print('zapstore-cli $kVersion');
+    return;
+  }
+
   try {
     storage = container.read(storageNotifierProvider.notifier);
 
@@ -47,22 +74,6 @@ void main(List<String> args) async {
       defaultRelayGroup: 'zapstore',
     ));
 
-    final runner = CommandRunner("zapstore",
-        "$figure\nThe permissionless app store powered by your social network")
-      ..addCommand(InstallCommand())
-      ..addCommand(DiscoverCommand())
-      ..addCommand(ZapCommand())
-      ..addCommand(ListCommand())
-      ..addCommand(RemoveCommand())
-      ..addCommand(PublishCommand());
-    runner.argParser.addFlag('version', abbr: 'v', negatable: false);
-    final argResults = runner.argParser.parse(args);
-
-    final version = argResults['version'];
-    if (version) {
-      print('zapstore-cli $kVersion');
-      return;
-    }
     await runner.run(args);
   } on GracefullyAbortSignal {
     // silently exit with no error

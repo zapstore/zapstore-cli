@@ -144,8 +144,9 @@ After that, open a new shell and re-run this program.
 
     // If zapstore not in db, auto-install/update
     final kZapstoreId = 'zapstore';
-    if (db[kZapstoreId] == null ||
-        canUpgrade(db[kZapstoreId]!.version, kVersion)) {
+    final isUpgradable = db[kZapstoreId] == null ||
+        canUpgrade(db[kZapstoreId]!.version, kVersion);
+    if (autoUpdate && isUpgradable) {
       final zapstorePackage = Package(
           identifier: kZapstoreId,
           pubkey: kZapstorePubkey,
