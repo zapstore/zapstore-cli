@@ -109,23 +109,25 @@ class Publisher {
   }
 
   Future<void> _handleEventsToStdout() async {
-    if (signer is NpubFakeSigner) {
-      final partialBlossomAuthorizations =
-          partialModels.whereType<PartialBlossomAuthorization>();
-      final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
+    if (signer is! NpubFakeSigner) {
+      return;
+    }
+    await signer.initialize();
+    final partialBlossomAuthorizations =
+        partialModels.whereType<PartialBlossomAuthorization>();
+    final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must:
   - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
-${partialBlossomAuthorizations.isEmpty ? '' : ' - The following Blossom actions will be performed to honor assets in `url` tags'}
+${partialBlossomAuthorizations.isEmpty ? '' : ' - Perform the following Blossom actions to honor `url` tags'}
 ${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a to servers: ${parser.blossomClient.servers.join(', ')}').join('\n')}
 
-The `--honor` argument can be used to hide this prompt.
+The `--honor` argument can be used to hide this notice.
 
 Okay?''', defaultValue: false).interact();
 
-      if (!proceed) {
-        throw GracefullyAbortSignal();
-      }
+    if (!proceed) {
+      throw GracefullyAbortSignal();
     }
 
     linkAppAndRelease(
