@@ -33,6 +33,15 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.1+1"
+  apk_parser:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: "54e5476"
+      resolved-ref: "54e5476829e46768eb90973d0965ba780b901511"
+      url: "https://github.com/zapstore/apk_parser"
+    source: git
+    version: "0.1.0"
   archive:
     dependency: "direct main"
     description:
@@ -306,6 +315,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  image:
+    dependency: transitive
+    description:
+      name: image
+      sha256: "4e973fcf4caae1a4be2fa0a13157aa38a8f9cb049db6529aa00b4d71abc4d928"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.5.4"
   interact_cli:
     dependency: "direct main"
     description:
@@ -801,6 +818,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.13.0"
+  xml:
+    dependency: transitive
+    description:
+      name: xml
+      sha256: b015a8ad1c488f66851d762d3090a21c600e479dc75e68328c52774040cf9226
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.5.0"
   yaml:
     dependency: "direct main"
     description:

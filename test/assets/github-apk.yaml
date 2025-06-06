@@ -1,5 +1,6 @@
-repository: https://github.com/protonmail/android-mail
+repository: https://github.com/acinq/phoenix
 assets:
-  - ProtonMail-.*.apk
+  - .*.apk
 blossom_servers:
-  - https://blossom.band
+  # - https://24242.io
+  # - https://blossom.band

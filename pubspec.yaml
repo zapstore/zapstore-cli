@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   archive: ^4.0.7
+  apk_parser: ^0.1.0
   args: ^2.5.0
   cli_spin: ^1.0.1
   collection: ^1.18.0
@@ -37,6 +38,10 @@ dependencies:
   qr_terminal: ^1.1.1
 
 dependency_overrides:
+  apk_parser:
+    git:
+      url: https://github.com/zapstore/apk_parser
+      ref: "54e5476"
   # patched dart_console to use stderr
   dart_console:
     git:

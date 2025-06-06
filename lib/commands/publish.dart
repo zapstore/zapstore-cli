@@ -31,6 +31,7 @@ class Publisher {
 
     _handleEventsToStdout();
 
+    // TODO: Remove Blossom auths for assets that already exist remotely
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
       signedModels =

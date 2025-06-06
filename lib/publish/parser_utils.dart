@@ -1,14 +1,11 @@
 import 'dart:io';
 
-import 'package:archive/archive.dart';
+import 'package:apk_parser/apktool_dart.dart';
 import 'package:models/models.dart';
 import 'package:path/path.dart' as path;
 import 'package:process_run/process_run.dart';
-import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/parser/axml_parser.dart';
 import 'package:zapstore_cli/utils/mime_type_utils.dart';
-import 'package:zapstore_cli/parser/signature_parser.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
@@ -23,24 +20,19 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       await detectMimeTypes(assetPath, executablePatterns: executablePatterns);
 
   if (mimeType == kAndroidMimeType) {
-    final assetBytes = await File(assetPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(assetBytes);
+    final parser = ApkParser();
+    final analysis =
+        await parser.analyzeApk(assetPath, requiredArchitecture: 'arm64-v8a');
 
-    final architectures = archive.files
-        .where((a) => a.name.startsWith('lib/'))
-        .map((a) => a.name.split('/')[1])
-        .toSet();
-
-    if (architectures.isEmpty) {
-      // Set default
-      architectures.add('arm64-v8a');
+    if (analysis == null) {
+      throw UnsupportedError('This APK does not support arm64-v8a, discard');
     }
 
-    metadata.platforms = architectures.map((a) => 'android-$a').toSet();
+    metadata.platforms =
+        analysis.architectures.map((a) => 'android-$a').toSet();
 
     try {
-      final sigHashes = await getSignatureHashes(assetPath);
-      metadata.apkSignatureHash = sigHashes.first;
+      metadata.apkSignatureHash = analysis.certificateHashes.first;
     } catch (e) {
       // Try with apksigner (if in path)
       final sigHash = await getSignatureHashFromApkSigner(assetPath);
@@ -50,27 +42,15 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
-    final binaryManifestFile =
-        archive.firstWhere((a) => a.name == 'AndroidManifest.xml');
-    final rawAndroidManifest = AxmlParser.toXml(binaryManifestFile.content);
-    final manifestDocument = parseHtmlDocument(rawAndroidManifest);
-
-    metadata.identifier =
-        manifestDocument.querySelector('manifest')!.attributes['package']!;
-
-    final manifest = manifestDocument.querySelector('manifest')!;
-    metadata.version = manifest.attributes['android:versionName'];
-
-    metadata.versionCode =
-        int.tryParse(manifest.attributes['android:versionCode'] ?? '');
-
-    final usesSdk = manifest.querySelector('uses-sdk')!;
-    metadata.minSdkVersion = usesSdk.attributes['android:minSdkVersion'];
-    metadata.targetSdkVersion = usesSdk.attributes['android:targetSdkVersion'];
-
+    metadata.identifier = analysis.package;
+    metadata.version = analysis.versionName;
+    metadata.versionCode = int.tryParse(analysis.versionCode);
+    metadata.minOSVersion = analysis.minSdkVersion;
+    metadata.targetOSVersion = analysis.targetSdkVersion;
     metadata.mimeType = kAndroidMimeType;
 
     // For backwards-compatibility
+    // TODO: Necessary? Or better handled in models
     metadata.event.content = '${metadata.identifier}@${metadata.version}';
   } else {
     // CLI
