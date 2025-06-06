@@ -37,6 +37,8 @@ class AssetParser {
   late final BlossomClient blossomClient;
   Set<String>? remoteMetadata;
 
+  bool get parsingLocalAssets => runtimeType == AssetParser;
+
   AssetParser(this.appMap) {
     partialApp.identifier =
         appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
@@ -200,9 +202,6 @@ class AssetParser {
 
       if (blossomClient.servers.isNotEmpty) {
         for (final server in blossomClient.servers) {
-          print('))');
-          print(hashPathMap[assetHash]);
-
           partialFileMetadata.event
               .addTagValue('url', server.replace(path: assetHash).toString());
         }
@@ -283,7 +282,6 @@ class AssetParser {
         final hash = sha256.convert(bytes).toString().toLowerCase();
         await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
         partialApp.addIcon(hash);
-        print('saved icon file $hash');
       }
     }
 
@@ -297,7 +295,7 @@ class AssetParser {
 
     // Set release notes
     final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
-    if (await changelogFile.exists()) {
+    if (await changelogFile.exists() && parsingLocalAssets) {
       final md = await changelogFile.readAsString();
 
       // If changelog file was provided, it takes precedence
@@ -313,8 +311,6 @@ class AssetParser {
 
     // Always use the release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
-
-    print('afm: ${partialApp.toMap()}');
   }
 
   /// Applies metadata from remote sources: Github, Play Store, etc

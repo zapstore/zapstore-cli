@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
@@ -27,8 +28,25 @@ class Publisher {
     // (2) Parse metadata and assets into partial models
     partialModels = await parser.run();
 
-    final partialApp = partialModels.whereType<PartialApp>().first;
-    await HtmlPreview.generate(partialApp);
+    final preview = Confirm(
+      prompt: 'Would you like to preview the release in a browser?',
+      defaultValue: true,
+    ).interact();
+
+    if (preview) {
+      final serverIsolate = await HtmlPreview.startServer(partialModels);
+
+      final ok = Confirm(
+        prompt: 'Is the HTML preview correct?',
+        defaultValue: true,
+      ).interact();
+
+      serverIsolate.kill(priority: Isolate.immediate);
+
+      if (!ok) {
+        throw GracefullyAbortSignal();
+      }
+    }
 
     // (3) Sign events
     signer = getSignerFromString(env['SIGN_WITH']!);

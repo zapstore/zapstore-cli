@@ -21,7 +21,6 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
 
   if (mimeType == kAndroidMimeType) {
     final parser = ApkParser();
-    print('analyzing $assetPath');
     final analysis =
         await parser.analyzeApk(assetPath, requiredArchitecture: 'arm64-v8a');
 

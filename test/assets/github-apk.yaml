@@ -1,6 +1,8 @@
 repository: https://github.com/acinq/phoenix
 assets:
   - .*.apk
-blossom_servers:
+remote_metadata:
+  - playstore
+# blossom_servers:
   # - https://24242.io
   # - https://blossom.band
