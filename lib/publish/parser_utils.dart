@@ -21,11 +21,12 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
 
   if (mimeType == kAndroidMimeType) {
     final parser = ApkParser();
+    print('analyzing $assetPath');
     final analysis =
         await parser.analyzeApk(assetPath, requiredArchitecture: 'arm64-v8a');
 
     if (analysis == null) {
-      throw UnsupportedError('This APK does not support arm64-v8a, discard');
+      return null;
     }
 
     metadata.platforms =
@@ -42,19 +43,18 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
-    metadata.identifier = analysis.package;
+    metadata.appIdentifier = analysis.package;
     metadata.version = analysis.versionName;
     metadata.versionCode = int.tryParse(analysis.versionCode);
     metadata.minOSVersion = analysis.minSdkVersion;
     metadata.targetOSVersion = analysis.targetSdkVersion;
     metadata.mimeType = kAndroidMimeType;
-
-    // For backwards-compatibility
-    // TODO: Necessary? Or better handled in models
-    metadata.event.content = '${metadata.identifier}@${metadata.version}';
+    // Add app-level data to transient
+    metadata.transientData['iconBase64'] = analysis.iconBase64;
+    metadata.transientData['appName'] = analysis.appName;
   } else {
     // CLI
-    metadata.identifier = resolvedIdentifier;
+    metadata.appIdentifier = resolvedIdentifier;
     metadata.version = resolvedVersion;
 
     metadata.platforms = {

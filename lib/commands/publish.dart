@@ -10,6 +10,7 @@ import 'package:zapstore_cli/publish/events.dart';
 import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/utils/html_preview.dart';
 import 'package:zapstore_cli/publish/web_parser.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
@@ -26,12 +27,14 @@ class Publisher {
     // (2) Parse metadata and assets into partial models
     partialModels = await parser.run();
 
+    final partialApp = partialModels.whereType<PartialApp>().first;
+    await HtmlPreview.generate(partialApp);
+
     // (3) Sign events
     signer = getSignerFromString(env['SIGN_WITH']!);
 
     _handleEventsToStdout();
 
-    // TODO: Remove Blossom auths for assets that already exist remotely
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
       signedModels =

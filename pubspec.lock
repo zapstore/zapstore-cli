@@ -36,11 +36,9 @@ packages:
   apk_parser:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "54e5476"
-      resolved-ref: "54e5476829e46768eb90973d0965ba780b901511"
-      url: "https://github.com/zapstore/apk_parser"
-    source: git
+      path: "../apk_parser"
+      relative: true
+    source: path
     version: "0.1.0"
   archive:
     dependency: "direct main"

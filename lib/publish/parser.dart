@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
@@ -39,9 +43,7 @@ class AssetParser {
     partialApp.name = appMap['name'];
     blossomClient = BlossomClient(
       servers: {
-        ...?appMap['blossom_servers'] ??
-            // If it's the local asset parser, default to Zapstore Blossom server
-            (runtimeType == AssetParser ? {kZapstoreBlossomUrl} : {})
+        ...?appMap['blossom_servers'] ?? {kZapstoreBlossomUrl}
       },
     );
     remoteMetadata = appMap.containsKey('remote_metadata')
@@ -58,6 +60,30 @@ class AssetParser {
     await applyFileMetadata();
     // Applies metadata from configurable remote APIs
     await applyRemoteMetadata();
+
+    // Generate Blossom authorizations (icons, images hold hashes until here)
+    for (final hash in [...partialApp.icons, ...partialApp.images]) {
+      final needsUpload = await blossomClient.needsUpload(hash);
+      if (needsUpload) {
+        final auth = PartialBlossomAuthorization()
+          ..content = 'Upload asset ${hashPathMap[hash]}'
+          ..type = BlossomAuthorizationType.upload
+          ..expiration = DateTime.now().add(Duration(hours: 1))
+          ..hash = hash;
+        partialBlossomAuthorizations.add(auth);
+      }
+    }
+
+    // Adjust icon + image URLs with Blossom servers
+    partialApp.icons = partialApp.icons
+        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
+        .expand((e) => e)
+        .toSet();
+
+    partialApp.images = partialApp.images
+        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
+        .expand((e) => e)
+        .toSet();
 
     if (!overwriteRelease) {
       await checkVersionOnRelays(
@@ -141,6 +167,9 @@ class AssetParser {
         }
       }
     }
+    if (assetHashes.isEmpty) {
+      throw UsageException('No matching assets: ${appMap['assets']}', '');
+    }
     return assetHashes;
   }
 
@@ -171,18 +200,29 @@ class AssetParser {
 
       if (blossomClient.servers.isNotEmpty) {
         for (final server in blossomClient.servers) {
+          print('))');
+          print(hashPathMap[assetHash]);
+
           partialFileMetadata.event
               .addTagValue('url', server.replace(path: assetHash).toString());
         }
 
-        final partialBlossomAuthorization = PartialBlossomAuthorization()
-          // content should be the name of the original file
-          ..content = 'Upload ${hashPathMap[assetHash]}'
-          ..type = BlossomAuthorizationType.upload
-          ..mimeType = partialFileMetadata.mimeType!
-          ..expiration = DateTime.now().add(Duration(days: 1))
-          ..hash = assetHash;
-        partialBlossomAuthorizations.add(partialBlossomAuthorization);
+        final needsUpload = await blossomClient.needsUpload(assetHash);
+        final isNotLocal = Uri.tryParse(hashPathMap[assetHash] ?? '')
+                ?.host
+                .startsWith('http') ??
+            false;
+
+        if (needsUpload && isNotLocal) {
+          final partialBlossomAuthorization = PartialBlossomAuthorization()
+            // content should be the name of the original file
+            ..content = 'Upload ${hashPathMap[assetHash]}'
+            ..type = BlossomAuthorizationType.upload
+            ..mimeType = partialFileMetadata.mimeType!
+            ..expiration = DateTime.now().add(Duration(days: 1))
+            ..hash = assetHash;
+          partialBlossomAuthorizations.add(partialBlossomAuthorization);
+        }
       }
 
       partialFileMetadatas.add(partialFileMetadata);
@@ -192,7 +232,7 @@ class AssetParser {
     // are the file metadatas, so ensure they are all
     // equal and then assign to main app and release identifiers
     final allIdentifiers =
-        partialFileMetadatas.map((m) => m.identifier).nonNulls.toSet();
+        partialFileMetadatas.map((m) => m.appIdentifier).nonNulls.toSet();
     if (allIdentifiers.isEmpty) {
       throw 'Missing identifier. Did you add it to your config?';
     }
@@ -214,8 +254,9 @@ class AssetParser {
     }
     partialApp.identifier = allIdentifiers.first;
 
-    // If no name so far, set it to the identifier
-    partialApp.name ??= partialApp.identifier;
+    // If no name so far, set it to APK or otherwise the identifier
+    final nameInApk = partialFileMetadatas.first.transientData['appName'];
+    partialApp.name ??= nameInApk ?? partialApp.identifier;
     partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
 
     partialApp.url ??= appMap['homepage'];
@@ -232,7 +273,20 @@ class AssetParser {
 
     if (appMap['icon'] != null) {
       partialApp.addIcon(await copyToHash(appMap['icon']));
+    } else {
+      // Get extracted icon data from the first metadata (APK)
+      final iconBase64 =
+          partialFileMetadatas.first.transientData['iconBase64']?.toString();
+
+      if (iconBase64 != null) {
+        final bytes = base64Decode(iconBase64);
+        final hash = sha256.convert(bytes).toString().toLowerCase();
+        await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
+        partialApp.addIcon(hash);
+        print('saved icon file $hash');
+      }
     }
+
     for (final image in appMap['images'] ?? []) {
       partialApp.addImage(await copyToHash(image));
     }
@@ -259,6 +313,8 @@ class AssetParser {
 
     // Always use the release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
+
+    print('afm: ${partialApp.toMap()}');
   }
 
   /// Applies metadata from remote sources: Github, Play Store, etc
@@ -289,25 +345,5 @@ class AssetParser {
             '[${fetcher.name}] No remote metadata for ${partialApp.identifier} found');
       }
     }
-
-    // Generate Blossom authorizations (icons, images hold hashes until here)
-    for (final hash in [...partialApp.icons, ...partialApp.images]) {
-      final auth = PartialBlossomAuthorization()
-        ..content = 'Upload asset ${hashPathMap[hash]}'
-        ..type = BlossomAuthorizationType.upload
-        ..expiration = DateTime.now().add(Duration(hours: 1))
-        ..hash = hash;
-      partialBlossomAuthorizations.add(auth);
-    }
-
-    // Adjust icon + image URLs with Blossom servers
-    partialApp.icons = partialApp.icons
-        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
-        .expand((e) => e)
-        .toSet();
-    partialApp.images = partialApp.images
-        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
-        .expand((e) => e)
-        .toSet();
   }
 }

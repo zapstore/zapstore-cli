@@ -20,6 +20,17 @@ class BlossomClient {
     }
   }
 
+  Future<bool> needsUpload(String assetHash) async {
+    for (final server in servers) {
+      final assetUploadUrl = '$server/$assetHash';
+      final headResponse = await http.head(Uri.parse(assetUploadUrl));
+      if (headResponse.statusCode != 200) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<Map<String, String>> upload(
       List<BlossomAuthorization> authorizations) async {
     final hashUrlMap = <String, String>{};

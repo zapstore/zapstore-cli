@@ -39,9 +39,10 @@ dependencies:
 
 dependency_overrides:
   apk_parser:
-    git:
-      url: https://github.com/zapstore/apk_parser
-      ref: "54e5476"
+    path: ../apk_parser
+    # git:
+    #   url: https://github.com/zapstore/apk_parser
+    #   ref: "54e5476"
   # patched dart_console to use stderr
   dart_console:
     git:
