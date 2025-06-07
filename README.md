@@ -278,3 +278,7 @@ Usage: zapstore publish [arguments]
 ```
 
 If the release exists on relays, the program will show a warning and exit unless `--overwrite-release` was passed.
+
+## Managing relays and Blossom servers
+
+Define them as comma-separated values in `RELAYS` and `BLOSSOM_SERVERS` environmental variables (also supported in `.env` file).

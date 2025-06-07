@@ -44,9 +44,7 @@ class AssetParser {
         appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
     partialApp.name = appMap['name'];
     blossomClient = BlossomClient(
-      servers: {
-        ...?appMap['blossom_servers'] ?? {kZapstoreBlossomUrl}
-      },
+      servers: {...?appMap['blossom_servers'] ?? defaultBlossomServers},
     );
     remoteMetadata = appMap.containsKey('remote_metadata')
         ? {...appMap['remote_metadata']}
