@@ -60,9 +60,8 @@ class HtmlPreview {
         .header {
             display: flex;
             align-items: center;
-            margin-bottom: 24px;
-            padding-bottom: 24px;
-            border-bottom: 1px solid var(--border-color);
+            margin: 24px 0;
+            padding: 24px 0;
         }
         .header img {
             width: 96px;
@@ -78,7 +77,7 @@ class HtmlPreview {
             color: var(--on-surface-color);
         }
         .section {
-          margin-bottom: 24px;
+          margin: 24px 0;
         }
         .section h2 {
             font-size: 1.6em;
@@ -153,14 +152,17 @@ class HtmlPreview {
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            ${icon.isNotEmpty ? '<img src="data:image/png;base64,$icon" alt="App Icon">' : ''}
-            <h1>${app.name ?? ''}</h1>
-        </div>
-        
+        <h1>Zapstore Publish Preview Page</h1>
+        <h3>Confirm the preview below is correct and proceed to signing in the command line</h3>
+                
         <div class="section">
             <h2>App</h2>
+            <div class="header">
+                ${icon.isNotEmpty ? '<img src="data:image/png;base64,$icon" alt="App Icon">' : ''}
+                <h1>${app.name ?? ''}</h1>
+            </div>
             <div class="info-grid">
+              ${_buildInfoItem('Identifier', app.identifier, code: true)}
               ${_buildInfoItem('Summary', app.summary)}
               ${_buildInfoLink('Repository', app.repository)}
               ${_buildInfoLink('Website', app.url)}
@@ -168,7 +170,7 @@ class HtmlPreview {
               ${_buildInfoItem('Platforms', app.platforms.join(', '))}
             </div>
              <div class="markdown" style="margin-top: 16px;">
-                <strong>Description</strong>
+                <strong>${app.description != null ? 'Description' : ''}</strong>
                 ${renderMarkdown(app.description)}
             </div>
             ${images.isNotEmpty ? '''
@@ -190,14 +192,13 @@ class HtmlPreview {
   String _buildReleaseSection(PartialRelease release) {
     return '''
     <div class="section">
-      <h2>Release ${release.version ?? ''}</h2>
+      <h2>Release</h2>
       <div class="info-grid">
-        ${_buildInfoItem('Identifier', release.identifier, code: true)}
-        ${_buildInfoItem('App Identifier', release.appIdentifier, code: true)}
+        ${_buildInfoLink('Version', release.version)}
         ${_buildInfoLink('URL', release.url)}
       </div>
       <div class="info-item markdown" style="margin-top: 16px;">
-        <strong>Release Notes</strong>
+        <strong>${release.releaseNotes != null ? 'Release Notes' : ''}</strong>
          ${renderMarkdown(release.releaseNotes)}
       </div>
     </div>''';
@@ -221,9 +222,11 @@ class HtmlPreview {
       ${_buildInfoItem('Hash (SHA256)', file.hash, code: true)}
       ${_buildInfoItem('Size', file.size?.toString(), code: true)}
       ${_buildInfoItem('MIME Type', file.mimeType, code: true)}
-      ${_buildInfoItem('Min OS Version', file.minOSVersion, code: true)}
+      ${_buildInfoItem('Min OS/SDK Version', file.minSdkVersion, code: true)}
+      ${_buildInfoItem('Target OS/SDK Version', file.targetSdkVersion, code: true)}
+      ${_buildInfoItem('APK Signature hash', file.apkSignatureHash, code: true)}
        <div class="info-item">
-        <strong>URLs</strong>
+        <strong>URLs (some assets not yet uploaded)</strong>
         ${file.urls.map((u) => '<a href="$u" target="_blank">$u</a>').join('<br>')}
       </div>
     </div>
@@ -266,7 +269,6 @@ class HtmlPreview {
       if (message is String) {
         if (message.startsWith('http')) {
           print('✅ Preview server running at $message');
-          _openBrowser(message);
           if (!completer.isCompleted && isolate != null) {
             completer.complete(isolate);
           }
@@ -304,6 +306,7 @@ class HtmlPreview {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final url = 'http://${server.address.host}:${server.port}';
       mainSendPort.send(url);
+      _openBrowser(url);
 
       server.listen((HttpRequest request) async {
         if (request.uri.path == '/') {
