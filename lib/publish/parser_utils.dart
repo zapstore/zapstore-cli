@@ -45,12 +45,16 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
     metadata.appIdentifier = analysis.package;
     metadata.version = analysis.versionName;
     metadata.versionCode = int.tryParse(analysis.versionCode);
-    metadata.minOSVersion = analysis.minSdkVersion;
-    metadata.targetOSVersion = analysis.targetSdkVersion;
+    metadata.minSdkVersion = analysis.minSdkVersion;
+    metadata.targetSdkVersion = analysis.targetSdkVersion;
     metadata.mimeType = kAndroidMimeType;
+
     // Add app-level data to transient
     metadata.transientData['iconBase64'] = analysis.iconBase64;
     metadata.transientData['appName'] = analysis.appName;
+    metadata.transientData['filename'] = hashPathMap.containsKey(assetHash)
+        ? path.basename(hashPathMap[assetHash]!)
+        : null;
   } else {
     // CLI
     metadata.appIdentifier = resolvedIdentifier;

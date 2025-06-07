@@ -90,19 +90,32 @@ class GithubParser extends AssetParser {
   @override
   Future<Set<String>> resolveHashes() async {
     final assetHashes = <String>{};
+    var filteredAssets = [...releaseJson!['assets']];
+    // If developer uses arm64-v8a in the name then assume they
+    // publish split ABIs and discard non-arm64-v8a ones
+    // This is done to minimize the amount of universal builds
+    // we don't want (as in the UI they will show up as variants,
+    // but also to prevent downloading useless APKs).
+    // Otherwise process all and discard non-arm64-v8a as usual
+    if (filteredAssets
+        .any((a) => (a['label'] ?? a['name']).contains('arm64-v8a'))) {
+      filteredAssets = filteredAssets
+          .where((a) => (a['label'] ?? a['name']).contains('arm64-v8a'))
+          .toList();
+    }
+
     for (final r in assetRegexps) {
-      final assets = (releaseJson!['assets'] as Iterable).where((a) {
-        return r.hasMatch(a['name']) ||
-            (a['label'] != null && r.hasMatch(a['label']));
+      final matchedAssets = filteredAssets.where((a) {
+        return r.hasMatch((a['label'] ?? a['name']));
       });
 
-      if (assets.isEmpty) {
+      if (matchedAssets.isEmpty) {
         final message = 'No asset matching $r';
         stderr.writeln(message);
         throw GracefullyAbortSignal();
       }
 
-      for (final asset in assets) {
+      for (final asset in matchedAssets) {
         final assetUrl = asset['browser_download_url'];
 
         if (!overwriteRelease) {
