@@ -22,6 +22,7 @@ Future<List<Model<dynamic>>> signModels({
       .map((e) =>
           'kind ${e.key}: ${e.value.length} event${e.value.length > 1 ? 's' : ''}')
       .join(', ');
+
   final spinner = CliSpin(
     text: 'Signing with ${signer.runtimeType}: $kindsAmount...',
     spinner: CliSpinners.dots,
@@ -33,6 +34,8 @@ Future<List<Model<dynamic>>> signModels({
     final partialRelease = partialModels.whereType<PartialRelease>().first;
     final partialFileMetadatas =
         partialModels.whereType<PartialFileMetadata>().toSet();
+    final partialSoftwareAssets =
+        partialModels.whereType<PartialSoftwareAsset>().toSet();
     final partialBlossomAuthorizations =
         partialModels.whereType<PartialBlossomAuthorization>().toSet();
 
@@ -40,19 +43,27 @@ Future<List<Model<dynamic>>> signModels({
       throw "No file metadatas produced";
     }
 
-    for (final fm in partialFileMetadatas) {
-      final eid = Utils.getEventId(fm.event, signer.pubkey);
-      partialRelease.event.addTagValue('e', eid);
+    if (isNewFormat) {
+      for (final a in partialSoftwareAssets) {
+        final eid = Utils.getEventId(a.event, signer.pubkey);
+        partialRelease.event.addTagValue('e', eid);
+      }
+    } else {
+      for (final fm in partialFileMetadatas) {
+        final eid = Utils.getEventId(fm.event, signer.pubkey);
+        partialRelease.event.addTagValue('e', eid);
+      }
+      linkAppAndRelease(
+          partialApp: partialApp,
+          partialRelease: partialRelease,
+          signingPubkey: signer.pubkey);
     }
-    linkAppAndRelease(
-        partialApp: partialApp,
-        partialRelease: partialRelease,
-        signingPubkey: signer.pubkey);
 
     final signedModels = await signer.sign([
       partialApp,
       partialRelease,
       ...partialFileMetadatas,
+      ...partialSoftwareAssets,
       ...partialBlossomAuthorizations,
     ]);
 

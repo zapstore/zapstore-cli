@@ -225,6 +225,9 @@ class AssetParser {
       partialFileMetadatas.add(partialFileMetadata);
     }
 
+    // TODO: At this stage also inspect for universal builds,
+    // only keep them if there's no arm64-v8a split ABI (use heuristic)
+
     // The source of truth now for identifier/version
     // are the file metadatas, so ensure they are all
     // equal and then assign to main app and release identifiers

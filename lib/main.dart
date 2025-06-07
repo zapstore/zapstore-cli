@@ -188,6 +188,8 @@ late bool overwriteRelease;
 late final bool isDaemonMode;
 late final bool honor;
 
+bool get isNewFormat => env['NEW_FORMAT'] != null;
+
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',

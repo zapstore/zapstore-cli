@@ -53,6 +53,15 @@ class Publisher {
 
     _handleEventsToStdout();
 
+    if (isNewFormat) {
+      final assets = partialModels.whereType<PartialFileMetadata>().map((m) {
+        final a = PartialSoftwareAsset()..appIdentifier = m.appIdentifier;
+        // filename = m.transientData['filename']
+        return a;
+      });
+      partialModels.addAll(assets);
+    }
+
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
       signedModels =
