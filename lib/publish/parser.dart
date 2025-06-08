@@ -10,7 +10,6 @@ import 'package:meta/meta.dart';
 import 'package:models/models.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/publish/blossom.dart';
-import 'package:zapstore_cli/publish/fetchers/fastlane_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/fdroid_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/github_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/playstore_metadata_fetcher.dart';
@@ -37,7 +36,7 @@ class AssetParser {
   late final BlossomClient blossomClient;
   Set<String>? remoteMetadata;
 
-  bool get parsingLocalAssets => runtimeType == AssetParser;
+  bool get isParsingLocalAssets => runtimeType == AssetParser;
 
   AssetParser(this.appMap) {
     partialApp.identifier =
@@ -271,9 +270,8 @@ class AssetParser {
     }
     partialApp.identifier = allIdentifiers.first;
 
-    // If no name so far, set it to APK or otherwise the identifier
     final nameInApk = partialFileMetadatas.first.transientData['appName'];
-    partialApp.name ??= nameInApk ?? partialApp.identifier;
+    partialApp.name ??= nameInApk;
     partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
 
     partialApp.url ??= appMap['homepage'];
@@ -314,7 +312,7 @@ class AssetParser {
 
     // Set release notes
     final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
-    if (await changelogFile.exists() && parsingLocalAssets) {
+    if (await changelogFile.exists() && isParsingLocalAssets) {
       final md = await changelogFile.readAsString();
 
       // If changelog file was provided, it takes precedence
@@ -339,7 +337,6 @@ class AssetParser {
       final fetcher = switch (source) {
         'playstore' => PlayStoreMetadataFetcher(),
         'fdroid' => FDroidMetadataFetcher(),
-        'fastlane' => FastlaneMetadataFetcher(),
         'github' => GithubMetadataFetcher(),
         _ => null,
       };
@@ -357,7 +354,7 @@ class AssetParser {
             '[${fetcher.name}] Fetched remote metadata for ${partialApp.identifier}');
       } catch (e) {
         extraMetadataSpinner.fail(
-            '[${fetcher.name}] No remote metadata for ${partialApp.identifier} found');
+            '[${fetcher.name}] No remote metadata for ${partialApp.identifier} found: $e');
       }
     }
   }

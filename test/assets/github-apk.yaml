@@ -1,6 +1,5 @@
-repository: https://github.com/greenart7c3/amber
+repository: https://github.com/aghontpi/ad-silence
 assets:
   - .*.apk
-# blossom_servers:
-  # - https://24242.io
-  # - https://blossom.band
+remote_metadata:
+  - fdroid

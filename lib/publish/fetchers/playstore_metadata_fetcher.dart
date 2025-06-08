@@ -22,9 +22,9 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
 
     final document = parseHtmlDocument(response.body);
 
-    app.name = document.querySelector('[itemprop="name"]')!.innerText.trim();
+    app.name ??= document.querySelector('[itemprop="name"]')!.innerText.trim();
 
-    if (app.description != null) {
+    if (app.description == null) {
       final appDescription = document
           .querySelector('[data-g-id="description"]')!
           .innerHtml!
