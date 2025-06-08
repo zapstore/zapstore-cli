@@ -225,8 +225,25 @@ class AssetParser {
       partialFileMetadatas.add(partialFileMetadata);
     }
 
-    // TODO: At this stage also inspect for universal builds,
-    // only keep them if there's no arm64-v8a split ABI (use heuristic)
+    // On Android, Zapstore only supports arm64-v8a.
+    // If there are multiple assets, check if we have an exclusive
+    // split ABI build for arm64-v8a. If so, remove others.
+    // This is done to minimize the amount of universal builds
+    // (more storage, bandwidth, and more options
+    // showing in the UI as variants, which confuse users)
+    final hasMetadataWithArm64v8aOnly = partialFileMetadatas
+        .any((m) => m.platforms.difference({'android-arm64-v8a'}).isEmpty);
+
+    partialFileMetadatas.removeWhere((m) {
+      final discard = m.mimeType == kAndroidMimeType &&
+          hasMetadataWithArm64v8aOnly &&
+          m.platforms.length > 1;
+      if (discard) {
+        stderr.writeln(
+            '⚠️ Discarding asset: ${hashPathMap[m.hash]} with multiple architectures');
+      }
+      return discard;
+    });
 
     // The source of truth now for identifier/version
     // are the file metadatas, so ensure they are all
@@ -282,6 +299,7 @@ class AssetParser {
         final bytes = base64Decode(iconBase64);
         final hash = sha256.convert(bytes).toString().toLowerCase();
         await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
+        hashPathMap[hash] = '(icon from APK)';
         partialApp.addIcon(hash);
       }
     }

@@ -90,23 +90,24 @@ class GithubParser extends AssetParser {
   @override
   Future<Set<String>> resolveHashes() async {
     final assetHashes = <String>{};
-    var filteredAssets = [...releaseJson!['assets']];
-    // If developer uses arm64-v8a in the name then assume they
-    // publish split ABIs and discard non-arm64-v8a ones
-    // This is done to minimize the amount of universal builds
-    // we don't want (as in the UI they will show up as variants,
-    // but also to prevent downloading useless APKs).
-    // Otherwise process all and discard non-arm64-v8a as usual
-    if (filteredAssets
-        .any((a) => (a['label'] ?? a['name']).contains('arm64-v8a'))) {
-      filteredAssets = filteredAssets
-          .where((a) => (a['label'] ?? a['name']).contains('arm64-v8a'))
-          .toList();
-    }
+    final assets = [...releaseJson!['assets']];
+
+    final someAssetHasArm64v8a =
+        assets.any((a) => (a['label'] ?? a['name']).contains('arm64-v8a'));
 
     for (final r in assetRegexps) {
-      final matchedAssets = filteredAssets.where((a) {
-        return r.hasMatch((a['label'] ?? a['name']));
+      final matchedAssets = assets.where((a) {
+        final name = (a['label'] ?? a['name']).toString();
+        if (a['content_type'] == kAndroidMimeType && someAssetHasArm64v8a) {
+          // On Android, Zapstore only supports arm64-v8a
+          // If the developer uses "arm64-v8a" in any filename then assume
+          // they publish split ABIs, so we discard non-arm64-v8a ones.
+          // This is done to minimize the amount of universal builds
+          // we don't want (as in the UI they would show up as variants,
+          // but also to prevent downloading useless APKs).
+          return name.contains('arm64-v8a') && r.hasMatch(name);
+        }
+        return r.hasMatch(name);
       });
 
       if (matchedAssets.isEmpty) {

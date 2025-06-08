@@ -1,8 +1,6 @@
-repository: https://github.com/acinq/phoenix
+repository: https://github.com/greenart7c3/amber
 assets:
   - .*.apk
-remote_metadata:
-  - playstore
 # blossom_servers:
   # - https://24242.io
   # - https://blossom.band

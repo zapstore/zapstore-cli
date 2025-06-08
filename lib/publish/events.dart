@@ -67,7 +67,8 @@ Future<List<Model<dynamic>>> signModels({
       ...partialBlossomAuthorizations,
     ]);
 
-    spinner.success('Signed ${signedModels.length} models');
+    spinner.success(
+        'Signed ${signedModels.length} models with ${signer.runtimeType}');
 
     return signedModels;
   } catch (e) {

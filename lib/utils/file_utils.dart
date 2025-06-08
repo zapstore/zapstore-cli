@@ -92,7 +92,6 @@ Future<String> copyToHash(String filePath) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final hash = await computeHash(filePath);
   await File(filePath).copy(getFilePathInTempDirectory(hash));
-  // final ext = path.extension(Uri.parse(filePath).path);
   hashPathMap[hash] = filePath;
   return hash;
 }
