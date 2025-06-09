@@ -55,15 +55,6 @@ class Publisher {
 
     _handleEventsToStdout();
 
-    if (isNewFormat) {
-      final assets = partialModels.whereType<PartialFileMetadata>().map((m) {
-        final a = PartialSoftwareAsset()..appIdentifier = m.appIdentifier;
-        // filename = m.transientData['filename']
-        return a;
-      });
-      partialModels.addAll(assets);
-    }
-
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
       signedModels =
@@ -73,6 +64,7 @@ class Publisher {
     final app = signedModels.whereType<App>().first;
     final release = signedModels.whereType<Release>().first;
     final fileMetadatas = signedModels.whereType<FileMetadata>().toSet();
+    final softwareAssets = signedModels.whereType<SoftwareAsset>().toSet();
     final authorizations =
         signedModels.whereType<BlossomAuthorization>().toList();
 
@@ -80,7 +72,7 @@ class Publisher {
     await parser.blossomClient.upload(authorizations);
 
     // (6) Publish
-    await _sendToRelays(app, release, fileMetadatas);
+    await _sendToRelays(app, release, fileMetadatas, softwareAssets);
   }
 
   Future<void> _validateAndFindParser() async {
@@ -148,6 +140,7 @@ class Publisher {
     await signer.initialize();
     final partialBlossomAuthorizations =
         partialModels.whereType<PartialBlossomAuthorization>();
+    // TODO: No need if isNewFormat?
     final proceed =
         isDaemonMode || honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
 
@@ -175,15 +168,18 @@ Okay?''', defaultValue: false).interact();
     throw GracefullyAbortSignal();
   }
 
-  Future<void> _sendToRelays(App signedApp, Release signedRelease,
-      Set<FileMetadata> signedFileMetadatas) async {
+  Future<void> _sendToRelays(
+      App signedApp,
+      Release signedRelease,
+      Set<FileMetadata> signedFileMetadatas,
+      Set<SoftwareAsset> signedSoftwareAssets) async {
     var publishEvents = true;
 
     if (!isDaemonMode) {
       final relayUrls = storage.config.getRelays();
 
       final viewEvents = Select(
-        prompt: 'Events signed! How do you want to proceed?',
+        prompt: 'Ready to publish! How do you want to proceed?',
         options: [
           'Inspect release and confirm before publishing to relays',
           'Publish release to ${relayUrls.join(', ')} now',
@@ -196,18 +192,31 @@ Okay?''', defaultValue: false).interact();
         stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
         stderr.writeln();
         printJsonEncodeColored(signedApp.toMap());
-
         stderr.writeln();
+
         stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
         stderr.writeln();
         printJsonEncodeColored(signedRelease.toMap());
         stderr.writeln();
-        stderr.writeln(
-            'File metadata events (kind 1063)'.bold().black().onWhite());
-        stderr.writeln();
-        for (final m in signedFileMetadatas) {
-          printJsonEncodeColored(m.toMap());
+
+        if (signedFileMetadatas.isNotEmpty) {
+          stderr.writeln(
+              'File metadata events (kind 1063)'.bold().black().onWhite());
           stderr.writeln();
+          for (final m in signedFileMetadatas) {
+            printJsonEncodeColored(m.toMap());
+            stderr.writeln();
+          }
+        }
+
+        if (signedSoftwareAssets.isNotEmpty) {
+          stderr.writeln(
+              'Software asset events (kind 3063)'.bold().black().onWhite());
+          stderr.writeln();
+          for (final m in signedSoftwareAssets) {
+            printJsonEncodeColored(m.toMap());
+            stderr.writeln();
+          }
         }
 
         publishEvents = Confirm(
@@ -224,7 +233,8 @@ Okay?''', defaultValue: false).interact();
       for (final Model model in [
         signedApp,
         signedRelease,
-        ...signedFileMetadatas
+        ...signedFileMetadatas,
+        ...signedSoftwareAssets,
       ]) {
         final kind = model.event.kind;
 

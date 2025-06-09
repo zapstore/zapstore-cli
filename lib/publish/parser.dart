@@ -27,8 +27,9 @@ class AssetParser {
   final Map appMap;
 
   final partialApp = PartialApp();
-  final partialRelease = PartialRelease();
+  final partialRelease = PartialRelease(newFormat: isNewFormat);
   final partialFileMetadatas = <PartialFileMetadata>{};
+  final partialSoftwareAssets = <PartialSoftwareAsset>{};
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
   late String? resolvedVersion;
@@ -86,14 +87,38 @@ class AssetParser {
 
     if (!overwriteRelease) {
       await checkVersionOnRelays(
-          partialApp.identifier!, partialRelease.version!,
-          versionCode: partialFileMetadatas.firstOrNull?.versionCode);
+        partialApp.identifier!,
+        partialRelease.version!,
+        versionCode: partialFileMetadatas.firstOrNull?.versionCode,
+      );
+    }
+
+    if (isNewFormat) {
+      for (final m in partialFileMetadatas) {
+        final a = PartialSoftwareAsset()
+          ..urls = m.urls
+          ..mimeType = m.mimeType
+          ..hash = m.hash
+          ..size = m.size
+          ..repository = m.repository
+          ..platforms = m.platforms
+          ..executables = m.executables
+          ..minOSVersion = m.minSdkVersion
+          ..targetOSVersion = m.targetSdkVersion
+          ..appIdentifier = m.appIdentifier
+          ..version = m.version
+          ..versionCode = m.versionCode
+          ..apkSignatureHash = m.apkSignatureHash
+          ..filename = m.transientData['filename'];
+        partialSoftwareAssets.add(a);
+      }
     }
 
     return [
       partialApp,
       partialRelease,
-      ...partialFileMetadatas,
+      if (isNewFormat) ...partialSoftwareAssets,
+      if (!isNewFormat) ...partialFileMetadatas,
       ...partialBlossomAuthorizations
     ];
   }
@@ -266,17 +291,17 @@ class AssetParser {
     if (allVersions.isEmpty) {
       throw 'Missing version. Did you add it to your config?';
     }
+
     final uniqueVersions =
         DeepCollectionEquality().equals(allVersions, {allVersions.first});
     if (!uniqueVersions) {
       throw 'Version should be unique: $allVersions';
     }
-    partialApp.identifier = allIdentifiers.first;
 
+    // App
+    partialApp.identifier = allIdentifiers.first;
     final nameInApk = partialFileMetadatas.first.transientData['appName'];
     partialApp.name ??= nameInApk;
-    partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
-
     partialApp.url ??= appMap['homepage'];
     if (partialApp.tags.isEmpty) {
       partialApp.tags =
@@ -313,7 +338,16 @@ class AssetParser {
     partialApp.platforms =
         partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
 
-    // Set release notes
+    // Always use the release timestamp
+    partialApp.event.createdAt = partialRelease.event.createdAt;
+
+    // Release
+    if (isNewFormat) {
+      partialRelease.appIdentifier = partialApp.identifier;
+      partialRelease.version = allVersions.first;
+    }
+    partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
+
     final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
     if (await changelogFile.exists() && isParsingLocalAssets) {
       final md = await changelogFile.readAsString();
@@ -328,9 +362,6 @@ class AssetParser {
       partialRelease.releaseNotes ??=
           extractChangelogSection(md, partialRelease.version!);
     }
-
-    // Always use the release timestamp
-    partialApp.event.createdAt = partialRelease.event.createdAt;
   }
 
   /// Applies metadata from remote sources: Github, Play Store, etc

@@ -42,11 +42,11 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
-    metadata.appIdentifier = analysis.package;
     metadata.version = analysis.versionName;
     metadata.versionCode = int.tryParse(analysis.versionCode);
     metadata.minSdkVersion = analysis.minSdkVersion;
     metadata.targetSdkVersion = analysis.targetSdkVersion;
+    metadata.appIdentifier = analysis.package;
     metadata.mimeType = kAndroidMimeType;
 
     // Add app-level data to transient

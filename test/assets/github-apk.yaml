@@ -1,5 +1,5 @@
-repository: https://github.com/aghontpi/ad-silence
+repository: https://github.com/FoedusProgramme/Gramophone
 assets:
   - .*.apk
-remote_metadata:
-  - fdroid
+# remote_metadata:
+#   - fdroid

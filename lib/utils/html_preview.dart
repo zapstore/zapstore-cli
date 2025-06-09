@@ -19,7 +19,10 @@ class HtmlPreview {
   Future<String> build() async {
     final app = models.whereType<PartialApp>().first;
     final release = models.whereType<PartialRelease>().firstOrNull;
-    final files = models.whereType<PartialFileMetadata>();
+    final files = [
+      ...models.whereType<PartialFileMetadata>(),
+      ...models.whereType<PartialSoftwareAsset>()
+    ];
 
     final icon =
         app.icons.isNotEmpty ? await _getBase64Image(app.icons.first) : '';
@@ -204,7 +207,7 @@ class HtmlPreview {
     </div>''';
   }
 
-  String _buildFilesSection(Iterable<PartialFileMetadata> files) {
+  String _buildFilesSection(Iterable files) {
     return '''
     <div class="section">
         <h2>Assets</h2>
@@ -215,15 +218,15 @@ class HtmlPreview {
     ''';
   }
 
-  String _buildFileInfo(PartialFileMetadata file) {
+  String _buildFileInfo(dynamic file) {
     return '''
     <div class="file-item">
       ${_buildInfoItem('Platforms', file.platforms.join(', '))}
       ${_buildInfoItem('Hash (SHA256)', file.hash, code: true)}
       ${_buildInfoItem('Size', file.size?.toString(), code: true)}
       ${_buildInfoItem('MIME Type', file.mimeType, code: true)}
-      ${_buildInfoItem('Min OS/SDK Version', file.minSdkVersion, code: true)}
-      ${_buildInfoItem('Target OS/SDK Version', file.targetSdkVersion, code: true)}
+      ${_buildInfoItem('Min OS/SDK Version', file is PartialFileMetadata ? file.minSdkVersion : file.minOSVersion, code: true)}
+      ${_buildInfoItem('Target OS/SDK Version', file is PartialFileMetadata ? file.targetSdkVersion : file.targetOSVersion, code: true)}
       ${_buildInfoItem('APK Signature hash', file.apkSignatureHash, code: true)}
        <div class="info-item">
         <strong>URLs (some assets not yet uploaded)</strong>

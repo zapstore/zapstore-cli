@@ -1,2 +1,4 @@
 assets:
-  - test/assets/apks/Misty.*.apk
+  - test/assets/apks/mempal.*.apk
+remote_metadata:
+  - fdroid

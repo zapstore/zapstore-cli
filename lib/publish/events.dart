@@ -39,18 +39,22 @@ Future<List<Model<dynamic>>> signModels({
     final partialBlossomAuthorizations =
         partialModels.whereType<PartialBlossomAuthorization>().toSet();
 
-    if (partialFileMetadatas.isEmpty) {
-      throw "No file metadatas produced";
-    }
-
     if (isNewFormat) {
+      if (partialSoftwareAssets.isEmpty) {
+        throw "No software asset events produced";
+      }
       for (final a in partialSoftwareAssets) {
-        final eid = Utils.getEventId(a.event, signer.pubkey);
+        a.event.pubkey = signer.pubkey;
+        final eid = a.event.id;
         partialRelease.event.addTagValue('e', eid);
       }
     } else {
+      if (partialFileMetadatas.isEmpty) {
+        throw "No file metadata events produced";
+      }
       for (final fm in partialFileMetadatas) {
-        final eid = Utils.getEventId(fm.event, signer.pubkey);
+        fm.event.pubkey = signer.pubkey;
+        final eid = fm.event.id;
         partialRelease.event.addTagValue('e', eid);
       }
       linkAppAndRelease(
@@ -68,7 +72,7 @@ Future<List<Model<dynamic>>> signModels({
     ]);
 
     spinner.success(
-        'Signed ${signedModels.length} models with ${signer.runtimeType}');
+        'Signed ${signedModels.length} events with ${signer.runtimeType}');
 
     return signedModels;
   } catch (e) {
