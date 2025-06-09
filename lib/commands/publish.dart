@@ -28,23 +28,25 @@ class Publisher {
     // (2) Parse metadata and assets into partial models
     partialModels = await parser.run();
 
-    final preview = Confirm(
-      prompt: 'Would you like to preview the release in a browser?',
-      defaultValue: true,
-    ).interact();
-
-    if (preview) {
-      final serverIsolate = await HtmlPreview.startServer(partialModels);
-
-      final ok = Confirm(
-        prompt: 'Is the HTML preview correct?',
+    if (!isDaemonMode) {
+      final preview = Confirm(
+        prompt: 'Preview the release in a web browser?',
         defaultValue: true,
       ).interact();
 
-      serverIsolate.kill(priority: Isolate.immediate);
+      if (preview) {
+        final serverIsolate = await HtmlPreview.startServer(partialModels);
 
-      if (!ok) {
-        throw GracefullyAbortSignal();
+        final ok = Confirm(
+          prompt: 'Is the HTML preview correct?',
+          defaultValue: true,
+        ).interact();
+
+        serverIsolate.kill(priority: Isolate.immediate);
+
+        if (!ok) {
+          throw GracefullyAbortSignal();
+        }
       }
     }
 
@@ -146,7 +148,8 @@ class Publisher {
     await signer.initialize();
     final partialBlossomAuthorizations =
         partialModels.whereType<PartialBlossomAuthorization>();
-    final proceed = honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
+    final proceed =
+        isDaemonMode || honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must:
   - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
@@ -177,31 +180,44 @@ Okay?''', defaultValue: false).interact();
     var publishEvents = true;
 
     if (!isDaemonMode) {
-      stderr.writeln();
-      stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
-      stderr.writeln();
-      printJsonEncodeColored(signedApp.toMap());
-
-      stderr.writeln();
-      stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
-      stderr.writeln();
-      printJsonEncodeColored(signedRelease.toMap());
-      stderr.writeln();
-      stderr
-          .writeln('File metadata events (kind 1063)'.bold().black().onWhite());
-      stderr.writeln();
-      for (final m in signedFileMetadatas) {
-        printJsonEncodeColored(m.toMap());
-        stderr.writeln();
-      }
-
       final relayUrls = storage.config.getRelays();
 
-      publishEvents = Confirm(
-        prompt:
-            'Events signed! Scroll up to verify and press `y` to publish to ${relayUrls.join(', ')}',
-        defaultValue: true,
+      final viewEvents = Select(
+        prompt: 'Events signed! How do you want to proceed?',
+        options: [
+          'Inspect release and confirm before publishing to relays',
+          'Publish release to ${relayUrls.join(', ')} now',
+          'Exit without publishing'
+        ],
       ).interact();
+
+      if (viewEvents == 0) {
+        stderr.writeln();
+        stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
+        stderr.writeln();
+        printJsonEncodeColored(signedApp.toMap());
+
+        stderr.writeln();
+        stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
+        stderr.writeln();
+        printJsonEncodeColored(signedRelease.toMap());
+        stderr.writeln();
+        stderr.writeln(
+            'File metadata events (kind 1063)'.bold().black().onWhite());
+        stderr.writeln();
+        for (final m in signedFileMetadatas) {
+          printJsonEncodeColored(m.toMap());
+          stderr.writeln();
+        }
+
+        publishEvents = Confirm(
+          prompt:
+              'Scroll up to verify and press `y` to publish to ${relayUrls.join(', ')}',
+          defaultValue: true,
+        ).interact();
+      } else if (viewEvents == 2) {
+        throw GracefullyAbortSignal();
+      }
     }
 
     if (publishEvents) {
@@ -223,9 +239,6 @@ Okay?''', defaultValue: false).interact();
         if (status.accepted) {
           spinner.success(
               '${'Published'.bold()}: ${model.id.toString()} (kind $kind)');
-          if (isDaemonMode) {
-            print('Published kind $kind');
-          }
         } else {
           spinner.fail(
               '${status.message.bold().black().onRed()}: ${model.id} (kind $kind)');

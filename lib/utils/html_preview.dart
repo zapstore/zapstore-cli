@@ -268,12 +268,12 @@ class HtmlPreview {
     receivePort.listen((message) {
       if (message is String) {
         if (message.startsWith('http')) {
-          print('✅ Preview server running at $message');
+          stderr.writeln('✅ Preview server running at $message');
           if (!completer.isCompleted && isolate != null) {
             completer.complete(isolate);
           }
         } else {
-          print('❌ $message');
+          stderr.writeln('❌ $message');
           if (!completer.isCompleted) {
             completer.completeError(Exception(message));
           }

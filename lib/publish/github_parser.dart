@@ -52,8 +52,7 @@ class GithubParser extends AssetParser {
     final isFailure = releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable).any((a) {
           return assetRegexps.any((r) {
-            return r.hasMatch(a['name']) ||
-                (a['label'] != null && r.hasMatch(a['label']));
+            return r.hasMatch(_getNameFromAsset(a));
           });
         });
     if (isFailure) {
@@ -93,11 +92,11 @@ class GithubParser extends AssetParser {
     final assets = [...releaseJson!['assets']];
 
     final someAssetHasArm64v8a =
-        assets.any((a) => (a['label'] ?? a['name']).contains('arm64-v8a'));
+        assets.any((a) => _getNameFromAsset(a).contains('arm64-v8a'));
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
-        final name = (a['label'] ?? a['name']).toString();
+        final name = _getNameFromAsset(a);
         if (a['content_type'] == kAndroidMimeType && someAssetHasArm64v8a) {
           // On Android, Zapstore only supports arm64-v8a
           // If the developer uses "arm64-v8a" in any filename then assume
@@ -155,6 +154,13 @@ class GithubParser extends AssetParser {
     partialApp.identifier ??= repositoryName.split('/').lastOrNull;
 
     return super.applyFileMetadata();
+  }
+
+  String _getNameFromAsset(Map m) {
+    if (m.containsKey('label') && m['label'].toString().isNotEmpty) {
+      return m['label'].toString();
+    }
+    return m['name']!.toString();
   }
 
   Map<String, dynamic>? _findRelease(Iterable releases) {

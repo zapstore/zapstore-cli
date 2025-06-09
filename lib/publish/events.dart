@@ -104,11 +104,12 @@ Signer getSignerFromString(String signWith) {
 
 Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   if (signer is NIP07Signer) {
-    final ok = Confirm(
-      prompt:
-          'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
-      defaultValue: true,
-    ).interact();
+    final ok = isDaemonMode ||
+        Confirm(
+          prompt:
+              'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
+          defaultValue: true,
+        ).interact();
     if (ok) {
       await signer.initialize();
     } else {

@@ -237,7 +237,7 @@ class AssetParser {
       final discard = m.mimeType == kAndroidMimeType &&
           hasMetadataWithArm64v8aOnly &&
           m.platforms.length > 1;
-      if (discard) {
+      if (discard && !isDaemonMode) {
         stderr.writeln(
             '⚠️ Discarding asset: ${hashPathMap[m.hash]} with multiple architectures');
       }
