@@ -65,7 +65,7 @@ void main(List<String> args) async {
     await Package.loadAll(fromCommand: false);
 
     await storage.initialize(StorageConfiguration(
-      databasePath: path.join(kBaseDir, 'storage.db'),
+      databasePath: path.join(kBaseDir, 'zapstore.db'),
       relayGroups: {
         'zapstore': defaultAppRelays,
         'vertex': {'wss://relay.vertexlab.io'},
