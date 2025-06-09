@@ -197,19 +197,22 @@ class AssetParser {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
-      if (blossomClient.servers.isNotEmpty) {
+      final isRemote = Uri.tryParse(hashPathMap[assetHash] ?? '')
+              ?.scheme
+              .startsWith('http') ??
+          false;
+
+      // If file is local and there are Blossom servers configured,
+      // add Blossom url tags for each server
+      if (!isRemote && blossomClient.servers.isNotEmpty) {
         for (final server in blossomClient.servers) {
           partialFileMetadata.event
               .addTagValue('url', server.replace(path: assetHash).toString());
         }
 
+        // Only upload if necessary
         final needsUpload = await blossomClient.needsUpload(assetHash);
-        final isNotLocal = Uri.tryParse(hashPathMap[assetHash] ?? '')
-                ?.host
-                .startsWith('http') ??
-            false;
-
-        if (needsUpload && isNotLocal) {
+        if (needsUpload) {
           final partialBlossomAuthorization = PartialBlossomAuthorization()
             // content should be the name of the original file
             ..content = 'Upload ${hashPathMap[assetHash]}'
