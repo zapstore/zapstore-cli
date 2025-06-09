@@ -2,6 +2,5 @@ name: zapstore
 version: 0.2.0-rc2
 description: The permissionless package manager
 repository: https://github.com/zapstore/zapstore-cli
-license: MIT
 assets:
   - .*

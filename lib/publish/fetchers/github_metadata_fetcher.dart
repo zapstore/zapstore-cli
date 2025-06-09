@@ -17,6 +17,7 @@ class GithubMetadataFetcher extends MetadataFetcher {
         .getJson();
 
     app.description ??= repoJson['description'];
+    app.license ??= repoJson['license'];
 
     app.tags.addAll([...repoJson['topics']]);
   }
