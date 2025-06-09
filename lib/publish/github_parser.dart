@@ -157,7 +157,9 @@ class GithubParser extends AssetParser {
   }
 
   String _getNameFromAsset(Map m) {
-    if (m.containsKey('label') && m['label'].toString().isNotEmpty) {
+    if (m.containsKey('label') &&
+        m['label'] != null &&
+        m['label'].toString().isNotEmpty) {
       return m['label'].toString();
     }
     return m['name']!.toString();
