@@ -132,7 +132,6 @@ class AssetParser {
           match = RegExp(attribute).firstMatch(raw);
         } else {
           final body = await response.stream.bytesToString();
-          print(selector);
           final jsonMatch = JsonPath(selector).read(body).firstOrNull?.value;
           if (jsonMatch != null) {
             match = RegExp(attribute).firstMatch(jsonMatch.toString());
@@ -186,7 +185,6 @@ class AssetParser {
     if (assetHashes.isEmpty) {
       throw UsageException('No matching assets: ${appMap['assets']}', '');
     }
-    print(assetHashes);
     return assetHashes;
   }
 
@@ -400,6 +398,9 @@ class AssetParser {
 
   // Generate Blossom authorizations (icons, images hold hashes until here)
   Future<void> generateBlossomAuthorizations() async {
+    final allAssets = [...partialApp.icons, ...partialApp.images];
+    if (allAssets.isEmpty) return;
+
     final spinner = CliSpin(
       text: 'Checking for existing assets...',
       spinner: CliSpinners.dots,
@@ -407,7 +408,6 @@ class AssetParser {
     ).start();
 
     int i = 0;
-    final allAssets = [...partialApp.icons, ...partialApp.images];
 
     for (final hash in allAssets) {
       final needsUpload = await blossomClient.needsUpload(hash);
