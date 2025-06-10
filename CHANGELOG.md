@@ -1,3 +1,17 @@
+## [0.2.0-rc3]
+
+  - Feature: Implement Gitlab parser (#15)
+  - Feature: Implement F-Droid/Izzy metadata fetcher (#9)
+  - Feature: Preview release in HTML
+  - Feature: Skip remote metadata flag
+  - Improvement: Use new `apk_parser` package, auto-extracts icon, name, and more
+  - Improvement: Better messaging, spinners
+  - Improvement: non-arm64-v8a filtering
+  - Bugfix: Web parser issues, JSONPath
+  - Improvement: Retrieve license from Github
+  - Bugfix: Events printed to stdout missing links
+  - Bugfix: Broken daemon mode
+
 ## [0.2.0-rc2]
 
   - Improvement: Sending events to stdout
