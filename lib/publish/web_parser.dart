@@ -38,12 +38,12 @@ class WebParser extends AssetParser {
 
       final assetHash = await fetchFile(assetUrl, spinner: assetSpinner);
       final assetPath = getFilePathInTempDirectory(assetHash);
-      if (await acceptAsset(assetPath)) {
-        assetHashes.add(assetPath);
+      if (await acceptAssetMimeType(assetPath)) {
+        assetHashes.add(assetHash);
+        assetSpinner.success('Fetched asset: $assetUrl');
+      } else {
+        assetSpinner.fail('Asset $assetUrl rejected: Bad MIME type');
       }
-      assetHashes.add(assetHash);
-
-      assetSpinner.success('Fetched asset: $assetUrl');
     }
     return assetHashes;
   }

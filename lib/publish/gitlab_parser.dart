@@ -94,7 +94,7 @@ class GitlabParser extends AssetParser {
 
         final fileHash = await fetchFile(assetUrl, spinner: assetSpinner);
         final filePath = getFilePathInTempDirectory(fileHash);
-        if (await acceptAsset(filePath)) {
+        if (await acceptAssetMimeType(filePath)) {
           assetHashes.add(fileHash);
         }
 

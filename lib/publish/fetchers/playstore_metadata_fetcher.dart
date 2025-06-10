@@ -1,3 +1,4 @@
+import 'package:cli_spin/cli_spin.dart';
 import 'package:models/models.dart';
 import 'package:universal_html/parsing.dart';
 import 'package:http/http.dart' as http;
@@ -10,7 +11,8 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
   String get name => 'Google Play Store metadata fetcher';
 
   @override
-  Future<void> run({required PartialApp app}) async {
+  Future<void> run({required PartialApp app, CliSpin? spinner}) async {
+    final spinnerText = spinner?.text;
     final url =
         'https://play.google.com/store/apps/details?id=${app.identifier}';
 
@@ -37,8 +39,9 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
           .querySelectorAll('img[itemprop="image"]')
           .map((e) => e.attributes['src'])
           .nonNulls;
-      final iconUrl = iconUrls.first;
-      final iconHash = await fetchFile(stripDimensions(iconUrl));
+      final iconUrl = stripDimensions(iconUrls.first);
+      spinner?.text = '$spinnerText: $iconUrl';
+      final iconHash = await fetchFile(iconUrl);
       app.addIcon(iconHash);
     }
 
@@ -49,6 +52,7 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
 
     for (final imageUrl in imageUrls) {
       if (imageUrl.trim().isNotEmpty) {
+        spinner?.text = '$spinnerText: ${stripDimensions(imageUrl)}';
         final imageHash = await fetchFile(stripDimensions(imageUrl));
         app.addImage(imageHash);
       }

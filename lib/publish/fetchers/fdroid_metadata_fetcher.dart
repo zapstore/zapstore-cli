@@ -1,3 +1,4 @@
+import 'package:cli_spin/cli_spin.dart';
 import 'package:html2md/html2md.dart' as markdown;
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
@@ -10,7 +11,7 @@ class FDroidMetadataFetcher extends MetadataFetcher {
   String get name => 'F-Droid/Izzy fetcher';
 
   @override
-  Future<void> run({required PartialApp app}) async {
+  Future<void> run({required PartialApp app, CliSpin? spinner}) async {
     final fdroidUrl = 'https://f-droid.org/en/packages/${app.identifier}';
     var response = await http.get(Uri.parse(fdroidUrl));
 
@@ -29,7 +30,10 @@ class FDroidMetadataFetcher extends MetadataFetcher {
   }
 
   Future<void> _parseFdroid(
-      {required http.Response response, required PartialApp app}) async {
+      {required http.Response response,
+      required PartialApp app,
+      CliSpin? spinner}) async {
+    final spinnerText = spinner?.text;
     final document = parseHtmlDocument(response.body);
 
     app.name ??= document.querySelector('.package-name')!.innerText.trim();
@@ -48,6 +52,7 @@ class FDroidMetadataFetcher extends MetadataFetcher {
           .map((e) => e.attributes['src'])
           .nonNulls;
       final iconUrl = iconUrls.first;
+      spinner?.text = '$spinnerText: $iconUrl';
       final iconHash = await fetchFile(iconUrl);
       app.addIcon(iconHash);
     }
@@ -66,7 +71,10 @@ class FDroidMetadataFetcher extends MetadataFetcher {
   }
 
   Future<void> _parseIzzy(
-      {required http.Response response, required PartialApp app}) async {
+      {required http.Response response,
+      required PartialApp app,
+      CliSpin? spinner}) async {
+    final spinnerText = spinner?.text;
     final document = parseHtmlDocument(response.body);
 
     app.name ??= document.querySelector('#appdetails h2')!.innerText.trim();
@@ -85,6 +93,7 @@ class FDroidMetadataFetcher extends MetadataFetcher {
           .map((e) => 'https://apt.izzysoft.de/${e.attributes['src']}')
           .nonNulls;
       final iconUrl = iconUrls.first;
+      spinner?.text = '$spinnerText: $iconUrl';
       final iconHash = await fetchFile(iconUrl);
       app.addIcon(iconHash);
     }
@@ -96,6 +105,7 @@ class FDroidMetadataFetcher extends MetadataFetcher {
 
     for (final imageUrl in imageUrls) {
       if (imageUrl.trim().isNotEmpty) {
+        spinner?.text = '$spinnerText: $imageUrl';
         final imageHash = await fetchFile(imageUrl);
         app.addImage(imageHash);
       }

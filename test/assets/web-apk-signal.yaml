@@ -1,0 +1,7 @@
+repository: https://github.com/signalapp/Signal-Android
+version: ['https://updates.signal.org/android/latest.json', '$.versionName', '.*']
+assets:
+  - https://updates.signal.org/android/Signal-Android-website-prod-universal-release-$version.apk
+remote_metadata:
+  - github
+  - playstore

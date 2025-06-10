@@ -57,8 +57,11 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
         : null;
   } else {
     // CLI
-    metadata.appIdentifier = resolvedIdentifier;
+    if (resolvedVersion == null) {
+      throw 'Missing version. Did you add it to your config?';
+    }
     metadata.version = resolvedVersion;
+    metadata.appIdentifier = resolvedIdentifier;
 
     metadata.platforms = {
       for (final type in [mimeType, ...?internalMimeTypes])

@@ -19,14 +19,9 @@ Future<
   return detectBytesMimeType(data, executablePatterns: executablePatterns);
 }
 
-Future<bool> acceptAsset(String assetPath) async {
+Future<bool> acceptAssetMimeType(String assetPath) async {
   final (mimeType, _, _) = await detectMimeTypes(assetPath);
-  final accepted = kZapstoreAcceptedMimeTypes.contains(mimeType);
-  if (!accepted) {
-    stderr.writeln(
-        'Asset $assetPath not accepted, consider adjusting patterns in your asset list');
-  }
-  return accepted;
+  return kZapstoreAcceptedMimeTypes.contains(mimeType);
 }
 
 Future<

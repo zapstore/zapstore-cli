@@ -1,3 +1,4 @@
+import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
 import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
@@ -10,7 +11,7 @@ class GitlabMetadataFetcher extends MetadataFetcher {
   String get name => 'Gitlab metadata fetcher';
 
   @override
-  Future<void> run({required PartialApp app}) async {
+  Future<void> run({required PartialApp app, CliSpin? spinner}) async {
     final repositoryEndpoint =
         'https://gitlab.com/api/v4/projects/${GitlabParser.getRepositoryName(app.repository!)}';
     final repoJson = await http

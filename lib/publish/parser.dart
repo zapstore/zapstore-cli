@@ -62,29 +62,7 @@ class AssetParser {
     // Applies metadata from configurable remote APIs
     await applyRemoteMetadata();
 
-    // Generate Blossom authorizations (icons, images hold hashes until here)
-    for (final hash in [...partialApp.icons, ...partialApp.images]) {
-      final needsUpload = await blossomClient.needsUpload(hash);
-      if (needsUpload) {
-        final auth = PartialBlossomAuthorization()
-          ..content = 'Upload asset ${hashPathMap[hash]}'
-          ..type = BlossomAuthorizationType.upload
-          ..expiration = DateTime.now().add(Duration(hours: 1))
-          ..hash = hash;
-        partialBlossomAuthorizations.add(auth);
-      }
-    }
-
-    // Adjust icon + image URLs with Blossom servers
-    partialApp.icons = partialApp.icons
-        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
-        .expand((e) => e)
-        .toSet();
-
-    partialApp.images = partialApp.images
-        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
-        .expand((e) => e)
-        .toSet();
+    await generateBlossomAuthorizations();
 
     if (!overwriteRelease) {
       await checkVersionOnRelays(
@@ -134,6 +112,12 @@ class AssetParser {
     } else if (appMap['version'] is List) {
       final versionSpec = appMap['version'] as List;
 
+      final versionSpinner = CliSpin(
+        text: 'Resolving version from spec...',
+        spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
+      ).start();
+
       final [endpoint, selector, attribute, ...rest] = versionSpec;
       final request = http.Request('GET', Uri.parse(endpoint))
         ..followRedirects = false;
@@ -148,6 +132,7 @@ class AssetParser {
           match = RegExp(attribute).firstMatch(raw);
         } else {
           final body = await response.stream.bytesToString();
+          print(selector);
           final jsonMatch = JsonPath(selector).read(body).firstOrNull?.value;
           if (jsonMatch != null) {
             match = RegExp(attribute).firstMatch(jsonMatch.toString());
@@ -167,6 +152,11 @@ class AssetParser {
       version = match != null
           ? (match.groupCount > 0 ? match.group(1) : match.group(0))
           : null;
+      if (version != null) {
+        versionSpinner.success('Resolved version: $version');
+      } else {
+        versionSpinner.fail('Could not resolve version');
+      }
     }
     return version;
   }
@@ -187,20 +177,28 @@ class AssetParser {
           .map((e) => e.path);
 
       for (final assetPath in assetPaths) {
-        if (await acceptAsset(assetPath)) {
-          assetHashes.add(await copyToHash(assetPath));
+        if (await acceptAssetMimeType(assetPath)) {
+          final hash = await copyToHash(assetPath);
+          assetHashes.add(hash);
         }
       }
     }
     if (assetHashes.isEmpty) {
       throw UsageException('No matching assets: ${appMap['assets']}', '');
     }
+    print(assetHashes);
     return assetHashes;
   }
 
   /// Applies metadata found in files (local or downloaded)
   @mustCallSuper
   Future<void> applyFileMetadata() async {
+    final metadataSpinner = CliSpin(
+      text: 'Extracting metadata from files...',
+      spinner: CliSpinners.dots,
+      isSilent: isDaemonMode,
+    ).start();
+
     for (final assetHash in assetHashes) {
       final partialFileMetadata = await extractMetadataFromFile(
         assetHash,
@@ -251,6 +249,10 @@ class AssetParser {
       }
 
       partialFileMetadatas.add(partialFileMetadata);
+    }
+
+    if (partialFileMetadatas.isEmpty) {
+      throw "No file metadata events produced";
     }
 
     // On Android, Zapstore only supports arm64-v8a.
@@ -363,6 +365,7 @@ class AssetParser {
       partialRelease.releaseNotes ??=
           extractChangelogSection(md, partialRelease.version!);
     }
+    metadataSpinner.success('Extracted metadata from files');
   }
 
   /// Applies metadata from remote sources: Github, Play Store, etc
@@ -380,18 +383,58 @@ class AssetParser {
       if (fetcher == null) continue;
 
       CliSpin? extraMetadataSpinner;
-      extraMetadataSpinner =
-          CliSpin(text: 'Fetching extra metadata...', spinner: CliSpinners.dots)
-              .start();
+      extraMetadataSpinner = CliSpin(
+              text: 'Fetching remote metadata...', spinner: CliSpinners.dots)
+          .start();
 
       try {
-        await fetcher.run(app: partialApp);
+        await fetcher.run(app: partialApp, spinner: extraMetadataSpinner);
         extraMetadataSpinner.success(
-            '[${fetcher.name}] Fetched remote metadata for ${partialApp.identifier}');
+            'Fetched remote metadata for ${partialApp.identifier} [${fetcher.name}]');
       } catch (e) {
         extraMetadataSpinner.fail(
-            '[${fetcher.name}] No remote metadata for ${partialApp.identifier} found: $e');
+            'No remote metadata for ${partialApp.identifier} found: $e [${fetcher.name}]');
       }
     }
+  }
+
+  // Generate Blossom authorizations (icons, images hold hashes until here)
+  Future<void> generateBlossomAuthorizations() async {
+    final spinner = CliSpin(
+      text: 'Checking for existing assets...',
+      spinner: CliSpinners.dots,
+      isSilent: isDaemonMode,
+    ).start();
+
+    int i = 0;
+    final allAssets = [...partialApp.icons, ...partialApp.images];
+
+    for (final hash in allAssets) {
+      final needsUpload = await blossomClient.needsUpload(hash);
+      i++;
+      spinner.text =
+          'Checking for existing asset ($i/${allAssets.length}): ${hashPathMap[hash]}';
+      if (needsUpload) {
+        final auth = PartialBlossomAuthorization()
+          ..content = 'Upload asset ${hashPathMap[hash]}'
+          ..type = BlossomAuthorizationType.upload
+          ..expiration = DateTime.now().add(Duration(hours: 1))
+          ..hash = hash;
+        partialBlossomAuthorizations.add(auth);
+      }
+    }
+
+    // Adjust icon + image URLs with Blossom servers
+    partialApp.icons = partialApp.icons
+        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
+        .expand((e) => e)
+        .toSet();
+
+    partialApp.images = partialApp.images
+        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
+        .expand((e) => e)
+        .toSet();
+
+    spinner.success('Checked for existing assets ($i/${allAssets.length})');
   }
 }

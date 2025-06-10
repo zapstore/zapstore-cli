@@ -1,3 +1,4 @@
+import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
 import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
@@ -9,7 +10,7 @@ class GithubMetadataFetcher extends MetadataFetcher {
   String get name => 'Github metadata fetcher';
 
   @override
-  Future<void> run({required PartialApp app}) async {
+  Future<void> run({required PartialApp app, CliSpin? spinner}) async {
     final repositoryEndpoint =
         'https://api.github.com/repos/${GithubParser.getRepositoryName(app.repository!)}';
     final repoJson = await http
@@ -17,7 +18,7 @@ class GithubMetadataFetcher extends MetadataFetcher {
         .getJson();
 
     app.description ??= repoJson['description'];
-    app.license ??= repoJson['license'];
+    app.license ??= repoJson['license']?['spdx_id'];
 
     app.tags.addAll([...repoJson['topics']]);
   }

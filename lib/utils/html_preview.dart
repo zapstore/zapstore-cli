@@ -229,7 +229,7 @@ class HtmlPreview {
       ${_buildInfoItem('Target OS/SDK Version', file is PartialFileMetadata ? file.targetSdkVersion : file.targetOSVersion, code: true)}
       ${_buildInfoItem('APK Signature hash', file.apkSignatureHash, code: true)}
        <div class="info-item">
-        <strong>URLs (some assets not yet uploaded)</strong>
+        <strong>URLs</strong>
         ${file.urls.map((u) => '<a href="$u" target="_blank">$u</a>').join('<br>')}
       </div>
     </div>
