@@ -66,6 +66,7 @@ Future<void> checkUrl(String assetUrl, String version,
   });
 
   if (matchingAssets.isNotEmpty) {
+    // Figure out if current publishing timestamp is more recent
     if (publishedAt != null) {
       final maxExistingPublishedAt = matchingAssets.fold(
           0,

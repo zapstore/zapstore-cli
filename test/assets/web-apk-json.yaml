@@ -1,0 +1,6 @@
+repository: https://gitlab.futo.org/videostreaming/grayjay
+version: ['https://gitlab.futo.org/api/v4/projects/videostreaming%2Fgrayjay/repository/tags', '$[0].name', '.*']
+assets:
+  - https://releases.grayjay.app/app-arm64-v8a-release.apk
+remote_metadata:
+  - fdroid

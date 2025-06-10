@@ -155,9 +155,9 @@ Notes on properties:
   - `changelog`: Local path to the changelog in the [Keep a Changelog](https://keepachangelog.com) format, release notes for the resolved version can be extracted from here, defaults to `CHANGELOG.md`
   - `tags`: String with tags related to the app, separated by a space
   - `license`: Project license in [SPDX](https://spdx.org/licenses/) identifier format
-  - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `github`. More coming soon. If `GithubParser` was used and no `remote_metadata` was specified, then by default `github` will be added as source
+  - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `fdroid` (also checks Izzy), `github`, `gitlab`
   - `blossom_servers`: List of Blossom servers where to upload assets, only applies to local assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to these Blossom servers which need to be valid.
-  - `assets`: List of paths to assets **as regular expressions**. If paths contain a forward-slash they will trigger the local asset parser, if they don't, the Github parser (as long as there is a `github.com` repository). If they are an HTTP URI, the Web parser. If omitted, the list defaults to a single `.*` which means all assets in Github release, if applicable.
+  - `assets`: List of paths to assets **as regular expressions**. If paths contain a forward-slash they will trigger the local asset parser, if they don't, the Github/Gitlab parsers (as long as there is a repository with a `github.com` or `gitlab.com` host). If they are another HTTP URI, the Web parser. If omitted, the list defaults to a single `.*` which means all assets in Github/Gitlab release, if applicable.
   - `executables`: Strictly for CLI apps that are packaged as a compressed archive, a list of in-archive paths as regular expressions. If omitted, all supported executables (see supported platforms above) inside the archive will be linked and installed.
 
 Supported compressed archive formats: ZIP, and TAR, XZ, BZIP2 (gzipped or not).
@@ -263,7 +263,7 @@ Events can be produced and printed to stdout unsigned, so it's possible to pipe 
 This approach has a few limitations:
   - An npub MUST be passed as the `SIGN_WITH` environment variable
   - The provided npub MUST match the resulting pubkey from the signed events
-  - Blossom assets MUST be manually uploaded
+  - Blossom assets (if any) MUST be manually uploaded
 
 ### Program arguments
 
@@ -271,14 +271,15 @@ Can be found with `zapstore publish --help`.
 
 ```bash
 Usage: zapstore publish [arguments]
--h, --help                  Print this usage information.
--c, --config                Path to zapstore.yaml (defaults to "zapstore.yaml")
---[no-]overwrite-release    Publishes the release regardless of the latest version on relays
--d, --[no-]daemon-mode      Run publish in daemon mode (non-interactively and without spinners)
+-h, --help                         Print this usage information.
+-c, --config                       Path to the YAML config file
+                                   (defaults to "zapstore.yaml")
+    --[no-]skip-remote-metadata    Skip fetching remote metadata
+    --[no-]overwrite-release       Publishes the release regardless of the latest version on relays
+-d, --[no-]daemon-mode             Run publish in daemon mode (non-interactively and without spinners)
+    --[no-]honor                   Indicate you will honor tags when external signing
 ```
 
 If the release exists on relays, the program will show a warning and exit unless `--overwrite-release` was passed.
 
-## Managing relays and Blossom servers
-
-Define them as comma-separated values in `RELAYS` and `BLOSSOM_SERVERS` environmental variables (also supported in `.env` file).
+To prevent repeated fetches of remote metadata, use `skip-remote-metadata`.

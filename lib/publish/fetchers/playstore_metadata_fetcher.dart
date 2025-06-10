@@ -50,9 +50,12 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
         .map((e) => e.attributes['src'])
         .nonNulls;
 
+    int i = 0;
     for (final imageUrl in imageUrls) {
       if (imageUrl.trim().isNotEmpty) {
-        spinner?.text = '$spinnerText: ${stripDimensions(imageUrl)}';
+        i++;
+        spinner?.text =
+            '$spinnerText ($i/${imageUrls.length}): ${stripDimensions(imageUrl)}';
         final imageHash = await fetchFile(stripDimensions(imageUrl));
         app.addImage(imageHash);
       }

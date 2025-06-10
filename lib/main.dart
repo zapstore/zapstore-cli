@@ -184,6 +184,7 @@ class RemoveCommand extends Command {
 }
 
 late final String configPath;
+late bool skipRemoteMetadata;
 late bool overwriteRelease;
 late final bool isDaemonMode;
 late final bool honor;
@@ -193,7 +194,11 @@ bool get isNewFormat => env['NEW_FORMAT'] != null;
 class PublishCommand extends Command {
   PublishCommand() {
     argParser.addOption('config',
-        abbr: 'c', help: 'Path to zapstore.yaml', defaultsTo: 'zapstore.yaml');
+        abbr: 'c',
+        help: 'Path to the YAML config file',
+        defaultsTo: 'zapstore.yaml');
+    argParser.addFlag('skip-remote-metadata',
+        help: 'Skip fetching remote metadata', defaultsTo: false);
     argParser.addFlag('overwrite-release',
         help:
             'Publishes the release regardless of the latest version on relays',
@@ -224,6 +229,7 @@ class PublishCommand extends Command {
     env.load([path.join(path.dirname(configPath), '.env')]);
 
     overwriteRelease = argResults!.flag('overwrite-release');
+    skipRemoteMetadata = argResults!.flag('skip-remote-metadata');
 
     isDaemonMode = argResults!.flag('daemon-mode');
 

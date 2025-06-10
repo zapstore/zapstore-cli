@@ -132,7 +132,8 @@ class AssetParser {
           match = RegExp(attribute).firstMatch(raw);
         } else {
           final body = await response.stream.bytesToString();
-          final jsonMatch = JsonPath(selector).read(body).firstOrNull?.value;
+          final jsonMatch =
+              JsonPath(selector).read(jsonDecode(body)).firstOrNull?.value;
           if (jsonMatch != null) {
             match = RegExp(attribute).firstMatch(jsonMatch.toString());
           }
@@ -369,6 +370,8 @@ class AssetParser {
   /// Applies metadata from remote sources: Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
+    if (skipRemoteMetadata) return;
+
     for (final source in remoteMetadata ?? {}) {
       final fetcher = switch (source) {
         'playstore' => PlayStoreMetadataFetcher(),
@@ -391,7 +394,7 @@ class AssetParser {
             'Fetched remote metadata for ${partialApp.identifier} [${fetcher.name}]');
       } catch (e) {
         extraMetadataSpinner.fail(
-            'No remote metadata for ${partialApp.identifier} found: $e [${fetcher.name}]');
+            'Failed to fetch remote metadata for ${partialApp.identifier}: $e [${fetcher.name}]');
       }
     }
   }

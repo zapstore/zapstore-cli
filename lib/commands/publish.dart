@@ -29,29 +29,10 @@ class Publisher {
     // (2) Parse metadata and assets into partial models
     partialModels = await parser.run();
 
-    if (!isDaemonMode) {
-      final preview = Confirm(
-        prompt: 'Preview the release in a web browser?',
-        defaultValue: true,
-      ).interact();
+    // (3) Preview release in a web browser
+    await _previewRelease();
 
-      if (preview) {
-        final serverIsolate = await HtmlPreview.startServer(partialModels);
-
-        final ok = Confirm(
-          prompt: 'Is the HTML preview correct?',
-          defaultValue: true,
-        ).interact();
-
-        serverIsolate.kill(priority: Isolate.immediate);
-
-        if (!ok) {
-          throw GracefullyAbortSignal();
-        }
-      }
-    }
-
-    // (3) Sign events
+    // (4) Sign events (or send to stdout for external signing)
     signer = getSignerFromString(env['SIGN_WITH']!);
 
     _handleEventsToStdout();
@@ -168,6 +149,30 @@ Okay?''', defaultValue: false).interact();
       print(model);
     }
     throw GracefullyAbortSignal();
+  }
+
+  Future<void> _previewRelease() async {
+    if (!isDaemonMode) {
+      final preview = Confirm(
+        prompt: 'Preview the release in a web browser?',
+        defaultValue: true,
+      ).interact();
+
+      if (preview) {
+        final serverIsolate = await HtmlPreview.startServer(partialModels);
+
+        final ok = Confirm(
+          prompt: 'Is the HTML preview correct?',
+          defaultValue: true,
+        ).interact();
+
+        serverIsolate.kill(priority: Isolate.immediate);
+
+        if (!ok) {
+          throw GracefullyAbortSignal();
+        }
+      }
+    }
   }
 
   Future<void> _sendToRelays(

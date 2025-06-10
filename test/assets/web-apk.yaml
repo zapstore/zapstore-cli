@@ -1,21 +1,4 @@
-name: Keyman
-repository: https://github.com/keymanapp/keyman
-version: ['https://keyman.com/downloads/', 'a[href$="apk"]', 'href', '\d+.\d+.\d+']
+repository: https://github.com/signalapp/Signal-Android
+version: ['https://updates.signal.org/android/latest.json', '$.versionName', '.*']
 assets:
-  - https://downloads.keyman.com/android/stable/$version/keyman-$version.apk
-
-# version:
-#   url: https://keyman.com/downloads/
-#   css_selector: a[href$="apk"]
-#   attribute: href
-#   regex: (\d+\.\d+\.\d+) # 1.2.3
-
-# version:
-#   url: https://gitlab.futo.org/api/v4/projects/videostreaming%2Ffcast/releases
-#   json_selector: .[0].tag_name
-#   # default regex: (.*)
-
-# version:
-#   url: https://fountain.fm/apk
-#   header_selector: location
-#   regex: https://storage.googleapis.com/fountain-fm-builds/android/fountain-(.*).apk
+  - https://updates.signal.org/android/Signal-Android-website-prod-universal-release-$version.apk
