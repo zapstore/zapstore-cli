@@ -9,6 +9,7 @@ import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
 import 'package:zapstore_cli/publish/events.dart';
 import 'package:zapstore_cli/publish/github_parser.dart';
+import 'package:zapstore_cli/publish/gitlab_parser.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/html_preview.dart';
@@ -123,10 +124,11 @@ class Publisher {
       final repository = appMap['release_repository'] ?? appMap['repository'];
       if (repository != null) {
         final repositoryUri = Uri.parse(repository);
-        if (repositoryUri.host != 'github.com') {
-          throw 'Unsupported repository; service: ${repositoryUri.host}';
-        }
-        parser = GithubParser(appMap);
+        parser = switch (repositoryUri.host) {
+          'github.com' => GithubParser(appMap),
+          'gitlab.com' => GitlabParser(appMap),
+          _ => throw 'Unsupported repository; service: ${repositoryUri.host}',
+        };
       } else {
         throw UsageException('No sources provided', '');
       }

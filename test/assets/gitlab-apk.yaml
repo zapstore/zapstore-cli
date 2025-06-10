@@ -1,0 +1,3 @@
+repository: https://gitlab.com/AuroraOSS/AuroraStore
+assets:
+  - .*.apk$

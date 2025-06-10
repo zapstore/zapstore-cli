@@ -12,6 +12,7 @@ import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/publish/blossom.dart';
 import 'package:zapstore_cli/publish/fetchers/fdroid_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/github_metadata_fetcher.dart';
+import 'package:zapstore_cli/publish/fetchers/gitlab_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/fetchers/playstore_metadata_fetcher.dart';
 import 'package:zapstore_cli/publish/parser_utils.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
@@ -372,6 +373,7 @@ class AssetParser {
         'playstore' => PlayStoreMetadataFetcher(),
         'fdroid' => FDroidMetadataFetcher(),
         'github' => GithubMetadataFetcher(),
+        'gitlab' => GitlabMetadataFetcher(),
         _ => null,
       };
 
