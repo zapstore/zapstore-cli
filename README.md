@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/zapstore/zapstore-cli)
+
 # zapstore-cli
 
 The permissionless package manager.
