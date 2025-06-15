@@ -19,7 +19,7 @@ import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 
 // (!) Also update pubspec.yaml AND zapstore.yaml (!)
-const kVersion = '0.2.0-rc3';
+const kVersion = '0.2.0-rc4';
 
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
@@ -55,7 +55,7 @@ void main(List<String> args) async {
   autoUpdate = argResults.flag('auto-update');
 
   if (argResults.flag('version')) {
-    print('zapstore ${kVersion.bold()} (${Platform.resolvedExecutable})');
+    print('zapstore ${kVersion.bold()}\n\n(${Platform.resolvedExecutable})');
     return;
   }
 

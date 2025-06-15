@@ -1,3 +1,7 @@
+## [0.2.0-rc4]
+
+  - Bugfix: Auto-update failure based on Platform.script reported path
+
 ## [0.2.0-rc3]
 
   - Feature: Implement Gitlab parser (#15)
