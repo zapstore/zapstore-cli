@@ -23,6 +23,7 @@ class BlossomClient {
   Future<bool> needsUpload(String assetHash) async {
     for (final server in servers) {
       final assetUploadUrl = '$server/$assetHash';
+      // TODO: Do this in parallel, it's too slow
       final headResponse = await http.head(Uri.parse(assetUploadUrl));
       if (headResponse.statusCode != 200) {
         return true;
@@ -41,6 +42,7 @@ class BlossomClient {
         final assetUploadUrl = '$server/$assetHash';
         final assetName = hashPathMap[assetHash];
 
+        // TODO: Show upload %
         final uploadSpinner = CliSpin(
           text: 'Uploading $assetName ($assetHash)...',
           spinner: CliSpinners.dots,

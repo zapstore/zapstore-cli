@@ -36,7 +36,7 @@ void main(List<String> args) async {
   var wasError = false;
 
   final runner = CommandRunner("zapstore",
-      "$figure\nThe permissionless app store powered by your social network")
+      '$figure${kVersion.bold()}\n\nThe permissionless app store powered by your social network')
     ..addCommand(InstallCommand())
     ..addCommand(DiscoverCommand())
     ..addCommand(ZapCommand())
@@ -45,7 +45,7 @@ void main(List<String> args) async {
     ..addCommand(PublishCommand());
   runner.argParser.addFlag('version', abbr: 'v', negatable: false);
 
-  final isDevBuild = Platform.script.path.endsWith('.dart');
+  final isDevBuild = path.basename(Platform.resolvedExecutable) == 'dart';
   runner.argParser.addFlag('auto-update',
       help: 'Auto-updates the currently installed zapstore',
       defaultsTo: !isDevBuild);
@@ -55,7 +55,7 @@ void main(List<String> args) async {
   autoUpdate = argResults.flag('auto-update');
 
   if (argResults.flag('version')) {
-    print('zapstore-cli $kVersion');
+    print('zapstore ${kVersion.bold()} (${Platform.resolvedExecutable})');
     return;
   }
 
@@ -89,7 +89,7 @@ void main(List<String> args) async {
   } finally {
     storage.dispose();
     container.dispose();
-    exit(wasError ? 127 : 0);
+    exit(wasError ? 1 : 0);
   }
 }
 
@@ -247,5 +247,4 @@ const figure = r'''
  / //\ (_| | |_) \__ \ || (_) | | |  __/
 /____/\__,_| .__/|___/\__\___/|_|  \___|
            |_|                          
-
 ''';

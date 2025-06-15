@@ -153,24 +153,33 @@ After that, open a new shell and re-run this program.
           version: kVersion,
           executables: {kZapstoreId});
 
-      final filePath = Platform.script.toFilePath();
+      try {
+        final filePath = Platform.resolvedExecutable;
 
-      final versionPath = path.join(zapstorePackage.directory.path, kVersion);
-      await Directory(versionPath).create(recursive: true);
-      final executablePath = path.join(versionPath, kZapstoreId);
-      await File(filePath).copy(executablePath);
-      await zapstorePackage.linkExecutable(versionPath, executablePath);
+        final versionPath = path.join(zapstorePackage.directory.path, kVersion);
+        await Directory(versionPath).create(recursive: true);
+        final executablePath = path.join(versionPath, kZapstoreId);
 
-      var relativeFilePath =
-          path.relative(filePath, from: Directory.current.path);
-      if (relativeFilePath.startsWith('..')) {
-        relativeFilePath = filePath;
+        await File(filePath).copy(executablePath);
+        await zapstorePackage.linkExecutable(versionPath, executablePath);
+
+        var relativeFilePath =
+            path.relative(filePath, from: Directory.current.path);
+        if (relativeFilePath.startsWith('..')) {
+          relativeFilePath = filePath;
+        }
+
+        print(
+            '\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'.green());
+        print(
+            'You can now delete this executable ($relativeFilePath)\nand directly use `zapstore` in the terminal.'
+                .bold());
+      } catch (e) {
+        print('\nFailed to auto-install zapstore ${kVersion.bold()}!\n'.red());
+        print(e);
+        print(
+            'Keep running it from this current executable, or contact support.');
       }
-
-      print('\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'.green());
-      print(
-          'You can now delete this executable ($relativeFilePath)\nand directly use `zapstore` in the terminal.'
-              .bold());
       if (fromCommand) {
         // Try again with zapstore installed/updated
         return await loadAll();
