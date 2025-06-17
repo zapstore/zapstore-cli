@@ -133,7 +133,7 @@ class GithubParser extends AssetParser {
             await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
         final assetPath = getFilePathInTempDirectory(fileHash);
         if (await acceptAssetMimeType(assetPath)) {
-          assetHashes.add(assetPath);
+          assetHashes.add(fileHash);
           assetSpinner.success('Fetched asset: $assetUrl');
         } else {
           assetSpinner.fail('Asset $assetUrl rejected: Bad MIME type');

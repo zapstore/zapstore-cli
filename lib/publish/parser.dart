@@ -220,14 +220,9 @@ class AssetParser {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
-      final isRemote = Uri.tryParse(hashPathMap[assetHash] ?? '')
-              ?.scheme
-              .startsWith('http') ??
-          false;
-
-      // If file is local and there are Blossom servers configured,
+      // If there are Blossom servers configured,
       // add Blossom url tags for each server
-      if (!isRemote && blossomClient.servers.isNotEmpty) {
+      if (blossomClient.servers.isNotEmpty) {
         for (final server in blossomClient.servers) {
           partialFileMetadata.event
               .addTagValue('url', server.replace(path: assetHash).toString());
