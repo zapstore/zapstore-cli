@@ -1,3 +1,8 @@
+## [0.2.0]
+
+  - Bugfix: Github parser adding path instead of hash
+  - Improvement: Allow Blossom uploads for all parsers
+
 ## [0.2.0-rc4]
 
   - Bugfix: Auto-update failure based on Platform.script reported path
