@@ -14,7 +14,7 @@ class BlossomClient {
 
   BlossomClient({required Set<String> servers})
       : servers = servers.map(Uri.parse).toSet() {
-    if (this.servers.any((s) => s.scheme != 'https')) {
+    if (this.servers.any((s) => !s.scheme.startsWith('http'))) {
       throw UsageException(
           'One or more invalid Blossom server URLs: $servers', '');
     }
