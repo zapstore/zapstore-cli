@@ -408,14 +408,18 @@ class AssetParser {
     int i = 0;
 
     for (final hash in allAssets) {
+      final originalFilePath = hashPathMap[hash]!;
       final needsUpload = await blossomClient.needsUpload(hash);
       i++;
       spinner.text =
-          'Checking for existing asset ($i/${allAssets.length}): ${hashPathMap[hash]}';
+          'Checking for existing asset ($i/${allAssets.length}): $originalFilePath';
       if (needsUpload) {
+        final (mimeType, _, _) =
+            await detectMimeTypes(getFilePathInTempDirectory(hash));
         final auth = PartialBlossomAuthorization()
-          ..content = 'Upload asset ${hashPathMap[hash]}'
+          ..content = 'Upload asset $originalFilePath'
           ..type = BlossomAuthorizationType.upload
+          ..mimeType = mimeType
           ..expiration = DateTime.now().add(Duration(hours: 1))
           ..hash = hash;
         partialBlossomAuthorizations.add(auth);

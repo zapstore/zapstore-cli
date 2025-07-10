@@ -5,8 +5,8 @@ import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
+import 'package:path/path.dart' as path;
 import 'package:zapstore_cli/utils/file_utils.dart';
-import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 class BlossomClient {
@@ -56,15 +56,12 @@ class BlossomClient {
           } else {
             final bytes =
                 await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
-            var mimeType = authorization.mimeType;
-            if (mimeType == null) {
-              (mimeType, _, _) = await detectBytesMimeType(bytes);
-            }
             final response = await http.put(
-              Uri.parse('$server/upload'),
+              Uri.parse(path.join(server.toString(), 'upload')),
               body: bytes,
               headers: {
-                'Content-Type': mimeType!,
+                if (authorization.mimeType != null)
+                  'Content-Type': authorization.mimeType!,
                 'Authorization': 'Nostr ${authorization.toBase64()}',
               },
             );
@@ -87,7 +84,7 @@ class BlossomClient {
                   throw GracefullyAbortSignal();
                 case HttpStatus.unsupportedMediaType:
                   uploadSpinner.fail(
-                      'Media type ($mimeType) for $assetName is unsupported by $server');
+                      'Media type (${authorization.mimeType}) for $assetName is unsupported by $server');
                   throw GracefullyAbortSignal();
                 default:
                   throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
