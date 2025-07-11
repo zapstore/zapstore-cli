@@ -30,9 +30,11 @@ late final ProviderContainer container;
 late final bool autoUpdate;
 
 void main(List<String> args) async {
-  container = ProviderContainer(overrides: [
-    storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
-  ]);
+  container = ProviderContainer(
+    overrides: [
+      storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
+    ],
+  );
   var wasError = false;
 
   final runner = CommandRunner("zapstore",

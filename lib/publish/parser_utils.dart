@@ -38,8 +38,9 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       final sigHash = await getSignatureHashFromApkSigner(assetPath);
       if (sigHash != null) {
         metadata.apkSignatureHash = sigHash;
+      } else {
+        throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
       }
-      throw 'No APK certificate signatures found, to check run: apksigner verify --print-certs $assetPath';
     }
 
     metadata.version = analysis.versionName;
@@ -112,15 +113,20 @@ bool _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
 }
 
 Future<String?> getSignatureHashFromApkSigner(String apkPath) async {
-  final dir = Directory(env['ANDROID_SDK_ROOT']!);
+  var apkSignerPath = await which('apksigner');
 
-  late final String apkSignerPath;
-  final files = await dir.list(recursive: true).toList();
-  for (final file in files) {
-    if (file is File && path.basename(file.path) == 'apksigner') {
-      apkSignerPath = file.path;
-      break;
+  if (apkSignerPath == null && env['ANDROID_SDK_ROOT'] != null) {
+    final dir = Directory(env['ANDROID_SDK_ROOT']!);
+
+    final files = await dir.list(recursive: true).toList();
+    for (final file in files) {
+      if (file is File && path.basename(file.path) == 'apksigner') {
+        apkSignerPath = file.path;
+        break;
+      }
     }
+  } else {
+    throw 'Missing apksigner';
   }
 
   final result = await run('$apkSignerPath verify --print-certs $apkPath',
