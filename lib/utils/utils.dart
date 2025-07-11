@@ -33,7 +33,11 @@ String get hostPlatform {
 
 extension HttpResponseExtension on Future<http.Response> {
   Future<Map<String, dynamic>> getJson() async {
-    return Map<String, dynamic>.from(jsonDecode((await this).body));
+    final r = await this;
+    if (r.statusCode != 200) {
+      return {};
+    }
+    return Map<String, dynamic>.from(jsonDecode(r.body));
   }
 }
 

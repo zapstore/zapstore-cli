@@ -14,9 +14,7 @@ class GitlabMetadataFetcher extends MetadataFetcher {
   Future<void> run({required PartialApp app, CliSpin? spinner}) async {
     final repositoryEndpoint =
         'https://gitlab.com/api/v4/projects/${GitlabParser.getRepositoryName(app.repository!)}';
-    final repoJson = await http
-        .get(Uri.parse(repositoryEndpoint), headers: GithubParser.headers)
-        .getJson();
+    final repoJson = await http.get(Uri.parse(repositoryEndpoint)).getJson();
 
     app.description ??= repoJson['description'];
     app.license ??= repoJson['license'];
