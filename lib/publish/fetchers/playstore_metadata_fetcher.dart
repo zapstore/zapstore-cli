@@ -39,7 +39,7 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
           .querySelectorAll('img[itemprop="image"]')
           .map((e) => e.attributes['src'])
           .nonNulls;
-      final iconUrl = stripDimensions(iconUrls.first);
+      final iconUrl = updateDimensions(iconUrls.first);
       spinner?.text = '$spinnerText: $iconUrl';
       final iconHash = await fetchFile(iconUrl);
       app.addIcon(iconHash);
@@ -55,16 +55,16 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
       if (imageUrl.trim().isNotEmpty) {
         i++;
         spinner?.text =
-            '$spinnerText ($i/${imageUrls.length}): ${stripDimensions(imageUrl)}';
-        final imageHash = await fetchFile(stripDimensions(imageUrl));
+            '$spinnerText ($i/${imageUrls.length}): ${updateDimensions(imageUrl)}';
+        final imageHash = await fetchFile(updateDimensions(imageUrl));
         app.addImage(imageHash);
       }
     }
   }
 
-  String stripDimensions(String url) {
+  String updateDimensions(String url) {
     final uri = Uri.parse(url);
-    final p = uri.path.split('=').firstOrNull ?? uri.path;
-    return uri.replace(path: p).toString();
+    final basePath = uri.path.split('=').firstOrNull ?? uri.path;
+    return uri.replace(path: '$basePath=w5120-h2880').toString();
   }
 }
