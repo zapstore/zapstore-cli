@@ -50,7 +50,7 @@ class GitlabParser extends AssetParser {
   }
 
   @override
-  Future<Set<String>> resolveHashes() async {
+  Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
     final assets =
         <String, dynamic>{...releaseJson!['assets']}['links'] as Iterable;

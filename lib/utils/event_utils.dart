@@ -83,8 +83,9 @@ void exitWithWarning(String v1, String v2) {
       '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
   if (isDaemonMode) {
     print(msg);
+  } else {
+    stderr.writeln(msg);
   }
-  stderr.writeln(msg);
   throw GracefullyAbortSignal();
 }
 

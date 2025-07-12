@@ -133,7 +133,7 @@ class Publisher {
 In order to send unsigned events to stdout you must:
   - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
 ${partialBlossomAuthorizations.isEmpty ? '' : ' - Perform the following Blossom actions to honor `url` tags'}
-${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a to servers: ${parser.blossomClient.servers.join(', ')}').join('\n')}
+${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a to server: ${parser.blossomClient.server}').join('\n')}
 
 The `--honor` argument can be used to hide this notice.
 

@@ -31,7 +31,6 @@ class AssetParser {
   final partialRelease = PartialRelease(newFormat: isNewNipFormat);
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialSoftwareAssets = <PartialSoftwareAsset>{};
-  final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
 
   late String? resolvedVersion;
   late var assetHashes = <String>{};
@@ -45,7 +44,7 @@ class AssetParser {
         appMap['identifier'] ?? appMap['name']?.toString().toLowerCase();
     partialApp.name = appMap['name'];
     blossomClient = BlossomClient(
-      servers: {...?appMap['blossom_servers'] ?? defaultBlossomServers},
+      appMap['blossom_server'] ?? defaultBlossomServer,
     );
     remoteMetadata = appMap.containsKey('remote_metadata')
         ? {...appMap['remote_metadata']}
@@ -55,14 +54,23 @@ class AssetParser {
   Future<List<PartialModel>> run() async {
     // Find a version
     resolvedVersion = await resolveVersion();
-    // Resolve hashes (filters out unwanted mime types)
-    assetHashes = await resolveHashes();
+
+    // Resolve asset hashes (filters out unwanted platforms and mime types)
+    assetHashes = await resolveAssetHashes();
+
     // Applies metadata found in assets
     await applyFileMetadata();
+
     // Applies metadata from configurable remote APIs
     await applyRemoteMetadata();
 
-    await generateBlossomAuthorizations();
+    // Generate Blossom authorizations only if needed
+    final assets = [...assetHashes, ...partialApp.icons, ...partialApp.images];
+    final partialBlossomAuthorizations =
+        await blossomClient.generateAuthorizations(assets);
+
+    // Adjust Blossom servers for all assets
+    updateBlossomUrls();
 
     if (!overwriteRelease) {
       await checkVersionOnRelays(
@@ -72,9 +80,10 @@ class AssetParser {
       );
     }
 
+    // Translate to new NIP format
     if (isNewNipFormat) {
       for (final m in partialFileMetadatas) {
-        final a = PartialSoftwareAsset()
+        final partialSoftwareAsset = PartialSoftwareAsset()
           ..urls = m.urls
           ..mimeType = m.mimeType
           ..hash = m.hash
@@ -89,7 +98,7 @@ class AssetParser {
           ..versionCode = m.versionCode
           ..apkSignatureHash = m.apkSignatureHash
           ..filename = m.transientData['filename'];
-        partialSoftwareAssets.add(a);
+        partialSoftwareAssets.add(partialSoftwareAsset);
       }
     }
 
@@ -161,7 +170,7 @@ class AssetParser {
     return version;
   }
 
-  Future<Set<String>> resolveHashes() async {
+  Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
     for (final definedAsset in appMap['assets']) {
       // Replace all asset paths with resolved version
@@ -214,32 +223,10 @@ class AssetParser {
         continue;
       }
 
-      // Place first the original URL and leave Blossom servers as backup
+      // Place first the original URL, Blossom servers will be added
       if (hashPathMap.containsKey(assetHash) &&
           Uri.parse(hashPathMap[assetHash]!).scheme.startsWith('http')) {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
-      }
-
-      // If there are Blossom servers configured,
-      // add Blossom url tags for each server
-      if (blossomClient.servers.isNotEmpty) {
-        for (final server in blossomClient.servers) {
-          partialFileMetadata.event
-              .addTagValue('url', server.replace(path: assetHash).toString());
-        }
-
-        // Only upload if necessary
-        final needsUpload = await blossomClient.needsUpload(assetHash);
-        if (needsUpload) {
-          final partialBlossomAuthorization = PartialBlossomAuthorization()
-            // content should be the name of the original file
-            ..content = 'Upload ${hashPathMap[assetHash]}'
-            ..type = BlossomAuthorizationType.upload
-            ..mimeType = partialFileMetadata.mimeType!
-            ..expiration = DateTime.now().add(Duration(days: 1))
-            ..hash = assetHash;
-          partialBlossomAuthorizations.add(partialBlossomAuthorization);
-        }
       }
 
       partialFileMetadatas.add(partialFileMetadata);
@@ -400,49 +387,19 @@ class AssetParser {
     }
   }
 
-  // Generate Blossom authorizations (icons, images hold hashes until here)
-  Future<void> generateBlossomAuthorizations() async {
-    final allAssets = [...partialApp.icons, ...partialApp.images];
-    if (allAssets.isEmpty) return;
-
-    final spinner = CliSpin(
-      text: 'Checking for existing assets...',
-      spinner: CliSpinners.dots,
-      isSilent: isDaemonMode,
-    ).start();
-
-    int i = 0;
-
-    for (final hash in allAssets) {
-      final originalFilePath = hashPathMap[hash]!;
-      final needsUpload = await blossomClient.needsUpload(hash);
-      i++;
-      spinner.text =
-          'Checking for existing asset ($i/${allAssets.length}): $originalFilePath';
-      if (needsUpload) {
-        final (mimeType, _, _) =
-            await detectMimeTypes(getFilePathInTempDirectory(hash));
-        final auth = PartialBlossomAuthorization()
-          ..content = 'Upload asset $originalFilePath'
-          ..type = BlossomAuthorizationType.upload
-          ..mimeType = mimeType
-          ..expiration = DateTime.now().add(Duration(hours: 1))
-          ..hash = hash;
-        partialBlossomAuthorizations.add(auth);
-      }
+  void updateBlossomUrls() {
+    for (final partialFileMetadata in partialFileMetadatas) {
+      partialFileMetadata.event.addTagValue(
+          'url',
+          blossomClient.server
+              .replace(path: partialFileMetadata.hash!)
+              .toString());
     }
 
-    // Adjust icon + image URLs with Blossom servers
-    partialApp.icons = partialApp.icons
-        .map((icon) => blossomClient.servers.map((blossom) => '$blossom/$icon'))
-        .expand((e) => e)
-        .toSet();
-
+    partialApp.icons =
+        partialApp.icons.map((hash) => '${blossomClient.server}/$hash').toSet();
     partialApp.images = partialApp.images
-        .map((i) => blossomClient.servers.map((blossom) => '$blossom/$i'))
-        .expand((e) => e)
+        .map((hash) => '${blossomClient.server}/$hash')
         .toSet();
-
-    spinner.success('Checked for existing assets ($i/${allAssets.length})');
   }
 }

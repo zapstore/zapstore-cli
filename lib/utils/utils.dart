@@ -99,9 +99,8 @@ const kMacOSArm64 = '$kMacOS; arch=arm64';
 const kZapstorePubkey =
     '78ce6faa72264387284e647ba6938995735ec8c7d5c5a65737e55130f026307d';
 
-final defaultAppRelays = env['RELAYS'] != null
-    ? {...env['RELAYS']!.split(',')}
+final defaultAppRelays = env['RELAY_URLS'] != null
+    ? {...env['RELAY_URLS']!.split(',')}
     : {'wss://relay.zapstore.dev'};
-final defaultBlossomServers = env['BLOSSOM_SERVERS'] != null
-    ? {...env['BLOSSOM_SERVERS']!.split(',')}
-    : {'https://cdn.zapstore.dev'};
+final defaultBlossomServer =
+    env['BLOSSOM_SERVER_URL'] ?? 'https://cdn.zapstore.dev';

@@ -131,9 +131,7 @@ license: MIT
 remote_metadata:
   - playstore
   - github
-blossom_servers:
-  - https://cdn.zapstore.dev
-  - https://blossom.band
+blossom_server: https://cdn.zapstore.dev
 assets: # for local
   - test/assets/.*.apk
 # or
@@ -158,7 +156,7 @@ Notes on properties:
   - `tags`: String with tags related to the app, separated by a space
   - `license`: Project license in [SPDX](https://spdx.org/licenses/) identifier format
   - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `fdroid` (also checks Izzy), `github`, `gitlab`
-  - `blossom_servers`: List of Blossom servers where to upload assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to these Blossom servers which need to be valid.
+  - `blossom_server`: The Blossom server where to upload assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to this Blossom server which need to be valid.
   - `assets`: List of paths to assets **as regular expressions**. If paths contain a forward-slash they will trigger the local asset parser, if they don't, the Github/Gitlab parsers (as long as there is a repository with a `github.com` or `gitlab.com` host). If they are another HTTP URI, the Web parser. If omitted, the list defaults to a single `.*` which means all assets in Github/Gitlab release, if applicable.
   - `executables`: Strictly for CLI apps that are packaged as a compressed archive, a list of in-archive paths as regular expressions. If omitted, all supported executables (see supported platforms above) inside the archive will be linked and installed.
 

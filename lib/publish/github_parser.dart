@@ -74,8 +74,9 @@ class GithubParser extends AssetParser {
         final message = 'No assets in latest release for $repositoryName';
         if (isDaemonMode) {
           print(message);
+        } else {
+          metadataSpinner.fail(message);
         }
-        metadataSpinner.fail(message);
         throw GracefullyAbortSignal();
       }
     }
@@ -87,7 +88,7 @@ class GithubParser extends AssetParser {
   }
 
   @override
-  Future<Set<String>> resolveHashes() async {
+  Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
     final assets = [...releaseJson!['assets']];
 

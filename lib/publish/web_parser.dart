@@ -4,23 +4,17 @@ import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/mime_type_utils.dart';
-import 'package:zapstore_cli/utils/utils.dart';
 
 class WebParser extends AssetParser {
   WebParser(super.appMap);
 
   @override
-  Future<Set<String>> resolveHashes() async {
+  Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
 
     // Web parser cannot continue without a version
     if (resolvedVersion == null) {
-      final message = 'Could not match version for ${appMap['version']}';
-      if (isDaemonMode) {
-        print(message);
-        throw GracefullyAbortSignal();
-      }
-      throw message;
+      throw 'Could not match version for ${appMap['version']}';
     }
 
     for (final key in appMap['assets']) {
