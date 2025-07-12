@@ -13,7 +13,6 @@ import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/commands/zap.dart';
-import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
@@ -27,8 +26,6 @@ final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
 late final StorageNotifier storage;
 late final ProviderContainer container;
 
-late final bool autoUpdate;
-
 void main(List<String> args) async {
   container = ProviderContainer(
     overrides: [
@@ -40,6 +37,7 @@ void main(List<String> args) async {
   final runner = CommandRunner("zapstore",
       '$figure${kVersion.bold()}\n\nThe permissionless app store powered by your social network')
     ..addCommand(InstallCommand())
+    ..addCommand(UpdateCommand())
     ..addCommand(DiscoverCommand())
     ..addCommand(ZapCommand())
     ..addCommand(ListCommand())
@@ -54,8 +52,6 @@ void main(List<String> args) async {
 
   final argResults = runner.argParser.parse(args);
 
-  autoUpdate = argResults.flag('auto-update');
-
   if (argResults.flag('version')) {
     print('zapstore ${kVersion.bold()}\n\n(${Platform.resolvedExecutable})');
     return;
@@ -63,8 +59,6 @@ void main(List<String> args) async {
 
   try {
     storage = container.read(storageNotifierProvider.notifier);
-
-    await Package.loadAll(fromCommand: false);
 
     await storage.initialize(StorageConfiguration(
       databasePath: path.join(kBaseDir, 'zapstore.db'),
@@ -117,6 +111,26 @@ class InstallCommand extends Command {
     }
     final [value, ..._] = argResults!.rest;
     await install(value, skipWot: argResults!.flag('trust'));
+  }
+}
+
+class UpdateCommand extends Command {
+  @override
+  String get name => 'update';
+
+  @override
+  String get description => 'Update a package';
+
+  @override
+  List<String> get aliases => ['u'];
+
+  @override
+  Future<void> run() async {
+    if (argResults!.rest.isEmpty) {
+      usageException('Please provide a package to update');
+    }
+    final [value, ..._] = argResults!.rest;
+    await install(value, update: true, skipWot: true);
   }
 }
 

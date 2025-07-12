@@ -90,7 +90,7 @@ class Package {
     return '$identifier {version: $version, executables: $executables}';
   }
 
-  static Future<Map<String, Package>> loadAll({bool fromCommand = true}) async {
+  static Future<Map<String, Package>> loadAll() async {
     final dir = Directory(kBaseDir);
     final systemPath = env['PATH']!;
 
@@ -146,46 +146,55 @@ After that, open a new shell and re-run this program.
     final kZapstoreId = 'zapstore';
     final isUpgradable = db[kZapstoreId] == null ||
         canUpgrade(db[kZapstoreId]!.version, kVersion);
-    if (autoUpdate && isUpgradable) {
-      final zapstorePackage = Package(
-          identifier: kZapstoreId,
-          pubkey: kZapstorePubkey,
-          version: kVersion,
-          executables: {kZapstoreId});
+    if (isUpgradable) {
+      final verb = db[kZapstoreId] == null ? 'Install' : 'Upgrade';
+      final install = Confirm(
+        prompt: 'This program contains zapstore $kVersion. $verb?',
+        defaultValue: true,
+      ).interact();
 
-      try {
-        final filePath = Platform.resolvedExecutable;
+      if (install) {
+        final zapstorePackage = Package(
+            identifier: kZapstoreId,
+            pubkey: kZapstorePubkey,
+            version: kVersion,
+            executables: {kZapstoreId});
 
-        final versionPath = path.join(zapstorePackage.directory.path, kVersion);
-        await Directory(versionPath).create(recursive: true);
-        final executablePath = path.join(versionPath, kZapstoreId);
+        try {
+          final filePath = Platform.resolvedExecutable;
 
-        await File(filePath).copy(executablePath);
-        await zapstorePackage.linkExecutable(versionPath, executablePath);
+          final versionPath =
+              path.join(zapstorePackage.directory.path, kVersion);
+          await Directory(versionPath).create(recursive: true);
+          final executablePath = path.join(versionPath, kZapstoreId);
 
-        var relativeFilePath =
-            path.relative(filePath, from: Directory.current.path);
-        if (relativeFilePath.startsWith('..')) {
-          relativeFilePath = filePath;
+          await File(filePath).copy(executablePath);
+          await zapstorePackage.linkExecutable(versionPath, executablePath);
+
+          var relativeFilePath =
+              path.relative(filePath, from: Directory.current.path);
+          if (relativeFilePath.startsWith('..')) {
+            relativeFilePath = filePath;
+          }
+
+          print('\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'
+              .green());
+
+          final deleteInstaller = Confirm(
+            prompt:
+                'You can now call `zapstore` in the terminal. Delete this executable? ($relativeFilePath)',
+            defaultValue: true,
+          ).interact();
+          if (deleteInstaller) {
+            await File(filePath).delete();
+          }
+        } catch (e) {
+          print(
+              '\nFailed to auto-install zapstore ${kVersion.bold()}!\n'.red());
+          print(e);
+          print(
+              'Keep running it from this current executable, or contact support.');
         }
-
-        print(
-            '\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'.green());
-        print(
-            'You can now delete this executable ($relativeFilePath)\nand directly use `zapstore` in the terminal.'
-                .bold());
-      } catch (e) {
-        print('\nFailed to auto-install zapstore ${kVersion.bold()}!\n'.red());
-        print(e);
-        print(
-            'Keep running it from this current executable, or contact support.');
-      }
-      if (fromCommand) {
-        // Try again with zapstore installed/updated
-        return await loadAll();
-      } else {
-        // If invoked from binary without any specific command, exit here
-        exit(0);
       }
     }
     return db;

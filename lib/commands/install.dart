@@ -16,8 +16,13 @@ import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
 Future<void> install(String value,
-    {bool skipWot = false, App? fromDiscover}) async {
+    {bool skipWot = false, bool update = false, App? fromDiscover}) async {
   final db = await Package.loadAll();
+
+  if (update && db[value] == null) {
+    print('App $value not installed, nothing to update');
+    throw GracefullyAbortSignal();
+  }
 
   App app;
 
