@@ -16,7 +16,7 @@ Or download an executable for your platform here: https://zapstore.dev/download 
 
 You need to run the executable once, follow instructions and it will auto-install itself. After that simply call `zapstore`.
 
-Note for Linux users: you must have `libsqlite3.so` in your library path. You can install via `apt install sqlite3` or similar.
+Note for Linux users: you must have `libsqlite3.so` in your library path. You can install via `apt install libsqlite3-dev` or similar.
 
 ## From source
 
