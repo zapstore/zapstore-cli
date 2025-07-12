@@ -45,11 +45,7 @@ Future<void> checkVersionOnRelays(String identifier, String version,
 
   if (canUpgrade(releases.first.version, version)) return;
 
-  if (isDaemonMode) {
-    print('  $version OK, skipping');
-  } else {
-    exitWithWarning(releases.first.version, version);
-  }
+  exitWithWarning(releases.first.version, version);
 }
 
 // Early check just with assetUrl to prevent downloads & processing
@@ -84,8 +80,12 @@ Future<void> checkUrl(String assetUrl, String version,
 }
 
 void exitWithWarning(String v1, String v2) {
-  stderr.writeln(
-      '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.');
+  final msg =
+      '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
+  if (isDaemonMode) {
+    print(msg);
+  }
+  stderr.writeln(msg);
   throw GracefullyAbortSignal();
 }
 
