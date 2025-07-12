@@ -380,8 +380,10 @@ class AssetParser {
 
       CliSpin? extraMetadataSpinner;
       extraMetadataSpinner = CliSpin(
-              text: 'Fetching remote metadata...', spinner: CliSpinners.dots)
-          .start();
+        text: 'Fetching remote metadata...',
+        spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
+      ).start();
 
       try {
         await fetcher.run(app: partialApp, spinner: extraMetadataSpinner);

@@ -6,6 +6,7 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
 import 'package:path/path.dart' as path;
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
@@ -46,6 +47,7 @@ class BlossomClient {
         final uploadSpinner = CliSpin(
           text: 'Uploading $assetName ($assetHash)...',
           spinner: CliSpinners.dots,
+          isSilent: isDaemonMode,
         ).start();
 
         try {

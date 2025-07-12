@@ -2,7 +2,6 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:http/http.dart' as http;
 import 'package:models/models.dart';
 import 'package:zapstore_cli/publish/fetchers/metadata_fetcher.dart';
-import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/gitlab_parser.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
