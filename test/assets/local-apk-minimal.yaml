@@ -1,4 +1,4 @@
 assets:
-  - test/assets/apks/mempal.*.apk
+  - apks/mempal.*.apk
 remote_metadata:
   - fdroid

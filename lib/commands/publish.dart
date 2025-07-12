@@ -259,11 +259,21 @@ Okay?''', defaultValue: false).interact();
 
         for (final e in relayEventStates) {
           if (e.accepted) {
-            spinner.success(
-                '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}');
+            final msg =
+                '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
+            if (isDaemonMode) {
+              print(msg);
+            } else {
+              spinner.success(msg);
+            }
           } else {
-            spinner.fail(
-                '${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}');
+            final msg =
+                'Failure: ${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}';
+            if (isDaemonMode) {
+              print(msg);
+            } else {
+              spinner.fail(msg);
+            }
           }
         }
       }
