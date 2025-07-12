@@ -17,22 +17,22 @@ String formatProfile(Profile? profile, {bool url = true}) {
 
 Future<void> checkVersionOnRelays(String identifier, String version,
     {int? versionCode}) async {
-  final releases = await storage.fetch<Release>(RequestFilter(
-    remote: true,
+  final releases = await storage.query(RequestFilter<Release>(
     tags: {
       '#d': {'$identifier@$version'}
     },
     limit: 1,
-  ));
+  ).toRequest());
 
   if (releases.isEmpty) return;
 
-  if (versionCode != null) {
-    // Query for Android metadatas to ensure version code is older than current
-    final req = releases.first.fileMetadatas.req!.copyWith(tags: {
+  // Android specific: Query to ensure version code is older than current
+  if (versionCode != null &&
+      (releases.first.fileMetadatas.req?.filters.isNotEmpty ?? false)) {
+    final req = releases.first.fileMetadatas.req!.filters.first.copyWith(tags: {
       'm': {kAndroidMimeType}
-    });
-    final fileMetadatas = await storage.fetch(req);
+    }).toRequest();
+    final fileMetadatas = await storage.query(req);
     if (fileMetadatas.isNotEmpty) {
       final maxVersionCode = fileMetadatas.fold(0,
           (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0));
@@ -51,11 +51,10 @@ Future<void> checkVersionOnRelays(String identifier, String version,
 // Early check just with assetUrl to prevent downloads & processing
 Future<void> checkUrl(String assetUrl, String version,
     {DateTime? publishedAt}) async {
-  final assets = await storage.fetch<FileMetadata>(RequestFilter(
-    remote: true,
+  final assets = await storage.query(RequestFilter<FileMetadata>(
     search: assetUrl,
     limit: 1,
-  ));
+  ).toRequest());
 
   final matchingAssets = assets.where((r) {
     return r.urls.any((u) => u == assetUrl);

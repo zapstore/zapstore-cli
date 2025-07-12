@@ -170,6 +170,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.6"
+  cryptography:
+    dependency: transitive
+    description:
+      name: cryptography
+      sha256: d146b76d33d94548cf035233fbc2f4338c1242fa119013bead807d033fc4ae05
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.7.0"
   csslib:
     dependency: transitive
     description:
@@ -211,6 +219,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
+  elliptic:
+    dependency: transitive
+    description:
+      name: elliptic
+      sha256: "0c303d810603953a65dc39c4c542fb7538defd9e212403c54c266140819523b6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.11"
   emoji_regex:
     dependency: transitive
     description:
@@ -359,10 +375,10 @@ packages:
     dependency: transitive
     description:
       name: js
-      sha256: "53385261521cc4a0c4658fd0ad07a7d14591cf8fc33abbceae306ddb974888dc"
+      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.2"
+    version: "0.6.7"
   json_annotation:
     dependency: transitive
     description:
@@ -447,20 +463,29 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: af749b4
-      resolved-ref: af749b474b115055d4999d654c83e33e4d41ea76
+      ref: main
+      resolved-ref: "1d8ad6d4c940fe1b68a575b57d7b498f486f8191"
       url: "https://github.com/purplebase/models"
     source: git
-    version: "0.1.2"
+    version: "0.3.0"
   nip07_signer:
     dependency: "direct main"
     description:
       path: "."
-      ref: "95196189c643724cf3ca735f88b17fa18f066d54"
-      resolved-ref: "95196189c643724cf3ca735f88b17fa18f066d54"
+      ref: main
+      resolved-ref: "6eef7e174810bf46ca8a16a8928fe587a64169a3"
       url: "https://github.com/purplebase/nip07_signer"
     source: git
     version: "0.1.3"
+  nip44:
+    dependency: transitive
+    description:
+      path: dart
+      ref: "3b40d453c772ad10b57b81762d5b56e80aa1facb"
+      resolved-ref: "3b40d453c772ad10b57b81762d5b56e80aa1facb"
+      url: "https://github.com/paulmillr/nip44.git"
+    source: git
+    version: "1.0.0"
   node_preamble:
     dependency: transitive
     description:
@@ -545,11 +570,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: d6dba0e
-      resolved-ref: d6dba0e94e3ad537a665b295392d8cf010db2943
+      ref: master
+      resolved-ref: "3a129d9bc141b17289fa8c58a6b44bc0c05669e4"
       url: "https://github.com/purplebase/purplebase"
     source: git
-    version: "0.2.0"
+    version: "0.3.0"
   qr:
     dependency: transitive
     description:

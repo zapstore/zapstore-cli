@@ -32,6 +32,7 @@ void main(List<String> args) async {
       storageNotifierProvider.overrideWith(PurplebaseStorageNotifier.new),
     ],
   );
+
   var wasError = false;
 
   final runner = CommandRunner("zapstore",

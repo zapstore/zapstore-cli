@@ -52,17 +52,17 @@ dependency_overrides:
     # path: ../../purplebase/models
     git:
       url: https://github.com/purplebase/models
-      ref: af749b4
+      ref: main
   purplebase:
     # path: ../../purplebase/purplebase
     git:
       url: https://github.com/purplebase/purplebase
-      ref: d6dba0e
+      ref: master
   nip07_signer:
     # path: ../../purplebase/nip07_signer
     git:
       url: https://github.com/purplebase/nip07_signer
-      ref: 95196189c643724cf3ca735f88b17fa18f066d54
+      ref: main
 
 dev_dependencies:
   lints: ^3.0.0

@@ -251,14 +251,18 @@ Okay?''', defaultValue: false).interact();
           isSilent: isDaemonMode,
         ).start();
         await storage.save({model});
-        final statuses = await storage.publish({model});
-        final status = statuses.first;
-        if (status.accepted) {
-          spinner.success(
-              '${'Published'.bold()}: ${model.id.toString()} (kind $kind)');
-        } else {
-          spinner.fail(
-              '${status.message.bold().black().onRed()}: ${model.id} (kind $kind)');
+
+        final publishResponse = await storage.publish({model});
+        final relayEventStates = publishResponse.results[model.event.id]!;
+
+        for (final e in relayEventStates) {
+          if (e.accepted) {
+            spinner.success(
+                '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}');
+          } else {
+            spinner.fail(
+                '${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}');
+          }
         }
       }
     }

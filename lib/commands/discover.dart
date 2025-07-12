@@ -14,10 +14,9 @@ Future<void> discover() async {
     spinner: CliSpinners.dots,
   ).start();
 
-  final apps =
-      await storage.fetch<App>(RequestFilter(remote: true, limit: 30, tags: {
+  final apps = await storage.query(RequestFilter<App>(limit: 30, tags: {
     '#f': {hostPlatform}
-  }));
+  }).toRequest());
 
   if (apps.isEmpty) {
     spinner.fail('No packages found');

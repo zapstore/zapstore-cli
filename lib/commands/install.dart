@@ -34,10 +34,9 @@ Future<void> install(String value,
   if (fromDiscover != null) {
     app = fromDiscover;
   } else {
-    final apps = await storage
-        .fetch<App>(RequestFilter(remote: true, search: value, tags: {
+    final apps = await storage.query(RequestFilter<App>(search: value, tags: {
       '#f': {hostPlatform}
-    }));
+    }).toRequest());
 
     if (apps.isEmpty) {
       spinner.fail('No packages found for $value');
@@ -60,21 +59,19 @@ Future<void> install(String value,
     }
   }
 
-  final releases =
-      await storage.fetch(app.latestRelease.req!.copyWith(remote: true));
+  final releases = await storage.query(app.latestRelease.req!);
 
   if (releases.isEmpty) {
     spinner.fail('No releases found');
     throw GracefullyAbortSignal();
   }
 
-  final fileMetadatas = await storage.fetch<FileMetadata>(RequestFilter(
-    remote: true,
+  final fileMetadatas = await storage.query(RequestFilter<FileMetadata>(
     ids: releases.first.event.getTagSetValues('e'),
     tags: {
       '#f': {hostPlatform}
     },
-  ));
+  ).toRequest());
 
   if (fileMetadatas.isEmpty) {
     spinner.fail('No file metadatas found');
@@ -85,8 +82,9 @@ Future<void> install(String value,
 
   final signerPubkey = app.event.pubkey;
 
-  final profiles = await storage.query<Profile>(RequestFilter(
-      authors: {signerPubkey}, remote: true, relayGroup: 'vertex'));
+  final profiles = await storage.query(
+      RequestFilter<Profile>(authors: {signerPubkey}).toRequest(),
+      source: RemoteSource(group: 'vertex'));
   final signerProfile = profiles.firstOrNull;
 
   final date = DateFormat('EEE, MMM d, yyyy').format(metadata.createdAt);
@@ -192,8 +190,9 @@ Future<void> install(String value,
 
         final pubkeys = (response as VerifyReputationResponse).pubkeys;
 
-        final relevantProfiles = await storage.fetch<Profile>(RequestFilter(
-            authors: pubkeys, remote: true, relayGroup: 'vertex'));
+        final relevantProfiles = await storage.query(
+            RequestFilter<Profile>(authors: pubkeys).toRequest(),
+            source: RemoteSource(group: 'vertex'));
 
         wotSpinner.success();
 

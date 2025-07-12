@@ -99,9 +99,7 @@ Signer getSignerFromString(String signWith) {
       NakNIP46Signer(ref, connectionString: signWith),
     _ when signWith.startsWith('npub') => NpubFakeSigner(ref, pubkey: signWith),
     _ => (() {
-        final nsec =
-            signWith.startsWith('nsec') ? bech32Decode(signWith) : signWith;
-        return Bip340PrivateKeySigner(nsec, ref);
+        return Bip340PrivateKeySigner(signWith, ref);
       })(),
   };
 }
@@ -135,7 +133,7 @@ class NpubFakeSigner extends Signer {
   final String _pubkey;
 
   NpubFakeSigner(super.ref, {required String pubkey})
-      : _pubkey = Utils.hexFromNpub(pubkey);
+      : _pubkey = pubkey.decodeShareable();
 
   @override
   Future<void> initialize({bool active = true}) async {
@@ -147,6 +145,26 @@ class NpubFakeSigner extends Signer {
   Future<List<E>> sign<E extends Model<dynamic>>(
       List<PartialModel<dynamic>> partialModels,
       {String? withPubkey}) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip04Encrypt(String message, String recipientPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip44Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip44Encrypt(String message, String recipientPubkey) {
     throw UnimplementedError();
   }
 }
@@ -181,6 +199,26 @@ class NakNIP46Signer extends Signer {
         })
         .cast<E>()
         .toList();
+  }
+
+  @override
+  Future<String> nip04Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip04Encrypt(String message, String recipientPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip44Decrypt(String encryptedMessage, String senderPubkey) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> nip44Encrypt(String message, String recipientPubkey) {
+    throw UnimplementedError();
   }
 }
 
