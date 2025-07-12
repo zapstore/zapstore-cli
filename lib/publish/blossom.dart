@@ -27,18 +27,23 @@ class BlossomClient {
     final Set<PartialBlossomAuthorization> result = {};
 
     final spinner = CliSpin(
-      text: 'Checking for existing assets...',
+      text: 'Checking existing assets...',
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
 
     int i = 0;
 
+    // Filter out remote URLs
+    assetHashes = assetHashes
+        .where((hash) => hashPathMap[hash]?.isHttpUri ?? false)
+        .toList();
+
     for (final assetHash in assetHashes) {
       final originalFilePath = hashPathMap[assetHash]!;
       i++;
       spinner.text =
-          'Checking for existing asset ($i/${assetHashes.length}): $originalFilePath';
+          'Checking existing asset ($i/${assetHashes.length}): $originalFilePath';
       final exists = await existsInBlossomServer(assetHash);
       if (!exists) {
         final (mimeType, _, _) =

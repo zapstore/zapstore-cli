@@ -7,7 +7,6 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
-import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 import 'dart:ffi';
@@ -99,12 +98,11 @@ Future<void> writeArchiveToDisk(Archive archive, {String outDir = '.'}) async {
 }
 
 /// Returns hash
-Future<String> copyToHash(String relativeFilePath) async {
-  final filePath = path.join(path.dirname(configPath), relativeFilePath);
+Future<String> copyToHash(String filePath) async {
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final hash = await computeHash(filePath);
   await File(filePath).copy(getFilePathInTempDirectory(hash));
-  hashPathMap[hash] = relativeFilePath;
+  hashPathMap[hash] = filePath;
   return hash;
 }
 
@@ -115,8 +113,12 @@ Future<String> computeHash(String filePath) async {
       .toLowerCase();
 }
 
-extension on int {
+extension IntExt on int {
   String toMB() => '${(this / 1024 / 1024).toStringAsFixed(2)} MB';
+}
+
+extension StringExt on String {
+  bool get isHttpUri => Uri.tryParse(this)?.scheme.startsWith('http') ?? false;
 }
 
 /* -----------------------------------------------------------

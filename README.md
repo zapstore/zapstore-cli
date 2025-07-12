@@ -164,6 +164,8 @@ Supported compressed archive formats: ZIP, and TAR, XZ, BZIP2 (gzipped or not).
 
 If you need assistance producing a `zapstore.yaml` config file, please reach out via nostr.
 
+All asset paths are relative to the config path.
+
 ### Real world examples
 
 This program:

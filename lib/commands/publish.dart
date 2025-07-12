@@ -12,6 +12,7 @@ import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/gitlab_parser.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/html_preview.dart';
 import 'package:zapstore_cli/publish/web_parser.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
@@ -84,11 +85,8 @@ class Publisher {
 
     final assets = appMap['assets'] as List?;
 
-    final hasRemoteAssets = assets != null &&
-        assets.any((k) {
-          // Paths with a scheme are fetched from the web
-          return Uri.tryParse(k)?.hasScheme ?? false;
-        });
+    final hasRemoteAssets =
+        assets != null && assets.any((k) => k.toString().isHttpUri);
     final hasLocalAssets = assets != null &&
         assets.any((k) {
           // Paths are considered local only when they have

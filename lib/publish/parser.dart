@@ -178,7 +178,8 @@ class AssetParser {
           ? definedAsset.toString().replaceAll('\$version', resolvedVersion!)
           : definedAsset;
 
-      final dir = Directory(path.dirname(asset));
+      final dir =
+          Directory(path.join(path.dirname(configPath), path.dirname(asset)));
       final r = RegExp('^${path.basename(asset)}\$');
 
       final assetPaths = (await dir.list().toList())
@@ -299,7 +300,8 @@ class AssetParser {
       ..license = appMap['license'];
 
     if (appMap['icon'] != null) {
-      partialApp.addIcon(await copyToHash(appMap['icon']));
+      final iconHash = await _resolveImageHash(appMap['icon']);
+      partialApp.addIcon(iconHash);
     } else {
       // Get extracted icon data from the first metadata (APK)
       final iconBase64 =
@@ -314,8 +316,9 @@ class AssetParser {
       }
     }
 
-    for (final image in appMap['images'] ?? []) {
-      partialApp.addImage(await copyToHash(image));
+    for (final imagePath in appMap['images'] ?? []) {
+      final imageHash = await _resolveImageHash(imagePath);
+      partialApp.addImage(imageHash);
     }
 
     // App's platforms are the sum of file metadatas' platforms
@@ -401,5 +404,13 @@ class AssetParser {
     partialApp.images = partialApp.images
         .map((hash) => '${blossomClient.server}/$hash')
         .toSet();
+  }
+
+  Future<String> _resolveImageHash(String imagePath) async {
+    if (imagePath.isHttpUri) {
+      return await fetchFile(imagePath, spinner: null);
+    }
+    final assetPath = path.join(path.dirname(configPath), imagePath);
+    return await copyToHash(assetPath);
   }
 }
