@@ -345,8 +345,12 @@ class AssetParser {
     }
     partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
 
-    final changelogFile = File(appMap['changelog'] ?? 'CHANGELOG.md');
-    if (await changelogFile.exists() && isParsingLocalAssets) {
+    final changelogFile = File(path.join(
+        path.dirname(configPath), appMap['changelog'] ?? 'CHANGELOG.md'));
+    // Only go ahead with parsing if either: is uploading local assets
+    // or user has explicitly specified a changelog path
+    final doParse = isParsingLocalAssets || appMap.containsKey('changelog');
+    if (await changelogFile.exists() && doParse) {
       final md = await changelogFile.readAsString();
 
       // If changelog file was provided, it takes precedence
