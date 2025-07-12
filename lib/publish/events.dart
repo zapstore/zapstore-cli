@@ -48,6 +48,7 @@ Future<List<Model<dynamic>>> signModels({
         final eid = a.event.id;
         partialRelease.event.addTagValue('e', eid);
       }
+      partialRelease.channel = 'main';
     } else {
       if (partialFileMetadatas.isEmpty) {
         throw "No file metadata events produced";
