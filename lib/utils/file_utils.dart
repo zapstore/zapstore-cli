@@ -7,6 +7,7 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
+import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
 import 'dart:ffi';
@@ -98,11 +99,12 @@ Future<void> writeArchiveToDisk(Archive archive, {String outDir = '.'}) async {
 }
 
 /// Returns hash
-Future<String> copyToHash(String filePath) async {
+Future<String> copyToHash(String relativeFilePath) async {
+  final filePath = path.join(path.dirname(configPath), relativeFilePath);
   // Get extension from an URI (helps removing bullshit URL params, etc)
   final hash = await computeHash(filePath);
   await File(filePath).copy(getFilePathInTempDirectory(hash));
-  hashPathMap[hash] = filePath;
+  hashPathMap[hash] = relativeFilePath;
   return hash;
 }
 
