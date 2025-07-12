@@ -39,7 +39,7 @@ Future<List<Model<dynamic>>> signModels({
     final partialBlossomAuthorizations =
         partialModels.whereType<PartialBlossomAuthorization>().toSet();
 
-    if (isNewFormat) {
+    if (isNewNipFormat) {
       if (partialSoftwareAssets.isEmpty) {
         throw "No software asset events produced";
       }

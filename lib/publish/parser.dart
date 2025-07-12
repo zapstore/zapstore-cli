@@ -28,7 +28,7 @@ class AssetParser {
   final Map appMap;
 
   final partialApp = PartialApp();
-  final partialRelease = PartialRelease(newFormat: isNewFormat);
+  final partialRelease = PartialRelease(newFormat: isNewNipFormat);
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialSoftwareAssets = <PartialSoftwareAsset>{};
   final partialBlossomAuthorizations = <PartialBlossomAuthorization>{};
@@ -72,7 +72,7 @@ class AssetParser {
       );
     }
 
-    if (isNewFormat) {
+    if (isNewNipFormat) {
       for (final m in partialFileMetadatas) {
         final a = PartialSoftwareAsset()
           ..urls = m.urls
@@ -96,8 +96,8 @@ class AssetParser {
     return [
       partialApp,
       partialRelease,
-      if (isNewFormat) ...partialSoftwareAssets,
-      if (!isNewFormat) ...partialFileMetadatas,
+      if (isNewNipFormat) ...partialSoftwareAssets,
+      if (!isNewNipFormat) ...partialFileMetadatas,
       ...partialBlossomAuthorizations
     ];
   }
@@ -339,7 +339,7 @@ class AssetParser {
     partialApp.event.createdAt = partialRelease.event.createdAt;
 
     // Release
-    if (isNewFormat) {
+    if (isNewNipFormat) {
       partialRelease.appIdentifier = partialApp.identifier;
       partialRelease.version = allVersions.first;
     }

@@ -121,11 +121,14 @@ class Publisher {
       return;
     }
     await signer.initialize();
-    final partialBlossomAuthorizations =
-        partialModels.whereType<PartialBlossomAuthorization>();
-    // TODO: No need if isNewFormat?
-    final proceed =
-        isDaemonMode || honor || Confirm(prompt: '''⚠️  Can't use npub to sign!
+
+    // Inter-linking is only applicable to old NIP format
+    if (!isNewNipFormat) {
+      final partialBlossomAuthorizations =
+          partialModels.whereType<PartialBlossomAuthorization>();
+      final proceed = isDaemonMode ||
+          honor ||
+          Confirm(prompt: '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must:
   - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
@@ -136,14 +139,15 @@ The `--honor` argument can be used to hide this notice.
 
 Okay?''', defaultValue: false).interact();
 
-    if (!proceed) {
-      throw GracefullyAbortSignal();
-    }
+      if (!proceed) {
+        throw GracefullyAbortSignal();
+      }
 
-    linkAppAndRelease(
-        partialApp: partialModels.whereType<PartialApp>().first,
-        partialRelease: partialModels.whereType<PartialRelease>().first,
-        signingPubkey: signer.pubkey);
+      linkAppAndRelease(
+          partialApp: partialModels.whereType<PartialApp>().first,
+          partialRelease: partialModels.whereType<PartialRelease>().first,
+          signingPubkey: signer.pubkey);
+    }
 
     for (final model in partialModels) {
       print(model);
