@@ -275,15 +275,16 @@ Can be found with `zapstore publish --help`.
 
 ```bash
 Usage: zapstore publish [arguments]
--h, --help                         Print this usage information.
--c, --config                       Path to the YAML config file
-                                   (defaults to "zapstore.yaml")
-    --[no-]skip-remote-metadata    Skip fetching remote metadata
-    --[no-]overwrite-release       Publishes the release regardless of the latest version on relays
--d, --[no-]daemon-mode             Run publish in daemon mode (non-interactively and without spinners)
-    --[no-]honor                   Indicate you will honor tags when external signing
+-h, --help                      Print this usage information.
+-c, --config                    Path to the YAML config file
+                                (defaults to "zapstore.yaml")
+    --[no-]overwrite-app        Fetches remote metadata and overwrites latest app on relays
+                                (defaults to on)
+    --[no-]overwrite-release    Overwrites latest release on relays
+-d, --[no-]daemon-mode          Run publish in daemon mode (non-interactively and without spinners)
+    --[no-]honor                Indicate you will honor tags when external signing
 ```
 
 If the release exists on relays, the program will show a warning and exit unless `--overwrite-release` was passed.
 
-To prevent repeated fetches of remote metadata, use `skip-remote-metadata`.
+To prevent repeated fetches of remote metadata, use `--no-overwrite-app`.

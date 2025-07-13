@@ -34,15 +34,18 @@ void main(List<String> args) async {
 
   var wasError = false;
 
-  final runner = CommandRunner("zapstore",
-      '$figure${kVersion.bold()}\n\nThe permissionless app store powered by your social network')
-    ..addCommand(InstallCommand())
-    ..addCommand(UpdateCommand())
-    ..addCommand(DiscoverCommand())
-    ..addCommand(ZapCommand())
-    ..addCommand(ListCommand())
-    ..addCommand(RemoveCommand())
-    ..addCommand(PublishCommand());
+  final runner =
+      CommandRunner(
+          "zapstore",
+          '$figure${kVersion.bold()}\n\nThe permissionless app store powered by your social network',
+        )
+        ..addCommand(InstallCommand())
+        ..addCommand(UpdateCommand())
+        ..addCommand(DiscoverCommand())
+        ..addCommand(ZapCommand())
+        ..addCommand(ListCommand())
+        ..addCommand(RemoveCommand())
+        ..addCommand(PublishCommand());
   runner.argParser.addFlag('version', abbr: 'v', negatable: false);
 
   final argResults = runner.argParser.parse(args);
@@ -74,8 +77,11 @@ void main(List<String> args) async {
 
 class InstallCommand extends Command {
   InstallCommand() {
-    argParser.addFlag('trust',
-        abbr: 't', help: 'Trust the signer, do not prompt for a WoT check.');
+    argParser.addFlag(
+      'trust',
+      abbr: 't',
+      help: 'Trust the signer, do not prompt for a WoT check.',
+    );
   }
 
   @override
@@ -183,7 +189,7 @@ class RemoveCommand extends Command {
 }
 
 late final String configPath;
-late bool skipRemoteMetadata;
+late bool overwriteApp;
 late bool overwriteRelease;
 late final bool isDaemonMode;
 late final bool honor;
@@ -192,23 +198,33 @@ bool get isNewNipFormat => env['NEW_FORMAT'] != null;
 
 class PublishCommand extends Command {
   PublishCommand() {
-    argParser.addOption('config',
-        abbr: 'c',
-        help: 'Path to the YAML config file',
-        defaultsTo: 'zapstore.yaml');
-    argParser.addFlag('skip-remote-metadata',
-        help: 'Skip fetching remote metadata', defaultsTo: false);
-    argParser.addFlag('overwrite-release',
-        help:
-            'Publishes the release regardless of the latest version on relays',
-        defaultsTo: false);
-    argParser.addFlag('daemon-mode',
-        abbr: 'd',
-        help:
-            'Run publish in daemon mode (non-interactively and without spinners)');
-    argParser.addFlag('honor',
-        help: 'Indicate you will honor tags when external signing',
-        defaultsTo: false);
+    argParser.addOption(
+      'config',
+      abbr: 'c',
+      help: 'Path to the YAML config file',
+      defaultsTo: 'zapstore.yaml',
+    );
+    argParser.addFlag(
+      'overwrite-app',
+      help: 'Fetches remote metadata and overwrites latest app on relays',
+      defaultsTo: true,
+    );
+    argParser.addFlag(
+      'overwrite-release',
+      help: 'Overwrites latest release on relays',
+      defaultsTo: false,
+    );
+    argParser.addFlag(
+      'daemon-mode',
+      abbr: 'd',
+      help:
+          'Run publish in daemon mode (non-interactively and without spinners)',
+    );
+    argParser.addFlag(
+      'honor',
+      help: 'Indicate you will honor tags when external signing',
+      defaultsTo: false,
+    );
   }
 
   @override
@@ -227,8 +243,8 @@ class PublishCommand extends Command {
     // Load env next to config file
     env.load([path.join(path.dirname(configPath), '.env')]);
 
+    overwriteApp = argResults!.flag('overwrite-app');
     overwriteRelease = argResults!.flag('overwrite-release');
-    skipRemoteMetadata = argResults!.flag('skip-remote-metadata');
 
     isDaemonMode = argResults!.flag('daemon-mode');
 

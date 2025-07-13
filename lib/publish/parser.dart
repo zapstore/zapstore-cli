@@ -213,7 +213,7 @@ class AssetParser {
         assetHash,
         resolvedIdentifier: partialApp.identifier,
         resolvedVersion: resolvedVersion,
-        hasVersionInConfig: appMap.containsKey('version'),
+        hasVersionInConfig: appMap['version'] is String,
         executablePatterns:
             appMap['executables'] != null ? {...appMap['executables']} : null,
       );
@@ -300,26 +300,30 @@ class AssetParser {
       ..repository = appMap['repository']
       ..license = appMap['license'];
 
-    if (appMap['icon'] != null) {
-      final iconHash = await _resolveImageHash(appMap['icon']);
-      partialApp.addIcon(iconHash);
-    } else {
-      // Get extracted icon data from the first metadata (APK)
-      final iconBase64 =
-          partialFileMetadatas.first.transientData['iconBase64']?.toString();
+    if (overwriteApp) {
+      // If overwriteApp is false, don't even bother working on icon/images
+      // (Rest of properties may be necessary for partial release, etc)
+      if (appMap['icon'] != null) {
+        final iconHash = await _resolveImageHash(appMap['icon']);
+        partialApp.addIcon(iconHash);
+      } else {
+        // Get extracted icon data from the first metadata (APK)
+        final iconBase64 =
+            partialFileMetadatas.first.transientData['iconBase64']?.toString();
 
-      if (iconBase64 != null) {
-        final bytes = base64Decode(iconBase64);
-        final hash = sha256.convert(bytes).toString().toLowerCase();
-        await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
-        hashPathMap[hash] = '(icon from APK)';
-        partialApp.addIcon(hash);
+        if (iconBase64 != null) {
+          final bytes = base64Decode(iconBase64);
+          final hash = sha256.convert(bytes).toString().toLowerCase();
+          await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
+          hashPathMap[hash] = '(icon from APK)';
+          partialApp.addIcon(hash);
+        }
       }
-    }
 
-    for (final imagePath in appMap['images'] ?? []) {
-      final imageHash = await _resolveImageHash(imagePath);
-      partialApp.addImage(imageHash);
+      for (final imagePath in appMap['images'] ?? []) {
+        final imageHash = await _resolveImageHash(imagePath);
+        partialApp.addImage(imageHash);
+      }
     }
 
     // App's platforms are the sum of file metadatas' platforms
@@ -360,7 +364,7 @@ class AssetParser {
   /// Applies metadata from remote sources: Github, Play Store, etc
   @mustCallSuper
   Future<void> applyRemoteMetadata() async {
-    if (skipRemoteMetadata) return;
+    if (!overwriteApp) return;
 
     for (final source in remoteMetadata ?? {}) {
       final fetcher = switch (source) {

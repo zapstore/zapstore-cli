@@ -45,22 +45,30 @@ class Publisher {
 
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
-      signedModels =
-          await signModels(signer: signer, partialModels: partialModels);
+      signedModels = await signModels(
+        signer: signer,
+        partialModels: partialModels,
+      );
     });
 
     final app = signedModels.whereType<App>().first;
     final release = signedModels.whereType<Release>().first;
     final fileMetadatas = signedModels.whereType<FileMetadata>().toSet();
     final softwareAssets = signedModels.whereType<SoftwareAsset>().toSet();
-    final authorizations =
-        signedModels.whereType<BlossomAuthorization>().toList();
+    final authorizations = signedModels
+        .whereType<BlossomAuthorization>()
+        .toList();
 
     // (5) Upload to Blossom
     await parser.blossomClient.upload(authorizations);
 
     // (6) Publish
-    await _sendToRelays(app, release, fileMetadatas, softwareAssets);
+    await _sendToRelays(
+      overwriteApp ? app : null,
+      release,
+      fileMetadatas,
+      softwareAssets,
+    );
   }
 
   Future<void> _validateAndFindParser() async {
@@ -68,15 +76,19 @@ class Publisher {
     late YamlMap yamlAppMap;
 
     if (!await configYaml.exists()) {
-      throw UsageException('Config not found at $configPath',
-          'Please create a zapstore.yaml config file in this directory or pass it using `-c`.');
+      throw UsageException(
+        'Config not found at $configPath',
+        'Please create a zapstore.yaml config file in this directory or pass it using `-c`.',
+      );
     }
 
     try {
       yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
     } catch (e) {
       throw UsageException(
-          e.toString(), 'Provide a valid zapstore.yaml config file.');
+        e.toString(),
+        'Provide a valid zapstore.yaml config file.',
+      );
     }
 
     requireSignWith();
@@ -92,7 +104,8 @@ class Publisher {
 
     final hasRemoteAssets =
         assets != null && assets.any((k) => k.toString().isHttpUri);
-    final hasLocalAssets = assets != null &&
+    final hasLocalAssets =
+        assets != null &&
         assets.any((k) {
           // Paths are considered local only when they have
           // a forward slash, if needed write: ./file.apk
@@ -127,11 +140,14 @@ class Publisher {
 
     // Inter-linking is only applicable to old NIP format
     if (!isNewNipFormat) {
-      final partialBlossomAuthorizations =
-          partialModels.whereType<PartialBlossomAuthorization>();
-      final proceed = isDaemonMode ||
+      final partialBlossomAuthorizations = partialModels
+          .whereType<PartialBlossomAuthorization>();
+      final proceed =
+          isDaemonMode ||
           honor ||
-          Confirm(prompt: '''⚠️  Can't use npub to sign!
+          Confirm(
+            prompt:
+                '''⚠️  Can't use npub to sign!
 
 In order to send unsigned events to stdout you must:
   - Ensure the SIGN_WITH provided pubkey (${signer.pubkey}) matches the resulting pubkey from the signed events to honor `a` tags
@@ -140,16 +156,19 @@ ${partialBlossomAuthorizations.map((a) => a.event.content).map((a) => '   - $a t
 
 The `--honor` argument can be used to hide this notice.
 
-Okay?''', defaultValue: false).interact();
+Okay?''',
+            defaultValue: false,
+          ).interact();
 
       if (!proceed) {
         throw GracefullyAbortSignal();
       }
 
       linkAppAndRelease(
-          partialApp: partialModels.whereType<PartialApp>().first,
-          partialRelease: partialModels.whereType<PartialRelease>().first,
-          signingPubkey: signer.pubkey);
+        partialApp: partialModels.whereType<PartialApp>().first,
+        partialRelease: partialModels.whereType<PartialRelease>().first,
+        signingPubkey: signer.pubkey,
+      );
     }
 
     for (final model in partialModels) {
@@ -166,7 +185,10 @@ Okay?''', defaultValue: false).interact();
       ).interact();
 
       if (preview) {
-        final serverIsolate = await HtmlPreview.startServer(partialModels);
+        final serverIsolate = await HtmlPreview.startServer(
+          partialModels,
+          overwriteApp: overwriteApp,
+        );
 
         final ok = Confirm(
           prompt: 'Is the HTML preview correct?',
@@ -183,10 +205,11 @@ Okay?''', defaultValue: false).interact();
   }
 
   Future<void> _sendToRelays(
-      App signedApp,
-      Release signedRelease,
-      Set<FileMetadata> signedFileMetadatas,
-      Set<SoftwareAsset> signedSoftwareAssets) async {
+    App? signedApp,
+    Release signedRelease,
+    Set<FileMetadata> signedFileMetadatas,
+    Set<SoftwareAsset> signedSoftwareAssets,
+  ) async {
     var publishEvents = true;
 
     if (!isDaemonMode) {
@@ -197,16 +220,18 @@ Okay?''', defaultValue: false).interact();
         options: [
           'Inspect release and confirm before publishing to relays',
           'Publish release to ${relayUrls.join(', ')} now',
-          'Exit without publishing'
+          'Exit without publishing',
         ],
       ).interact();
 
       if (viewEvents == 0) {
-        stderr.writeln();
-        stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
-        stderr.writeln();
-        printJsonEncodeColored(signedApp.toMap());
-        stderr.writeln();
+        if (signedApp != null) {
+          stderr.writeln();
+          stderr.writeln('App event (kind 32267)'.bold().black().onWhite());
+          stderr.writeln();
+          printJsonEncodeColored(signedApp.toMap());
+          stderr.writeln();
+        }
 
         stderr.writeln('Release event (kind 30063)'.bold().black().onWhite());
         stderr.writeln();
@@ -215,7 +240,8 @@ Okay?''', defaultValue: false).interact();
 
         if (signedFileMetadatas.isNotEmpty) {
           stderr.writeln(
-              'File metadata events (kind 1063)'.bold().black().onWhite());
+            'File metadata events (kind 1063)'.bold().black().onWhite(),
+          );
           stderr.writeln();
           for (final m in signedFileMetadatas) {
             printJsonEncodeColored(m.toMap());
@@ -225,7 +251,8 @@ Okay?''', defaultValue: false).interact();
 
         if (signedSoftwareAssets.isNotEmpty) {
           stderr.writeln(
-              'Software asset events (kind 3063)'.bold().black().onWhite());
+            'Software asset events (kind 3063)'.bold().black().onWhite(),
+          );
           stderr.writeln();
           for (final m in signedSoftwareAssets) {
             printJsonEncodeColored(m.toMap());
@@ -245,7 +272,7 @@ Okay?''', defaultValue: false).interact();
 
     if (publishEvents) {
       for (final Model model in [
-        signedApp,
+        ?signedApp,
         signedRelease,
         ...signedFileMetadatas,
         ...signedSoftwareAssets,

@@ -16,16 +16,17 @@ class HtmlPreview {
     return md.markdownToHtml(text, inlineSyntaxes: [md.InlineHtmlSyntax()]);
   }
 
-  Future<String> build() async {
+  Future<String> build({bool overwriteApp = true}) async {
     final app = models.whereType<PartialApp>().first;
     final release = models.whereType<PartialRelease>().firstOrNull;
     final files = [
       ...models.whereType<PartialFileMetadata>(),
-      ...models.whereType<PartialSoftwareAsset>()
+      ...models.whereType<PartialSoftwareAsset>(),
     ];
 
-    final icon =
-        app.icons.isNotEmpty ? await _getBase64Image(app.icons.first) : '';
+    final icon = app.icons.isNotEmpty
+        ? await _getBase64Image(app.icons.first)
+        : '';
     final images = await Future.wait(app.images.map((p) => _getBase64Image(p)));
 
     return '''
@@ -159,7 +160,7 @@ class HtmlPreview {
         <h3>Confirm the preview below is correct and proceed to signing in the command line</h3>
                 
         <div class="section">
-            <h2>App</h2>
+            <h2>App${overwriteApp ? '' : ' (will NOT be published)'}</h2>
             <div class="header">
                 ${icon.isNotEmpty ? '<img src="data:image/png;base64,$icon" alt="App Icon">' : ''}
                 <h1>${app.name ?? ''}</h1>
@@ -263,7 +264,10 @@ class HtmlPreview {
     return '';
   }
 
-  static Future<Isolate> startServer(Iterable<PartialModel> partialModels) {
+  static Future<Isolate> startServer(
+    Iterable<PartialModel> partialModels, {
+    bool overwriteApp = true,
+  }) {
     final completer = Completer<Isolate>();
     final receivePort = ReceivePort();
     Isolate? isolate;
@@ -284,17 +288,20 @@ class HtmlPreview {
       }
     });
 
-    Isolate.spawn(
-      _serverIsolate,
-      [receivePort.sendPort, partialModels.toList()],
-    ).then((iso) {
-      isolate = iso;
-      // We'll complete the future when we get the URL message back.
-    }).catchError((e) {
-      if (!completer.isCompleted) {
-        completer.completeError(e);
-      }
-    });
+    Isolate.spawn(_serverIsolate, [
+          receivePort.sendPort,
+          partialModels.toList(),
+          overwriteApp,
+        ])
+        .then((iso) {
+          isolate = iso;
+          // We'll complete the future when we get the URL message back.
+        })
+        .catchError((e) {
+          if (!completer.isCompleted) {
+            completer.completeError(e);
+          }
+        });
 
     return completer.future;
   }
@@ -302,10 +309,11 @@ class HtmlPreview {
   static void _serverIsolate(List<dynamic> args) async {
     final mainSendPort = args[0] as SendPort;
     final partialModels = args[1] as List<PartialModel>;
+    final overwriteApp = args[2] as bool;
 
     try {
       final preview = HtmlPreview(partialModels);
-      final htmlContent = await preview.build();
+      final htmlContent = await preview.build(overwriteApp: overwriteApp);
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final url = 'http://${server.address.host}:${server.port}';
       mainSendPort.send(url);
