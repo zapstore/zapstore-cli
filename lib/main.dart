@@ -13,7 +13,6 @@ import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/commands/zap.dart';
-import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';

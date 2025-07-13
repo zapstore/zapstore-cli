@@ -72,69 +72,59 @@ class BlossomClient {
 
   Future<Map<String, String>> upload(
       List<BlossomAuthorization> authorizations) async {
-    // In daemon mode (used in indexer) we may want to copy locally
-    final isLocalCopy = isDaemonMode && env['BLOSSOM_DIR'] != null;
-
     final hashUrlMap = <String, String>{};
 
     for (final authorization in authorizations) {
       final assetHash = authorization.hash;
 
-      if (isLocalCopy) {
-        final destFile = await File(getFilePathInTempDirectory(assetHash))
-            .copy(path.join(env['BLOSSOM_DIR']!, assetHash));
-        print('Copied to ${destFile.path}');
+      final assetUploadUrl = '$server/$assetHash';
+      final assetName = hashPathMap[assetHash];
+
+      // TODO: Show upload %
+      final uploadSpinner = CliSpin(
+        text: 'Uploading $assetName ($assetHash)...',
+        spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
+      ).start();
+
+      final headResponse = await http.head(Uri.parse(assetUploadUrl));
+
+      if (headResponse.statusCode == 200) {
+        uploadSpinner.success('File $assetName already exists at $server');
       } else {
-        final assetUploadUrl = '$server/$assetHash';
-        final assetName = hashPathMap[assetHash];
+        final bytes =
+            await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
+        final response = await http.put(
+          Uri.parse(path.join(server.toString(), 'upload')),
+          body: bytes,
+          headers: {
+            if (authorization.mimeType != null)
+              'Content-Type': authorization.mimeType!,
+            'Authorization': 'Nostr ${authorization.toBase64()}',
+          },
+        );
 
-        // TODO: Show upload %
-        final uploadSpinner = CliSpin(
-          text: 'Uploading $assetName ($assetHash)...',
-          spinner: CliSpinners.dots,
-          isSilent: isDaemonMode,
-        ).start();
-
-        final headResponse = await http.head(Uri.parse(assetUploadUrl));
-
-        if (headResponse.statusCode == 200) {
-          uploadSpinner.success('File $assetName already exists at $server');
+        if (response.statusCode == 200) {
+          // Returns a Blossom blob descriptor
+          final responseMap =
+              Map<String, dynamic>.from(jsonDecode(response.body));
+          if (assetHash != responseMap['sha256']) {
+            throw 'Hash mismatch for $assetName despite successful upload: local hash: $assetHash, server hash: ${responseMap['sha256']}';
+          }
+          hashUrlMap[assetHash] = responseMap['url'];
+          uploadSpinner.success('Uploaded $assetName to ${responseMap['url']}');
         } else {
-          final bytes =
-              await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
-          final response = await http.put(
-            Uri.parse(path.join(server.toString(), 'upload')),
-            body: bytes,
-            headers: {
-              if (authorization.mimeType != null)
-                'Content-Type': authorization.mimeType!,
-              'Authorization': 'Nostr ${authorization.toBase64()}',
-            },
-          );
-
-          if (response.statusCode == 200) {
-            // Returns a Blossom blob descriptor
-            final responseMap =
-                Map<String, dynamic>.from(jsonDecode(response.body));
-            if (assetHash != responseMap['sha256']) {
-              throw 'Hash mismatch for $assetName despite successful upload: local hash: $assetHash, server hash: ${responseMap['sha256']}';
-            }
-            hashUrlMap[assetHash] = responseMap['url'];
-            uploadSpinner
-                .success('Uploaded $assetName to ${responseMap['url']}');
-          } else {
-            switch (response.statusCode) {
-              case HttpStatus.unauthorized:
-                uploadSpinner.fail(
-                    'You are unauthorized to upload $assetName to $server');
-                throw GracefullyAbortSignal();
-              case HttpStatus.unsupportedMediaType:
-                uploadSpinner.fail(
-                    'Media type (${authorization.mimeType}) for $assetName is unsupported by $server');
-                throw GracefullyAbortSignal();
-              default:
-                throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
-            }
+          switch (response.statusCode) {
+            case HttpStatus.unauthorized:
+              uploadSpinner
+                  .fail('You are unauthorized to upload $assetName to $server');
+              throw GracefullyAbortSignal();
+            case HttpStatus.unsupportedMediaType:
+              uploadSpinner.fail(
+                  'Media type (${authorization.mimeType}) for $assetName is unsupported by $server');
+              throw GracefullyAbortSignal();
+            default:
+              throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
           }
         }
       }
