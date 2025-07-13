@@ -11,6 +11,7 @@ import 'package:zapstore_cli/utils/utils.dart';
 
 Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
     {String? resolvedIdentifier,
+    bool hasVersionInConfig = false,
     String? resolvedVersion,
     Set<String>? executablePatterns}) async {
   final metadata = PartialFileMetadata();
@@ -20,6 +21,10 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
       await detectMimeTypes(assetPath, executablePatterns: executablePatterns);
 
   if (mimeType == kAndroidMimeType) {
+    if (hasVersionInConfig) {
+      throw UnsupportedError(
+          'Versions are automatically extracted from APKs, remove `version` from your config file at $configPath');
+    }
     final parser = ApkParser();
     final analysis =
         await parser.analyzeApk(assetPath, requiredArchitecture: 'arm64-v8a');

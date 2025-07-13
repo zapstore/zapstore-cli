@@ -213,6 +213,7 @@ class AssetParser {
         assetHash,
         resolvedIdentifier: partialApp.identifier,
         resolvedVersion: resolvedVersion,
+        hasVersionInConfig: appMap.containsKey('version'),
         executablePatterns:
             appMap['executables'] != null ? {...appMap['executables']} : null,
       );
