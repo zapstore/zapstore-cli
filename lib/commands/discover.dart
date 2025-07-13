@@ -13,9 +13,14 @@ Future<void> discover() async {
     spinner: CliSpinners.dots,
   ).start();
 
-  final apps = await storage.query(RequestFilter<App>(limit: 30, tags: {
-    '#f': {hostPlatform}
-  }).toRequest());
+  final apps = await storage.query(
+    RequestFilter<App>(
+      limit: 30,
+      tags: {
+        '#f': {hostPlatform},
+      },
+    ).toRequest(),
+  );
 
   if (apps.isEmpty) {
     spinner.fail('No packages found');
@@ -24,11 +29,12 @@ Future<void> discover() async {
 
   spinner.success('Found some cool stuff\n');
 
-  final appsNotInstalled =
-      apps.where((app) => !db.containsKey(app.identifier)).toList();
+  final appsNotInstalled = apps
+      .where((app) => !db.containsKey(app.identifier))
+      .toList();
 
   final appIds = [
-    for (final app in appsNotInstalled) '${app.name} [${app.identifier}]'
+    for (final app in appsNotInstalled) '${app.name} [${app.identifier}]',
   ];
 
   final selection = Select(

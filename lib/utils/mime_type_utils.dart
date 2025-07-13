@@ -9,12 +9,13 @@ import 'package:zapstore_cli/utils/utils.dart';
 import 'package:file_magic_number/file_magic_number.dart';
 
 Future<
-        (
-          String? mimeType,
-          Set<String>? internalMimeTypes,
-          Set<String>? executablePaths
-        )>
-    detectMimeTypes(String filePath, {Set<String>? executablePatterns}) async {
+  (
+    String? mimeType,
+    Set<String>? internalMimeTypes,
+    Set<String>? executablePaths,
+  )
+>
+detectMimeTypes(String filePath, {Set<String>? executablePatterns}) async {
   final data = Uint8List.fromList(await File(filePath).readAsBytes());
   return detectBytesMimeType(data, executablePatterns: executablePatterns);
 }
@@ -25,13 +26,13 @@ Future<bool> acceptAssetMimeType(String assetPath) async {
 }
 
 Future<
-        (
-          String? mimeType,
-          Set<String>? internalMimeTypes,
-          Set<String>? executablePaths
-        )>
-    detectBytesMimeType(Uint8List data,
-        {Set<String>? executablePatterns}) async {
+  (
+    String? mimeType,
+    Set<String>? internalMimeTypes,
+    Set<String>? executablePaths,
+  )
+>
+detectBytesMimeType(Uint8List data, {Set<String>? executablePatterns}) async {
   String? mimeType;
   Set<String>? internalMimeTypes;
   Set<String>? executablePaths;
@@ -99,8 +100,11 @@ String? _detectMachOMimeType(Uint8List data) {
   bool isLittleEndian = (magic == 0xCEFAEDFE || magic == 0xCFFAEDFE);
 
   // CPU type is stored as a 4-byte field at offset 4.
-  int cpuType = ByteData.sublistView(data, 4, 8)
-      .getInt32(0, isLittleEndian ? Endian.little : Endian.big);
+  int cpuType = ByteData.sublistView(
+    data,
+    4,
+    8,
+  ).getInt32(0, isLittleEndian ? Endian.little : Endian.big);
 
   // Mach-O CPU types
   // ARM64 CPU type is 0x0100000C (CPU_TYPE_ARM64)
@@ -131,17 +135,26 @@ String? _detectELFMimeType(Uint8List data) {
 
   // Read e_type (2 bytes) at offset 16 from the ELF header.
   // ET_EXEC (2) = executable, ET_DYN (3) = shared object or PIE executable
-  int eType = ByteData.sublistView(data, 16, 18)
-      .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+  int eType = ByteData.sublistView(
+    data,
+    16,
+    18,
+  ).getUint16(0, isLittleEndian ? Endian.little : Endian.big);
 
   // Distinguish shared libraries from executables using header information
   if (eType == 3) {
     // For ET_DYN (3), attempt to distinguish shared libraries from PIE executables
     // Read program header entry size and number of entries
-    int phentsize = ByteData.sublistView(data, 54, 56)
-        .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
-    int phnum = ByteData.sublistView(data, 56, 58)
-        .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+    int phentsize = ByteData.sublistView(
+      data,
+      54,
+      56,
+    ).getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+    int phnum = ByteData.sublistView(
+      data,
+      56,
+      58,
+    ).getUint16(0, isLittleEndian ? Endian.little : Endian.big);
 
     // If there are no program headers, it's likely a shared library
     if (phnum == 0) {
@@ -151,19 +164,29 @@ String? _detectELFMimeType(Uint8List data) {
     // Look for an PT_INTERP segment (indicates it's an executable)
     bool hasInterp = false;
     int phoff = is64bit
-        ? ByteData.sublistView(data, 32, 40)
-            .getUint64(0, isLittleEndian ? Endian.little : Endian.big)
-        : ByteData.sublistView(data, 28, 32)
-            .getUint32(0, isLittleEndian ? Endian.little : Endian.big);
+        ? ByteData.sublistView(
+            data,
+            32,
+            40,
+          ).getUint64(0, isLittleEndian ? Endian.little : Endian.big)
+        : ByteData.sublistView(
+            data,
+            28,
+            32,
+          ).getUint32(0, isLittleEndian ? Endian.little : Endian.big);
 
     // Search through program headers for PT_INTERP (type 3)
     // This isn't always reliable, but it's a good heuristic
-    for (int i = 0;
-        i < phnum && phoff + i * phentsize + 4 <= data.length;
-        i++) {
+    for (
+      int i = 0;
+      i < phnum && phoff + i * phentsize + 4 <= data.length;
+      i++
+    ) {
       int pType = ByteData.sublistView(
-              data, phoff + i * phentsize, phoff + i * phentsize + 4)
-          .getUint32(0, isLittleEndian ? Endian.little : Endian.big);
+        data,
+        phoff + i * phentsize,
+        phoff + i * phentsize + 4,
+      ).getUint32(0, isLittleEndian ? Endian.little : Endian.big);
       if (pType == 3) {
         // PT_INTERP
         hasInterp = true;
@@ -196,8 +219,11 @@ String? _detectELFMimeType(Uint8List data) {
   }
 
   // Read e_machine (2 bytes) at offset 18 from the ELF header.
-  int eMachine = ByteData.sublistView(data, 18, 20)
-      .getUint16(0, isLittleEndian ? Endian.little : Endian.big);
+  int eMachine = ByteData.sublistView(
+    data,
+    18,
+    20,
+  ).getUint16(0, isLittleEndian ? Endian.little : Endian.big);
 
   // e_machine of 62 means x86-64 => Linux amd64.
   if (eMachine == 62) {
@@ -213,8 +239,10 @@ String? _detectELFMimeType(Uint8List data) {
 }
 
 Future<(Set<String>, Set<String>)> _detectCompressed(
-    Uint8List data, String mimeType,
-    {Set<String>? executablePatterns}) async {
+  Uint8List data,
+  String mimeType, {
+  Set<String>? executablePatterns,
+}) async {
   final archive = getArchive(data, mimeType);
   return _findExecutables(archive, executablePatterns: executablePatterns);
 }
@@ -223,34 +251,36 @@ Archive getArchive(Uint8List data, String mimeType) {
   return switch (mimeType) {
     'application/zip' => ZipDecoder().decodeBytes(data),
     'application/x-tar' => () {
-        try {
-          return TarDecoder().decodeBytes(data);
-        } catch (_) {
-          // Use our custom binary tar decoder if the regular one fails
-          return BinaryTarDecoder().decodeBytes(data);
-        }
-      }(),
+      try {
+        return TarDecoder().decodeBytes(data);
+      } catch (_) {
+        // Use our custom binary tar decoder if the regular one fails
+        return BinaryTarDecoder().decodeBytes(data);
+      }
+    }(),
     'application/gzip' => () {
-        final bytes = GZipDecoder().decodeBytes(data);
-        final mimeType = getTypeForCompressed(bytes);
-        return getArchive(bytes, mimeType!);
-      }(),
+      final bytes = GZipDecoder().decodeBytes(data);
+      final mimeType = getTypeForCompressed(bytes);
+      return getArchive(bytes, mimeType!);
+    }(),
     'application/x-xz' => () {
-        final bytes = XZDecoder().decodeBytes(data);
-        final mimeType = getTypeForCompressed(bytes);
-        return getArchive(bytes, mimeType!);
-      }(),
+      final bytes = XZDecoder().decodeBytes(data);
+      final mimeType = getTypeForCompressed(bytes);
+      return getArchive(bytes, mimeType!);
+    }(),
     'application/x-bzip2' => () {
-        final bytes = BZip2Decoder().decodeBytes(data);
-        final mimeType = getTypeForCompressed(bytes);
-        return getArchive(bytes, mimeType!);
-      }(),
+      final bytes = BZip2Decoder().decodeBytes(data);
+      final mimeType = getTypeForCompressed(bytes);
+      return getArchive(bytes, mimeType!);
+    }(),
     _ => throw UnsupportedError(mimeType),
   };
 }
 
-Future<(Set<String>, Set<String>)> _findExecutables(Archive archive,
-    {Set<String>? executablePatterns}) async {
+Future<(Set<String>, Set<String>)> _findExecutables(
+  Archive archive, {
+  Set<String>? executablePatterns,
+}) async {
   // Default to everything: (.*)
   final executableRegexps = (executablePatterns ?? {'.*'}).map(RegExp.new);
 
@@ -323,8 +353,12 @@ String? getTypeForCompressed(Uint8List data) {
 
 class BinaryTarDecoder extends TarDecoder {
   @override
-  Archive decodeStream(InputStream input,
-      {bool verify = false, bool storeData = true, ArchiveCallback? callback}) {
+  Archive decodeStream(
+    InputStream input, {
+    bool verify = false,
+    bool storeData = true,
+    ArchiveCallback? callback,
+  }) {
     final archive = Archive();
     files.clear();
 
@@ -350,13 +384,15 @@ class BinaryTarDecoder extends TarDecoder {
       final filename = String.fromCharCodes(headerBytes.sublist(0, nameEnd));
 
       // Extract size from header (octal string at offset 124, length 12)
-      final sizeStr =
-          String.fromCharCodes(headerBytes.sublist(124, 136)).trim();
+      final sizeStr = String.fromCharCodes(
+        headerBytes.sublist(124, 136),
+      ).trim();
       final size = int.tryParse(sizeStr, radix: 8) ?? 0;
 
       // Read file data
-      final data =
-          size > 0 ? input.readBytes(size).toUint8List() : Uint8List(0);
+      final data = size > 0
+          ? input.readBytes(size).toUint8List()
+          : Uint8List(0);
 
       // Skip padding
       if (size > 0) {

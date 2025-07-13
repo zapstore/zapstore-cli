@@ -19,8 +19,10 @@ Future<List<Model<dynamic>>> signModels({
       .map((m) => m.event.kind)
       .groupListsBy((k) => k)
       .entries
-      .map((e) =>
-          'kind ${e.key}: ${e.value.length} event${e.value.length > 1 ? 's' : ''}')
+      .map(
+        (e) =>
+            'kind ${e.key}: ${e.value.length} event${e.value.length > 1 ? 's' : ''}',
+      )
       .join(', ');
 
   final spinner = CliSpin(
@@ -32,12 +34,15 @@ Future<List<Model<dynamic>>> signModels({
   try {
     final partialApp = partialModels.whereType<PartialApp>().first;
     final partialRelease = partialModels.whereType<PartialRelease>().first;
-    final partialFileMetadatas =
-        partialModels.whereType<PartialFileMetadata>().toSet();
-    final partialSoftwareAssets =
-        partialModels.whereType<PartialSoftwareAsset>().toSet();
-    final partialBlossomAuthorizations =
-        partialModels.whereType<PartialBlossomAuthorization>().toSet();
+    final partialFileMetadatas = partialModels
+        .whereType<PartialFileMetadata>()
+        .toSet();
+    final partialSoftwareAssets = partialModels
+        .whereType<PartialSoftwareAsset>()
+        .toSet();
+    final partialBlossomAuthorizations = partialModels
+        .whereType<PartialBlossomAuthorization>()
+        .toSet();
 
     if (isNewNipFormat) {
       if (partialSoftwareAssets.isEmpty) {
@@ -59,9 +64,10 @@ Future<List<Model<dynamic>>> signModels({
         partialRelease.event.addTagValue('e', eid);
       }
       linkAppAndRelease(
-          partialApp: partialApp,
-          partialRelease: partialRelease,
-          signingPubkey: signer.pubkey);
+        partialApp: partialApp,
+        partialRelease: partialRelease,
+        signingPubkey: signer.pubkey,
+      );
     }
 
     final signedModels = await signer.sign([
@@ -73,7 +79,8 @@ Future<List<Model<dynamic>>> signModels({
     ]);
 
     spinner.success(
-        'Signed ${signedModels.length} events with ${signer.runtimeType}');
+      'Signed ${signedModels.length} events with ${signer.runtimeType}',
+    );
 
     return signedModels;
   } catch (e) {
@@ -82,32 +89,40 @@ Future<List<Model<dynamic>>> signModels({
   }
 }
 
-void linkAppAndRelease(
-    {required PartialApp partialApp,
-    required PartialRelease partialRelease,
-    required String signingPubkey}) {
-  partialRelease.event
-      .addTagValue('a', partialApp.event.addressableIdFor(signingPubkey));
-  partialApp.event
-      .addTagValue('a', partialRelease.event.addressableIdFor(signingPubkey));
+void linkAppAndRelease({
+  required PartialApp partialApp,
+  required PartialRelease partialRelease,
+  required String signingPubkey,
+}) {
+  partialRelease.event.addTagValue(
+    'a',
+    partialApp.event.addressableIdFor(signingPubkey),
+  );
+  partialApp.event.addTagValue(
+    'a',
+    partialRelease.event.addressableIdFor(signingPubkey),
+  );
 }
 
 Signer getSignerFromString(String signWith) {
   final ref = container.read(refProvider);
   return switch (signWith) {
     'NIP07' => NIP07Signer(ref),
-    _ when signWith.startsWith('bunker://') =>
-      NakNIP46Signer(ref, connectionString: signWith),
+    _ when signWith.startsWith('bunker://') => NakNIP46Signer(
+      ref,
+      connectionString: signWith,
+    ),
     _ when signWith.startsWith('npub') => NpubFakeSigner(ref, pubkey: signWith),
     _ => (() {
-        return Bip340PrivateKeySigner(signWith, ref);
-      })(),
+      return Bip340PrivateKeySigner(signWith, ref);
+    })(),
   };
 }
 
 Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   if (signer is NIP07Signer) {
-    final ok = isDaemonMode ||
+    final ok =
+        isDaemonMode ||
         Confirm(
           prompt:
               'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
@@ -134,7 +149,7 @@ class NpubFakeSigner extends Signer {
   final String _pubkey;
 
   NpubFakeSigner(super.ref, {required String pubkey})
-      : _pubkey = pubkey.decodeShareable();
+    : _pubkey = pubkey.decodeShareable();
 
   @override
   Future<void> initialize({bool active = true}) async {
@@ -144,8 +159,9 @@ class NpubFakeSigner extends Signer {
 
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<dynamic>> partialModels,
-      {String? withPubkey}) async {
+    List<PartialModel<dynamic>> partialModels, {
+    String? withPubkey,
+  }) async {
     throw UnimplementedError();
   }
 
@@ -185,13 +201,17 @@ class NakNIP46Signer extends Signer {
 
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
-      List<PartialModel<dynamic>> partialModels,
-      {String? withPubkey}) async {
-    final result = await run('nak event --sec $connectionString',
-        runInShell: true,
-        verbose: false,
-        stdin: Stream.value(utf8.encode(
-            partialModels.map((p) => jsonEncode(p.toMap())).join('\n'))));
+    List<PartialModel<dynamic>> partialModels, {
+    String? withPubkey,
+  }) async {
+    final result = await run(
+      'nak event --sec $connectionString',
+      runInShell: true,
+      verbose: false,
+      stdin: Stream.value(
+        utf8.encode(partialModels.map((p) => jsonEncode(p.toMap())).join('\n')),
+      ),
+    );
     return result.outText
         .split('\n')
         .map((line) {

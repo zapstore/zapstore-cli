@@ -18,11 +18,12 @@ class Package {
   final String version;
   final Set<String> executables;
 
-  Package(
-      {required this.identifier,
-      required this.pubkey,
-      required this.version,
-      this.executables = const {}});
+  Package({
+    required this.identifier,
+    required this.pubkey,
+    required this.version,
+    this.executables = const {},
+  });
 
   Directory get directory =>
       Directory(path.join(kBaseDir, '$pubkey-$identifier'));
@@ -47,9 +48,10 @@ class Package {
       final archive = getArchive(bytes, mimeType!);
       await writeArchiveToDisk(archive, outDir: versionPath);
 
-      for (final executablePath in (metadata.executables.isNotEmpty
-          ? metadata.executables
-          : {identifier})) {
+      for (final executablePath
+          in (metadata.executables.isNotEmpty
+              ? metadata.executables
+              : {identifier})) {
         await linkExecutable(versionPath, executablePath);
       }
       await deleteRecursive(filePath);
@@ -67,7 +69,8 @@ class Package {
       await link.delete();
     }
     await link.create(
-        path.relative(path.join(versionPath, executablePath), from: kBaseDir));
+      path.relative(path.join(versionPath, executablePath), from: kBaseDir),
+    );
     makeExecutable(link.path);
   }
 
@@ -78,8 +81,9 @@ class Package {
   }
 
   Future<void> removeOtherVersions(String version) async {
-    final oldDirs = (await directory.list().toList())
-        .where((e) => e is Directory && path.basename(e.path) != version);
+    final oldDirs = (await directory.list().toList()).where(
+      (e) => e is Directory && path.basename(e.path) != version,
+    );
     for (final dir in oldDirs) {
       await deleteRecursive(path.join(kBaseDir, dir.path));
     }
@@ -130,8 +134,9 @@ After that, open a new shell and re-run this program.
     final db = <String, Package>{};
 
     final links = await _listLinks(kBaseDir);
-    final groupedByPackage = links.entries
-        .groupSetsBy((e) => path.split(e.value).take(2).join(path.separator));
+    final groupedByPackage = links.entries.groupSetsBy(
+      (e) => path.split(e.value).take(2).join(path.separator),
+    );
 
     for (final e in groupedByPackage.entries) {
       final [pubkeyIdentifier, version] = e.key.split(path.separator);
@@ -139,16 +144,18 @@ After that, open a new shell and re-run this program.
       final identifier = pubkeyIdentifier.substring(65);
       final executables = e.value.map((v) => v.key).toSet();
       final package = Package(
-          identifier: identifier,
-          pubkey: pubkey,
-          version: version,
-          executables: executables);
+        identifier: identifier,
+        pubkey: pubkey,
+        version: version,
+        executables: executables,
+      );
       db[package.identifier] = package;
     }
 
     // If zapstore not in db, auto-install/update
     final kZapstoreId = 'zapstore';
-    final isUpgradable = db[kZapstoreId] == null ||
+    final isUpgradable =
+        db[kZapstoreId] == null ||
         canUpgrade(db[kZapstoreId]!.version, kVersion);
 
     final isDevBuild = path.basename(Platform.resolvedExecutable) == 'dart';
@@ -162,30 +169,36 @@ After that, open a new shell and re-run this program.
 
       if (install) {
         final zapstorePackage = Package(
-            identifier: kZapstoreId,
-            pubkey: kZapstorePubkey,
-            version: kVersion,
-            executables: {kZapstoreId});
+          identifier: kZapstoreId,
+          pubkey: kZapstorePubkey,
+          version: kVersion,
+          executables: {kZapstoreId},
+        );
 
         try {
           final filePath = Platform.resolvedExecutable;
 
-          final versionPath =
-              path.join(zapstorePackage.directory.path, kVersion);
+          final versionPath = path.join(
+            zapstorePackage.directory.path,
+            kVersion,
+          );
           await Directory(versionPath).create(recursive: true);
           final executablePath = path.join(versionPath, kZapstoreId);
 
           await File(filePath).copy(executablePath);
           await zapstorePackage.linkExecutable(versionPath, executablePath);
 
-          var relativeFilePath =
-              path.relative(filePath, from: Directory.current.path);
+          var relativeFilePath = path.relative(
+            filePath,
+            from: Directory.current.path,
+          );
           if (relativeFilePath.startsWith('..')) {
             relativeFilePath = filePath;
           }
 
-          print('\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'
-              .green());
+          print(
+            '\nSuccessfully updated zapstore to ${kVersion.bold()}!\n'.green(),
+          );
 
           final deleteInstaller = Confirm(
             prompt:
@@ -197,10 +210,12 @@ After that, open a new shell and re-run this program.
           }
         } catch (e) {
           print(
-              '\nFailed to auto-install zapstore ${kVersion.bold()}!\n'.red());
+            '\nFailed to auto-install zapstore ${kVersion.bold()}!\n'.red(),
+          );
           print(e);
           print(
-              'Keep running it from this current executable, or contact support.');
+            'Keep running it from this current executable, or contact support.',
+          );
         }
       }
     }
@@ -230,15 +245,17 @@ Future<void> initializeStorage() async {
   final baseDirExists = await Directory(kBaseDir).exists();
   storage = container.read(storageNotifierProvider.notifier);
 
-  await storage.initialize(StorageConfiguration(
-    databasePath: path.join(kBaseDir, baseDirExists ? 'zapstore.db' : null),
-    relayGroups: {
-      'zapstore': defaultAppRelays,
-      'vertex': {'wss://relay.vertexlab.io'},
-      'social': {'wss://relay.primal.net'}
-    },
-    defaultRelayGroup: 'zapstore',
-  ));
+  await storage.initialize(
+    StorageConfiguration(
+      databasePath: baseDirExists ? path.join(kBaseDir, 'zapstore.db') : null,
+      relayGroups: {
+        'zapstore': defaultAppRelays,
+        'vertex': {'wss://relay.vertexlab.io'},
+        'social': {'wss://relay.primal.net'},
+      },
+      defaultRelayGroup: 'zapstore',
+    ),
+  );
 
   _isStorageInitialized = true;
 }

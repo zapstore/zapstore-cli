@@ -9,32 +9,40 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
-Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
-    {String? resolvedIdentifier,
-    bool hasVersionInConfig = false,
-    String? resolvedVersion,
-    Set<String>? executablePatterns}) async {
+Future<PartialFileMetadata?> extractMetadataFromFile(
+  String assetHash, {
+  String? resolvedIdentifier,
+  bool hasVersionInConfig = false,
+  String? resolvedVersion,
+  Set<String>? executablePatterns,
+}) async {
   final metadata = PartialFileMetadata();
 
   final assetPath = getFilePathInTempDirectory(assetHash);
-  final (mimeType, internalMimeTypes, executablePaths) =
-      await detectMimeTypes(assetPath, executablePatterns: executablePatterns);
+  final (mimeType, internalMimeTypes, executablePaths) = await detectMimeTypes(
+    assetPath,
+    executablePatterns: executablePatterns,
+  );
 
   if (mimeType == kAndroidMimeType) {
     if (hasVersionInConfig) {
       throw UnsupportedError(
-          'Versions are automatically extracted from APKs, remove `version` from your config file at $configPath');
+        'Versions are automatically extracted from APKs, remove `version` from your config file at $configPath',
+      );
     }
     final parser = ApkParser();
-    final analysis =
-        await parser.analyzeApk(assetPath, requiredArchitecture: 'arm64-v8a');
+    final analysis = await parser.analyzeApk(
+      assetPath,
+      requiredArchitecture: 'arm64-v8a',
+    );
 
     if (analysis == null) {
       return null;
     }
 
-    metadata.platforms =
-        analysis.architectures.map((a) => 'android-$a').toSet();
+    metadata.platforms = analysis.architectures
+        .map((a) => 'android-$a')
+        .toSet();
 
     try {
       metadata.apkSignatureHash = analysis.certificateHashes.first;
@@ -76,7 +84,7 @@ Future<PartialFileMetadata?> extractMetadataFromFile(String assetHash,
           kLinuxArm64 => 'linux-aarch64',
           kLinuxAmd64 => 'linux-x86_64',
           _ => null,
-        }
+        },
     }.nonNulls.toSet();
 
     // Rewrite proper mime types for Linux and Mac
@@ -110,8 +118,9 @@ bool _validatePlatforms(PartialFileMetadata metadata, String assetPath) {
     if (!metadata.platforms.contains('android-arm64-v8a')) {
       return false;
     }
-  } else if (!metadata.platforms
-      .every((platform) => kZapstoreSupportedPlatforms.contains(platform))) {
+  } else if (!metadata.platforms.every(
+    (platform) => kZapstoreSupportedPlatforms.contains(platform),
+  )) {
     return false;
   }
   return true;
@@ -134,8 +143,11 @@ Future<String?> getSignatureHashFromApkSigner(String apkPath) async {
     throw 'Missing apksigner';
   }
 
-  final result = await run('$apkSignerPath verify --print-certs $apkPath',
-      runInShell: true, verbose: false);
+  final result = await run(
+    '$apkSignerPath verify --print-certs $apkPath',
+    runInShell: true,
+    verbose: false,
+  );
   return result.outText
       .split('\n')
       .where((l) => l.contains('SHA-256'))

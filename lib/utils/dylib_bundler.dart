@@ -51,8 +51,9 @@ void main(List<String> args) {
     raf.closeSync();
   }
 
-  stdout
-      .writeln('✅ Packed ${exeFile.path} (+$libSize bytes, magic "$_kMagic")');
+  stdout.writeln(
+    '✅ Packed ${exeFile.path} (+$libSize bytes, magic "$_kMagic")',
+  );
 }
 
 // ---------- constants --------------------------------------------------------

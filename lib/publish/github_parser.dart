@@ -41,15 +41,18 @@ class GithubParser extends AssetParser {
             .map(RegExp.new)
             .toSet();
     repositoryName = getRepositoryName(
-        appMap['release_repository'] ?? appMap['repository']!);
+      appMap['release_repository'] ?? appMap['repository']!,
+    );
 
     final releasesUrl = 'https://api.github.com/repos/$repositoryName/releases';
     final latestReleaseUrl = '$releasesUrl/latest';
-    releaseJson =
-        await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
+    releaseJson = await http
+        .get(Uri.parse(latestReleaseUrl), headers: headers)
+        .getJson();
 
     // If there's a message it's an error (or no matching assets were found)
-    final isFailure = releaseJson!.isEmpty ||
+    final isFailure =
+        releaseJson!.isEmpty ||
         releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable).any((a) {
           return assetRegexps.any((r) {
@@ -93,8 +96,9 @@ class GithubParser extends AssetParser {
     final assetHashes = <String>{};
     final assets = [...releaseJson!['assets']];
 
-    final someAssetHasArm64v8a =
-        assets.any((a) => _getNameFromAsset(a).contains('arm64-v8a'));
+    final someAssetHasArm64v8a = assets.any(
+      (a) => _getNameFromAsset(a).contains('arm64-v8a'),
+    );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
@@ -131,8 +135,11 @@ class GithubParser extends AssetParser {
           isSilent: isDaemonMode,
         ).start();
 
-        final fileHash =
-            await fetchFile(assetUrl, headers: headers, spinner: assetSpinner);
+        final fileHash = await fetchFile(
+          assetUrl,
+          headers: headers,
+          spinner: assetSpinner,
+        );
         final assetPath = getFilePathInTempDirectory(fileHash);
         if (await acceptAssetMimeType(assetPath)) {
           assetHashes.add(fileHash);

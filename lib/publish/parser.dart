@@ -66,8 +66,8 @@ class AssetParser {
 
     // Generate Blossom authorizations only if needed
     final assets = [...assetHashes, ...partialApp.icons, ...partialApp.images];
-    final partialBlossomAuthorizations =
-        await blossomClient.generateAuthorizations(assets);
+    final partialBlossomAuthorizations = await blossomClient
+        .generateAuthorizations(assets);
 
     // Adjust Blossom servers for all assets
     updateBlossomUrls();
@@ -107,7 +107,7 @@ class AssetParser {
       partialRelease,
       if (isNewNipFormat) ...partialSoftwareAssets,
       if (!isNewNipFormat) ...partialFileMetadatas,
-      ...partialBlossomAuthorizations
+      ...partialBlossomAuthorizations,
     ];
   }
 
@@ -141,8 +141,9 @@ class AssetParser {
           match = RegExp(attribute).firstMatch(raw);
         } else {
           final body = await response.stream.bytesToString();
-          final jsonMatch =
-              JsonPath(selector).read(jsonDecode(body)).firstOrNull?.value;
+          final jsonMatch = JsonPath(
+            selector,
+          ).read(jsonDecode(body)).firstOrNull?.value;
           if (jsonMatch != null) {
             match = RegExp(attribute).firstMatch(jsonMatch.toString());
           }
@@ -152,8 +153,9 @@ class AssetParser {
         final body = await response.stream.bytesToString();
         final elem = parseHtmlDocument(body).querySelector(selector.toString());
         if (elem != null) {
-          final raw =
-              attribute.isEmpty ? elem.text! : elem.attributes[attribute]!;
+          final raw = attribute.isEmpty
+              ? elem.text!
+              : elem.attributes[attribute]!;
           match = RegExp(rest.first).firstMatch(raw);
         }
       }
@@ -178,8 +180,9 @@ class AssetParser {
           ? definedAsset.toString().replaceAll('\$version', resolvedVersion!)
           : definedAsset;
 
-      final dir =
-          Directory(path.join(path.dirname(configPath), path.dirname(asset)));
+      final dir = Directory(
+        path.join(path.dirname(configPath), path.dirname(asset)),
+      );
       final r = RegExp('^${path.basename(asset)}\$');
 
       final assetPaths = (await dir.list().toList())
@@ -214,14 +217,16 @@ class AssetParser {
         resolvedIdentifier: partialApp.identifier,
         resolvedVersion: resolvedVersion,
         hasVersionInConfig: appMap['version'] is String,
-        executablePatterns:
-            appMap['executables'] != null ? {...appMap['executables']} : null,
+        executablePatterns: appMap['executables'] != null
+            ? {...appMap['executables']}
+            : null,
       );
 
       if (partialFileMetadata == null) {
         final assetPath = hashPathMap[assetHash];
         stderr.writeln(
-            '⚠️  Ignoring asset $assetPath with architecture not in $kZapstoreSupportedPlatforms');
+          '⚠️  Ignoring asset $assetPath with architecture not in $kZapstoreSupportedPlatforms',
+        );
         continue;
       }
 
@@ -244,16 +249,19 @@ class AssetParser {
     // This is done to minimize the amount of universal builds
     // (more storage, bandwidth, and more options
     // showing in the UI as variants, which confuse users)
-    final hasMetadataWithArm64v8aOnly = partialFileMetadatas
-        .any((m) => m.platforms.difference({'android-arm64-v8a'}).isEmpty);
+    final hasMetadataWithArm64v8aOnly = partialFileMetadatas.any(
+      (m) => m.platforms.difference({'android-arm64-v8a'}).isEmpty,
+    );
 
     partialFileMetadatas.removeWhere((m) {
-      final discard = m.mimeType == kAndroidMimeType &&
+      final discard =
+          m.mimeType == kAndroidMimeType &&
           hasMetadataWithArm64v8aOnly &&
           m.platforms.length > 1;
       if (discard && !isDaemonMode) {
         stderr.writeln(
-            '⚠️ Discarding asset: ${hashPathMap[m.hash]} with multiple architectures');
+          '⚠️ Discarding asset: ${hashPathMap[m.hash]} with multiple architectures',
+        );
       }
       return discard;
     });
@@ -261,25 +269,31 @@ class AssetParser {
     // The source of truth now for identifier/version
     // are the file metadatas, so ensure they are all
     // equal and then assign to main app and release identifiers
-    final allIdentifiers =
-        partialFileMetadatas.map((m) => m.appIdentifier).nonNulls.toSet();
+    final allIdentifiers = partialFileMetadatas
+        .map((m) => m.appIdentifier)
+        .nonNulls
+        .toSet();
     if (allIdentifiers.isEmpty) {
       throw 'Missing identifier. Did you add it to your config?';
     }
-    final uniqueIdentifier =
-        DeepCollectionEquality().equals(allIdentifiers, {allIdentifiers.first});
+    final uniqueIdentifier = DeepCollectionEquality().equals(allIdentifiers, {
+      allIdentifiers.first,
+    });
     if (!uniqueIdentifier) {
       throw 'Identifier should be unique: $allIdentifiers';
     }
 
-    final allVersions =
-        partialFileMetadatas.map((m) => m.version).nonNulls.toSet();
+    final allVersions = partialFileMetadatas
+        .map((m) => m.version)
+        .nonNulls
+        .toSet();
     if (allVersions.isEmpty) {
       throw 'Missing version. Did you add it to your config?';
     }
 
-    final uniqueVersions =
-        DeepCollectionEquality().equals(allVersions, {allVersions.first});
+    final uniqueVersions = DeepCollectionEquality().equals(allVersions, {
+      allVersions.first,
+    });
     if (!uniqueVersions) {
       throw 'Version should be unique: $allVersions';
     }
@@ -308,8 +322,10 @@ class AssetParser {
         partialApp.addIcon(iconHash);
       } else {
         // Get extracted icon data from the first metadata (APK)
-        final iconBase64 =
-            partialFileMetadatas.first.transientData['iconBase64']?.toString();
+        final iconBase64 = partialFileMetadatas
+            .first
+            .transientData['iconBase64']
+            ?.toString();
 
         if (iconBase64 != null) {
           final bytes = base64Decode(iconBase64);
@@ -327,8 +343,10 @@ class AssetParser {
     }
 
     // App's platforms are the sum of file metadatas' platforms
-    partialApp.platforms =
-        partialFileMetadatas.map((fm) => fm.platforms).flattened.toSet();
+    partialApp.platforms = partialFileMetadatas
+        .map((fm) => fm.platforms)
+        .flattened
+        .toSet();
 
     // Always use the release timestamp
     partialApp.event.createdAt = partialRelease.event.createdAt;
@@ -340,8 +358,12 @@ class AssetParser {
     }
     partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
 
-    final changelogFile = File(path.join(
-        path.dirname(configPath), appMap['changelog'] ?? 'CHANGELOG.md'));
+    final changelogFile = File(
+      path.join(
+        path.dirname(configPath),
+        appMap['changelog'] ?? 'CHANGELOG.md',
+      ),
+    );
     // Only go ahead with parsing if either: is uploading local assets
     // or user has explicitly specified a changelog path
     final doParse = isParsingLocalAssets || appMap.containsKey('changelog');
@@ -350,13 +372,17 @@ class AssetParser {
 
       // If changelog file was provided, it takes precedence
       if (appMap.containsKey('changelog')) {
-        partialRelease.releaseNotes =
-            extractChangelogSection(md, partialRelease.version!);
+        partialRelease.releaseNotes = extractChangelogSection(
+          md,
+          partialRelease.version!,
+        );
       }
       // Only change here if no notes, whether from the call before
       // or from another parser
-      partialRelease.releaseNotes ??=
-          extractChangelogSection(md, partialRelease.version!);
+      partialRelease.releaseNotes ??= extractChangelogSection(
+        md,
+        partialRelease.version!,
+      );
     }
     metadataSpinner.success('Extracted metadata from files');
   }
@@ -387,10 +413,12 @@ class AssetParser {
       try {
         await fetcher.run(app: partialApp, spinner: extraMetadataSpinner);
         extraMetadataSpinner.success(
-            'Fetched remote metadata for ${partialApp.identifier} [${fetcher.name}]');
+          'Fetched remote metadata for ${partialApp.identifier} [${fetcher.name}]',
+        );
       } catch (e) {
         extraMetadataSpinner.fail(
-            'Failed to fetch remote metadata for ${partialApp.identifier}: $e [${fetcher.name}]');
+          'Failed to fetch remote metadata for ${partialApp.identifier}: $e [${fetcher.name}]',
+        );
       }
     }
   }
@@ -398,14 +426,16 @@ class AssetParser {
   void updateBlossomUrls() {
     for (final partialFileMetadata in partialFileMetadatas) {
       partialFileMetadata.event.addTagValue(
-          'url',
-          blossomClient.server
-              .replace(path: partialFileMetadata.hash!)
-              .toString());
+        'url',
+        blossomClient.server
+            .replace(path: partialFileMetadata.hash!)
+            .toString(),
+      );
     }
 
-    partialApp.icons =
-        partialApp.icons.map((hash) => '${blossomClient.server}/$hash').toSet();
+    partialApp.icons = partialApp.icons
+        .map((hash) => '${blossomClient.server}/$hash')
+        .toSet();
     partialApp.images = partialApp.images
         .map((hash) => '${blossomClient.server}/$hash')
         .toSet();

@@ -15,8 +15,12 @@ import 'package:zapstore_cli/utils/markdown.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
-Future<void> install(String value,
-    {bool skipWot = false, bool update = false, App? fromDiscover}) async {
+Future<void> install(
+  String value, {
+  bool skipWot = false,
+  bool update = false,
+  App? fromDiscover,
+}) async {
   final db = await Package.loadAll();
 
   if (update && db[value] == null) {
@@ -34,9 +38,14 @@ Future<void> install(String value,
   if (fromDiscover != null) {
     app = fromDiscover;
   } else {
-    final apps = await storage.query(RequestFilter<App>(search: value, tags: {
-      '#f': {hostPlatform}
-    }).toRequest());
+    final apps = await storage.query(
+      RequestFilter<App>(
+        search: value,
+        tags: {
+          '#f': {hostPlatform},
+        },
+      ).toRequest(),
+    );
 
     if (apps.isEmpty) {
       spinner.fail('No packages found for $value');
@@ -47,7 +56,7 @@ Future<void> install(String value,
 
     if (apps.length > 1) {
       final packages = [
-        for (final app in apps) '${app.name} [${app.identifier}]'
+        for (final app in apps) '${app.name} [${app.identifier}]',
       ];
 
       final selection = Select(
@@ -66,12 +75,14 @@ Future<void> install(String value,
     throw GracefullyAbortSignal();
   }
 
-  final fileMetadatas = await storage.query(RequestFilter<FileMetadata>(
-    ids: releases.first.event.getTagSetValues('e'),
-    tags: {
-      '#f': {hostPlatform}
-    },
-  ).toRequest());
+  final fileMetadatas = await storage.query(
+    RequestFilter<FileMetadata>(
+      ids: releases.first.event.getTagSetValues('e'),
+      tags: {
+        '#f': {hostPlatform},
+      },
+    ).toRequest(),
+  );
 
   if (fileMetadatas.isEmpty) {
     spinner.fail('No file metadatas found');
@@ -83,16 +94,18 @@ Future<void> install(String value,
   final signerPubkey = app.event.pubkey;
 
   final profiles = await storage.query(
-      RequestFilter<Profile>(authors: {signerPubkey}).toRequest(),
-      source: RemoteSource(group: 'vertex'));
+    RequestFilter<Profile>(authors: {signerPubkey}).toRequest(),
+    source: RemoteSource(group: 'vertex'),
+  );
   final signerProfile = profiles.firstOrNull;
 
   final date = DateFormat('EEE, MMM d, yyyy').format(metadata.createdAt);
   spinner.success(
-      '''Found ${app.identifier}@${metadata.version.bold()} (released $date)
+    '''Found ${app.identifier}@${metadata.version.bold()} (released $date)
   ${(app.summary ?? app.description).parseEmojis().gray()}
   ${'Signed by'.bold()}: ${formatProfile(signerProfile)}
-''');
+''',
+  );
 
   final installedPackage = db[app.identifier];
 
@@ -102,7 +115,8 @@ Future<void> install(String value,
   if (installedPackage != null) {
     if (installedPackage.version == metadata.version) {
       spinner.success(
-          'Package ${app.identifier} is already up to date (version ${installedPackage.version.bold()})');
+        'Package ${app.identifier} is already up to date (version ${installedPackage.version.bold()})',
+      );
       throw GracefullyAbortSignal();
     }
 
@@ -123,7 +137,8 @@ Future<void> install(String value,
       }
     } else {
       print(
-          'Upgrading from installed version ${installedPackage.version.bold()}\n');
+        'Upgrading from installed version ${installedPackage.version.bold()}\n',
+      );
     }
   }
 
@@ -134,10 +149,7 @@ Future<void> install(String value,
     ).interact();
     if (viewReleaseNotes) {
       print('\n${mdToTerminal(releases.first.releaseNotes!)}');
-      if (!Confirm(
-        prompt: 'Continue?',
-        defaultValue: true,
-      ).interact()) {
+      if (!Confirm(prompt: 'Continue?', defaultValue: true).interact()) {
         exit(0);
       }
     }
@@ -156,7 +168,8 @@ Future<void> install(String value,
             (signer = getSignerFromString(env['SIGN_WITH']!))
                 is NpubFakeSigner) {
           wotSpinner.fail(
-              'No signer, not possible to sign a request to the web of trust service, skipping check');
+            'No signer, not possible to sign a request to the web of trust service, skipping check',
+          );
           return false;
         }
 
@@ -175,7 +188,9 @@ Future<void> install(String value,
         await signer.initialize();
         final pubkey = signer.pubkey;
         final partialRequest = PartialVerifyReputationRequest(
-            source: pubkey, target: signerPubkey);
+          source: pubkey,
+          target: signerPubkey,
+        );
         final signedRequest = await partialRequest.signWith(signer);
         await signer.dispose();
 
@@ -191,8 +206,9 @@ Future<void> install(String value,
         final pubkeys = (response as VerifyReputationResponse).pubkeys;
 
         final relevantProfiles = await storage.query(
-            RequestFilter<Profile>(authors: pubkeys).toRequest(),
-            source: RemoteSource(group: 'vertex'));
+          RequestFilter<Profile>(authors: pubkeys).toRequest(),
+          source: RemoteSource(group: 'vertex'),
+        );
 
         wotSpinner.success();
 
@@ -204,7 +220,8 @@ Future<void> install(String value,
         }
       } else {
         print(
-            'Package signed by ${formatProfile(signerProfile)} who was previously trusted for this app');
+          'Package signed by ${formatProfile(signerProfile)} who was previously trusted for this app',
+        );
       }
       return true;
     });
@@ -225,14 +242,17 @@ Future<void> install(String value,
     spinner: CliSpinners.dots,
   ).start();
 
-  final package = db[app.identifier] ??
+  final package =
+      db[app.identifier] ??
       Package(
-          identifier: app.identifier,
-          pubkey: metadata.event.pubkey,
-          version: metadata.version);
+        identifier: app.identifier,
+        pubkey: metadata.event.pubkey,
+        version: metadata.version,
+      );
 
   await package.installRemote(metadata, spinner: installSpinner);
 
   installSpinner.success(
-      'Installed package ${app.identifier.bold()}@${metadata.version}');
+    'Installed package ${app.identifier.bold()}@${metadata.version}',
+  );
 }

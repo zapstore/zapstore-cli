@@ -27,9 +27,12 @@ All notable changes to this project will be documented in this file.
 
     test('should extract changelog for existing version', () {
       final result = extractChangelogSection(testChangelog, '1.0.1');
-      expect(result, contains('''### Fixed
+      expect(
+        result,
+        contains('''### Fixed
 - Bug in login screen
-- Crash on startup'''));
+- Crash on startup'''),
+      );
     });
 
     test('should extract changelog for first version', () {
@@ -67,8 +70,11 @@ All notable changes to this project will be documented in this file.
 - Initial release
 ''';
       final result = extractChangelogSection(specialChangelog, '1.0+1');
-      expect(result, contains('''### Fixed
-- Special version test'''));
+      expect(
+        result,
+        contains('''### Fixed
+- Special version test'''),
+      );
     });
   });
 }

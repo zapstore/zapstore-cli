@@ -17,18 +17,22 @@ Future<void> zap() async {
 
   final db = await Package.loadAll();
   final apps = await storage.query(
-      RequestFilter<App>(
-          tags: {'#d': db.values.map((p) => p.identifier).toSet()}).toRequest(),
-      source: RemoteSource(group: 'zapstore'));
+    RequestFilter<App>(
+      tags: {'#d': db.values.map((p) => p.identifier).toSet()},
+    ).toRequest(),
+    source: RemoteSource(group: 'zapstore'),
+  );
 
   final profiles = await storage.query(
-      RequestFilter<Profile>(authors: apps.map((a) => a.event.pubkey).toSet())
-          .toRequest(),
-      source: RemoteSource(group: 'vertex'));
+    RequestFilter<Profile>(
+      authors: apps.map((a) => a.event.pubkey).toSet(),
+    ).toRequest(),
+    source: RemoteSource(group: 'vertex'),
+  );
 
   final appIds = [
     for (final app in apps)
-      '${app.name} [${app.identifier}] signed by ${formatProfile(profiles.firstWhereOrNull((p) => p.event.pubkey == app.event.pubkey), url: false)}'
+      '${app.name} [${app.identifier}] signed by ${formatProfile(profiles.firstWhereOrNull((p) => p.event.pubkey == app.event.pubkey), url: false)}',
   ];
 
   final selection = Select(
@@ -37,8 +41,9 @@ Future<void> zap() async {
   ).interact();
 
   final app = apps.toList()[selection];
-  final profile =
-      profiles.firstWhere((p) => p.event.pubkey == app.event.pubkey);
+  final profile = profiles.firstWhere(
+    (p) => p.event.pubkey == app.event.pubkey,
+  );
 
   final response = Input(
     prompt: 'How many sats do you want to zap?',
@@ -57,8 +62,9 @@ Future<void> zap() async {
   partialZapRequest.event.addTagValue('e', app.event.id);
   partialZapRequest.event.addTagValue('p', app.event.pubkey);
   partialZapRequest.amount = amountInSats * 1000;
-  partialZapRequest.relays =
-      storage.config.getRelays(source: RemoteSource(group: 'social'));
+  partialZapRequest.relays = storage.config.getRelays(
+    source: RemoteSource(group: 'social'),
+  );
   partialZapRequest.comment = comment;
 
   final zapRequest = await partialZapRequest.signWith(signer);
@@ -84,14 +90,15 @@ Future<void> zap() async {
   while (zap == null) {
     await Future.delayed(Duration(seconds: 2));
     final zaps = await storage.query(
-        RequestFilter<Zap>(
-          tags: {
-            '#e': {app.event.id},
-            '#p': {app.event.pubkey}
-          },
-          limit: 1,
-        ).toRequest(),
-        source: LocalAndRemoteSource(group: 'social'));
+      RequestFilter<Zap>(
+        tags: {
+          '#e': {app.event.id},
+          '#p': {app.event.pubkey},
+        },
+        limit: 1,
+      ).toRequest(),
+      source: LocalAndRemoteSource(group: 'social'),
+    );
     if (zaps.isNotEmpty) {
       if (zaps.first.zapRequest.value == zapRequest) {
         zap = zaps.first;
@@ -99,8 +106,9 @@ Future<void> zap() async {
     }
   }
 
-  print('Zapped ${zap.recipient.value?.nameOrNpub} for ${zap.amount} sats!'
-      .bold());
+  print(
+    'Zapped ${zap.recipient.value?.nameOrNpub} for ${zap.amount} sats!'.bold(),
+  );
 }
 
 Future<Map<String, dynamic>> fetchLightningAddress(Profile p) async {

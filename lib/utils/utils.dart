@@ -53,8 +53,10 @@ extension StringExtension on String {
 
 void requireSignWith() {
   if (env['SIGN_WITH'] == null) {
-    throw UsageException('No SIGN_WITH environmental variable set',
-        'See the documentation for options.');
+    throw UsageException(
+      'No SIGN_WITH environmental variable set',
+      'See the documentation for options.',
+    );
   }
 }
 
@@ -66,7 +68,7 @@ const kArchiveMimeTypes = [
   'application/gzip',
   'application/x-tar',
   'application/x-xz',
-  'application/x-bzip2'
+  'application/x-bzip2',
 ];
 
 const kZapstoreSupportedPlatforms = [
@@ -80,7 +82,7 @@ final kZapstoreSupportedMimeTypes = [
   kMacOSArm64,
   kLinuxAmd64,
   kLinuxArm64,
-  kAndroidMimeType
+  kAndroidMimeType,
 ];
 
 final kZapstoreAcceptedMimeTypes = [

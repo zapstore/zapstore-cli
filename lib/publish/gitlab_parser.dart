@@ -36,7 +36,8 @@ class GitlabParser extends AssetParser {
             .map(RegExp.new)
             .toSet();
     repositoryName = getRepositoryName(
-        appMap['release_repository'] ?? appMap['repository']!);
+      appMap['release_repository'] ?? appMap['repository']!,
+    );
 
     final latestReleaseUrl =
         'https://gitlab.com/api/v4/projects/$repositoryName/releases/permalink/latest';
@@ -55,8 +56,9 @@ class GitlabParser extends AssetParser {
     final assets =
         <String, dynamic>{...releaseJson!['assets']}['links'] as Iterable;
 
-    final someAssetHasArm64v8a =
-        assets.any((a) => a['name'].contains('arm64-v8a'));
+    final someAssetHasArm64v8a = assets.any(
+      (a) => a['name'].contains('arm64-v8a'),
+    );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {

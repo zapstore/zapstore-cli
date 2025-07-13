@@ -29,20 +29,25 @@ class FDroidMetadataFetcher extends MetadataFetcher {
     throw 'HTTP status ${response.statusCode}';
   }
 
-  Future<void> _parseFdroid(
-      {required http.Response response,
-      required PartialApp app,
-      CliSpin? spinner}) async {
+  Future<void> _parseFdroid({
+    required http.Response response,
+    required PartialApp app,
+    CliSpin? spinner,
+  }) async {
     final spinnerText = spinner?.text;
     final document = parseHtmlDocument(response.body);
 
     app.name ??= document.querySelector('.package-name')!.innerText.trim();
-    app.summary ??=
-        document.querySelector('.package-summary')!.innerText.trim();
+    app.summary ??= document
+        .querySelector('.package-summary')!
+        .innerText
+        .trim();
 
     if (app.description == null) {
-      final appDescription =
-          document.querySelector('.package-description')!.innerHtml!.trim();
+      final appDescription = document
+          .querySelector('.package-description')!
+          .innerHtml!
+          .trim();
       app.description = markdown.convert(appDescription);
     }
 
@@ -70,10 +75,11 @@ class FDroidMetadataFetcher extends MetadataFetcher {
     }
   }
 
-  Future<void> _parseIzzy(
-      {required http.Response response,
-      required PartialApp app,
-      CliSpin? spinner}) async {
+  Future<void> _parseIzzy({
+    required http.Response response,
+    required PartialApp app,
+    CliSpin? spinner,
+  }) async {
     final spinnerText = spinner?.text;
     final document = parseHtmlDocument(response.body);
 
@@ -82,8 +88,10 @@ class FDroidMetadataFetcher extends MetadataFetcher {
     app.summary ??= document.querySelector('#summary')!.innerText.trim();
 
     if (app.description == null) {
-      final appDescription =
-          document.querySelector('#desc p')!.innerHtml!.trim();
+      final appDescription = document
+          .querySelector('#desc p')!
+          .innerHtml!
+          .trim();
       app.description = markdown.convert(appDescription);
     }
 

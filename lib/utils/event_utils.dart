@@ -16,27 +16,40 @@ String formatProfile(Profile? profile, {bool url = true}) {
   return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'}${url ? ' - https://npub.world/${profile.npub}' : ''}';
 }
 
-Future<void> checkVersionOnRelays(String identifier, String version,
-    {int? versionCode}) async {
-  final releases = await storage.query(RequestFilter<Release>(
-    tags: {
-      '#d': {'$identifier@$version'}
-    },
-    limit: 1,
-  ).toRequest());
+Future<void> checkVersionOnRelays(
+  String identifier,
+  String version, {
+  int? versionCode,
+}) async {
+  final releases = await storage.query(
+    RequestFilter<Release>(
+      tags: {
+        '#d': {'$identifier@$version'},
+      },
+      limit: 1,
+    ).toRequest(),
+    source: RemoteSource(),
+  );
 
   if (releases.isEmpty) return;
 
   // Android specific: Query to ensure version code is older than current
   if (versionCode != null &&
       (releases.first.fileMetadatas.req?.filters.isNotEmpty ?? false)) {
-    final req = releases.first.fileMetadatas.req!.filters.first.copyWith(tags: {
-      'm': {kAndroidMimeType}
-    }).toRequest();
-    final fileMetadatas = await storage.query(req);
+    final req = releases.first.fileMetadatas.req!.filters.first
+        .copyWith(
+          tags: {
+            'm': {kAndroidMimeType},
+          },
+        )
+        .toRequest();
+
+    final fileMetadatas = await storage.query(req, source: RemoteSource());
     if (fileMetadatas.isNotEmpty) {
-      final maxVersionCode = fileMetadatas.fold(0,
-          (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0));
+      final maxVersionCode = fileMetadatas.fold(
+        0,
+        (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0),
+      );
       if (maxVersionCode >= versionCode) {
         exitWithVersionCodeWarning(maxVersionCode, versionCode);
       }
@@ -50,12 +63,15 @@ Future<void> checkVersionOnRelays(String identifier, String version,
 }
 
 // Early check just with assetUrl to prevent downloads & processing
-Future<void> checkUrl(String assetUrl, String version,
-    {DateTime? publishedAt}) async {
-  final assets = await storage.query(RequestFilter<FileMetadata>(
-    search: assetUrl,
-    limit: 1,
-  ).toRequest());
+Future<void> checkUrl(
+  String assetUrl,
+  String version, {
+  DateTime? publishedAt,
+}) async {
+  final assets = await storage.query(
+    RequestFilter<FileMetadata>(search: assetUrl, limit: 1).toRequest(),
+    source: RemoteSource(),
+  );
 
   final matchingAssets = assets.where((r) {
     return r.urls.any((u) => u == assetUrl);
@@ -65,9 +81,10 @@ Future<void> checkUrl(String assetUrl, String version,
     // Figure out if current publishing timestamp is more recent
     if (publishedAt != null) {
       final maxExistingPublishedAt = matchingAssets.fold(
-          0,
-          (acc, e) =>
-              acc > e.createdAt.toSeconds() ? acc : e.createdAt.toSeconds());
+        0,
+        (acc, e) =>
+            acc > e.createdAt.toSeconds() ? acc : e.createdAt.toSeconds(),
+      );
       if (maxExistingPublishedAt < publishedAt.toSeconds()) {
         // Do not exit with warning, continue processing
         // and set overwriteRelease to skip next check
@@ -92,7 +109,8 @@ void exitWithWarning(String v1, String v2) {
 
 void exitWithVersionCodeWarning(int v1, int v2) {
   stderr.writeln(
-      '⚠️  Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.');
+    '⚠️  Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.',
+  );
   throw GracefullyAbortSignal();
 }
 

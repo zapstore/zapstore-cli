@@ -81,8 +81,9 @@ class _Version implements Comparable<_Version> {
   @override
   int compareTo(_Version other) {
     // 1. compare numeric dot parts
-    final maxLen =
-        parts.length > other.parts.length ? parts.length : other.parts.length;
+    final maxLen = parts.length > other.parts.length
+        ? parts.length
+        : other.parts.length;
     for (var i = 0; i < maxLen; i++) {
       final a = i < parts.length ? parts[i] : 0;
       final b = i < other.parts.length ? other.parts[i] : 0;
@@ -102,8 +103,9 @@ class _Version implements Comparable<_Version> {
 
     for (var i = 0; i < maxPre; i++) {
       final aId = i < preRelease.length ? preRelease[i] : _Identifier.empty;
-      final bId =
-          i < other.preRelease.length ? other.preRelease[i] : _Identifier.empty;
+      final bId = i < other.preRelease.length
+          ? other.preRelease[i]
+          : _Identifier.empty;
 
       final cmp = aId.compareTo(bId);
       if (cmp != 0) return cmp;
@@ -124,9 +126,7 @@ class _Version implements Comparable<_Version> {
 /* -------------------------------------------------------------------------- */
 
 class _Identifier implements Comparable<_Identifier> {
-  _Identifier(String raw)
-      : isNumeric = _numeric.hasMatch(raw),
-        value = raw;
+  _Identifier(String raw) : isNumeric = _numeric.hasMatch(raw), value = raw;
 
   static final _numeric = RegExp(r'^[0-9]+$');
 

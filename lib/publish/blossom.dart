@@ -22,7 +22,8 @@ class BlossomClient {
 
   // Generate Blossom authorizations (icons, images hold hashes until here)
   Future<Set<PartialBlossomAuthorization>> generateAuthorizations(
-      List<String> assetHashes) async {
+    List<String> assetHashes,
+  ) async {
     if (assetHashes.isEmpty) return {};
     final Set<PartialBlossomAuthorization> result = {};
 
@@ -48,8 +49,9 @@ class BlossomClient {
           'Checking existing asset ($i/${assetHashes.length}): $originalFilePath';
       final exists = await existsInBlossomServer(assetHash);
       if (!exists) {
-        final (mimeType, _, _) =
-            await detectMimeTypes(getFilePathInTempDirectory(assetHash));
+        final (mimeType, _, _) = await detectMimeTypes(
+          getFilePathInTempDirectory(assetHash),
+        );
         final auth = PartialBlossomAuthorization()
           ..content = 'Upload asset $originalFilePath'
           ..type = BlossomAuthorizationType.upload
@@ -71,7 +73,8 @@ class BlossomClient {
   }
 
   Future<Map<String, String>> upload(
-      List<BlossomAuthorization> authorizations) async {
+    List<BlossomAuthorization> authorizations,
+  ) async {
     final hashUrlMap = <String, String>{};
 
     for (final authorization in authorizations) {
@@ -92,8 +95,9 @@ class BlossomClient {
       if (headResponse.statusCode == 200) {
         uploadSpinner.success('File $assetName already exists at $server');
       } else {
-        final bytes =
-            await File(getFilePathInTempDirectory(assetHash)).readAsBytes();
+        final bytes = await File(
+          getFilePathInTempDirectory(assetHash),
+        ).readAsBytes();
         final response = await http.put(
           Uri.parse(path.join(server.toString(), 'upload')),
           body: bytes,
@@ -106,8 +110,9 @@ class BlossomClient {
 
         if (response.statusCode == 200) {
           // Returns a Blossom blob descriptor
-          final responseMap =
-              Map<String, dynamic>.from(jsonDecode(response.body));
+          final responseMap = Map<String, dynamic>.from(
+            jsonDecode(response.body),
+          );
           if (assetHash != responseMap['sha256']) {
             throw 'Hash mismatch for $assetName despite successful upload: local hash: $assetHash, server hash: ${responseMap['sha256']}';
           }
@@ -116,12 +121,14 @@ class BlossomClient {
         } else {
           switch (response.statusCode) {
             case HttpStatus.unauthorized:
-              uploadSpinner
-                  .fail('You are unauthorized to upload $assetName to $server');
+              uploadSpinner.fail(
+                'You are unauthorized to upload $assetName to $server',
+              );
               throw GracefullyAbortSignal();
             case HttpStatus.unsupportedMediaType:
               uploadSpinner.fail(
-                  'Media type (${authorization.mimeType}) for $assetName is unsupported by $server');
+                'Media type (${authorization.mimeType}) for $assetName is unsupported by $server',
+              );
               throw GracefullyAbortSignal();
             default:
               throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';

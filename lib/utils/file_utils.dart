@@ -48,28 +48,32 @@ Future<String> fetchFile(
   var downloadedBytes = 0;
   final totalBytes = response.contentLength!;
 
-  sub = response.stream.listen((chunk) {
-    final data = Uint8List.fromList(chunk);
-    buffer.add(data);
-    downloadedBytes += data.length;
-    spinner?.text =
-        '$initialText ${downloadedBytes.toMB()} (${(downloadedBytes / totalBytes * 100).floor()}%)';
-  }, onError: (e) {
-    throw e;
-  }, onDone: () async {
-    spinner?.text = '$initialText ${downloadedBytes.toMB()} (100%)';
-    await sub?.cancel();
-    client.close();
+  sub = response.stream.listen(
+    (chunk) {
+      final data = Uint8List.fromList(chunk);
+      buffer.add(data);
+      downloadedBytes += data.length;
+      spinner?.text =
+          '$initialText ${downloadedBytes.toMB()} (${(downloadedBytes / totalBytes * 100).floor()}%)';
+    },
+    onError: (e) {
+      throw e;
+    },
+    onDone: () async {
+      spinner?.text = '$initialText ${downloadedBytes.toMB()} (100%)';
+      await sub?.cancel();
+      client.close();
 
-    final bytes = buffer.takeBytes();
-    final hash = sha256.convert(bytes).toString().toLowerCase();
+      final bytes = buffer.takeBytes();
+      final hash = sha256.convert(bytes).toString().toLowerCase();
 
-    final file = File(getFilePathInTempDirectory(hash));
-    await deleteRecursive(file.path);
-    await file.writeAsBytes(bytes);
-    hashPathMap[hash] = url;
-    completer.complete(hash);
-  });
+      final file = File(getFilePathInTempDirectory(hash));
+      await deleteRecursive(file.path);
+      await file.writeAsBytes(bytes);
+      hashPathMap[hash] = url;
+      completer.complete(hash);
+    },
+  );
   return completer.future;
 }
 
