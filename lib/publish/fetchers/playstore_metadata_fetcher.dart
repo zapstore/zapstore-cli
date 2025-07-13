@@ -14,7 +14,7 @@ class PlayStoreMetadataFetcher extends MetadataFetcher {
   Future<void> run({required PartialApp app, CliSpin? spinner}) async {
     final spinnerText = spinner?.text;
     final url =
-        'https://play.google.com/store/apps/details?id=${app.identifier}';
+        'https://play.google.com/store/apps/details?id=${app.identifier}&hl=en_US';
 
     final response = await http.get(Uri.parse(url));
 
