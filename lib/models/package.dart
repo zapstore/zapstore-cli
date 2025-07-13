@@ -128,9 +128,6 @@ After that, open a new shell and re-run this program.
       }
     }
 
-    // Initialize database
-    await initializeStorage();
-
     final db = <String, Package>{};
 
     final links = await _listLinks(kBaseDir);
@@ -151,6 +148,9 @@ After that, open a new shell and re-run this program.
       );
       db[package.identifier] = package;
     }
+
+    // Initialize SQLite database
+    await initializeStorage();
 
     // If zapstore not in db, auto-install/update
     final kZapstoreId = 'zapstore';
@@ -234,28 +234,21 @@ Future<Map<String, String>> _listLinks(String dir) async {
   return links;
 }
 
-late final StorageNotifier storage;
+StorageNotifier? _storage;
+StorageNotifier get storage => _storage!;
 
-bool _isStorageInitialized = false;
+Future<void> initializeStorage({bool inMemory = false}) async {
+  _storage = container.read(storageNotifierProvider.notifier);
 
-Future<void> initializeStorage() async {
-  if (_isStorageInitialized) {
-    return;
-  }
-  final baseDirExists = await Directory(kBaseDir).exists();
-  storage = container.read(storageNotifierProvider.notifier);
-
-  await storage.initialize(
-    StorageConfiguration(
-      databasePath: baseDirExists ? path.join(kBaseDir, 'zapstore.db') : null,
-      relayGroups: {
-        'zapstore': defaultAppRelays,
-        'vertex': {'wss://relay.vertexlab.io'},
-        'social': {'wss://relay.primal.net'},
-      },
-      defaultRelayGroup: 'zapstore',
-    ),
+  final config = StorageConfiguration(
+    databasePath: inMemory ? null : path.join(kBaseDir, 'zapstore.db'),
+    relayGroups: {
+      'zapstore': defaultAppRelays,
+      'vertex': {'wss://relay.vertexlab.io'},
+      'social': {'wss://relay.primal.net'},
+    },
+    defaultRelayGroup: 'zapstore',
   );
 
-  _isStorageInitialized = true;
+  await storage.initialize(config);
 }

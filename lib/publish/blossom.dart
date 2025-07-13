@@ -35,7 +35,7 @@ class BlossomClient {
     if (assetHashes.isEmpty) return {};
 
     final spinner = CliSpin(
-      text: 'Checking existing assets...',
+      text: 'Checking existing assets in Blossom server...',
       spinner: CliSpinners.dots,
       isSilent: isDaemonMode,
     ).start();
@@ -46,7 +46,7 @@ class BlossomClient {
       final originalFilePath = hashPathMap[assetHash]!;
       i++;
       spinner.text =
-          'Checking existing asset ($i/${assetHashes.length}): $originalFilePath';
+          'Checking existing asset in Blossom server: ($i/${assetHashes.length}): $originalFilePath';
       final exists = await existsInBlossomServer(assetHash);
       if (!exists) {
         final (mimeType, _, _) = await detectMimeTypes(

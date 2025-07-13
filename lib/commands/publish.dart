@@ -25,9 +25,8 @@ class Publisher {
   late final Signer signer;
 
   Future<void> run() async {
-    // Make sure Purplebase is initialized as publish does not call Package.loadAll()
-    // If ~/.zapstore is not available, it initializes an in-memory database
-    await initializeStorage();
+    // Use an in-memory database for publish (does not require ~/.zapstore)
+    await initializeStorage(inMemory: true);
 
     // (1) Validate input and find an appropriate asset parser
     await _validateAndFindParser();
