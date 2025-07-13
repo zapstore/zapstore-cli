@@ -26,6 +26,13 @@ class BlossomClient {
     if (assetHashes.isEmpty) return {};
     final Set<PartialBlossomAuthorization> result = {};
 
+    // Filter out remote URLs
+    assetHashes = assetHashes
+        .where((hash) => hashPathMap[hash]?.isHttpUri ?? false)
+        .toList();
+
+    if (assetHashes.isEmpty) return {};
+
     final spinner = CliSpin(
       text: 'Checking existing assets...',
       spinner: CliSpinners.dots,
@@ -33,11 +40,6 @@ class BlossomClient {
     ).start();
 
     int i = 0;
-
-    // Filter out remote URLs
-    assetHashes = assetHashes
-        .where((hash) => hashPathMap[hash]?.isHttpUri ?? false)
-        .toList();
 
     for (final assetHash in assetHashes) {
       final originalFilePath = hashPathMap[assetHash]!;
