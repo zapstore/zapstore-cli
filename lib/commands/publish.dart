@@ -7,6 +7,7 @@ import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:yaml/yaml.dart';
+import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/publish/events.dart';
 import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/gitlab_parser.dart';
@@ -24,6 +25,10 @@ class Publisher {
   late final Signer signer;
 
   Future<void> run() async {
+    // Make sure Purplebase is initialized as publish does not call Package.loadAll()
+    // If ~/.zapstore is not available, it initializes an in-memory database
+    await initializeStorage();
+
     // (1) Validate input and find an appropriate asset parser
     await _validateAndFindParser();
 

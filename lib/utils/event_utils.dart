@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:models/models.dart';
 import 'package:tint/tint.dart';
 import 'package:zapstore_cli/main.dart';
+import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 

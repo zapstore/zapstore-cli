@@ -13,6 +13,7 @@ import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/commands/zap.dart';
+import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
@@ -23,7 +24,6 @@ const kVersion = '0.2.0';
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
 
-late final StorageNotifier storage;
 late final ProviderContainer container;
 
 void main(List<String> args) async {
@@ -46,11 +46,6 @@ void main(List<String> args) async {
     ..addCommand(PublishCommand());
   runner.argParser.addFlag('version', abbr: 'v', negatable: false);
 
-  final isDevBuild = path.basename(Platform.resolvedExecutable) == 'dart';
-  runner.argParser.addFlag('auto-update',
-      help: 'Auto-updates the currently installed zapstore',
-      defaultsTo: !isDevBuild);
-
   final argResults = runner.argParser.parse(args);
 
   if (argResults.flag('version')) {
@@ -59,21 +54,10 @@ void main(List<String> args) async {
   }
 
   try {
-    storage = container.read(storageNotifierProvider.notifier);
-
-    await storage.initialize(StorageConfiguration(
-      databasePath: path.join(kBaseDir, 'zapstore.db'),
-      relayGroups: {
-        'zapstore': defaultAppRelays,
-        'vertex': {'wss://relay.vertexlab.io'},
-        'social': {'wss://relay.primal.net'}
-      },
-      defaultRelayGroup: 'zapstore',
-    ));
-
     await runner.run(args);
   } on GracefullyAbortSignal {
     // silently exit with no error
+    exit(0);
   } catch (e, stack) {
     final first = e.toString().split('\n').first;
     final rest = e.toString().split('\n').sublist(1).join('\n');
@@ -84,7 +68,6 @@ void main(List<String> args) async {
     wasError = true;
     reset();
   } finally {
-    storage.dispose();
     container.dispose();
     exit(wasError ? 1 : 0);
   }

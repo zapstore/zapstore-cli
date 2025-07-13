@@ -2,7 +2,6 @@ import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
 import 'package:zapstore_cli/commands/install.dart';
-import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 

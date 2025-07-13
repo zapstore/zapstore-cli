@@ -132,7 +132,7 @@ remote_metadata:
   - playstore
   - github
 blossom_server: https://cdn.zapstore.dev
-assets: # for local
+assets: # for local (relative to config file path!)
   - test/assets/.*.apk
 # or
 assets: # for github
@@ -143,28 +143,30 @@ executables:
 
 Notes on properties:
   - `identifier`: Main identifier that will become the `d` tag in the app event. Mostly useful for CLI apps, in Android identifier will be extracted from the APK. Can be derived from the last bit of `repository` if on Github, or from `name`.
-  - `version`: Version being published, only really useful for CLI apps published from a local source, in Android version will be extracted from the APK
+  - `version`: Version being published, not allowed on Android as version will be extracted from the APK. Useful for CLI apps published from a local source
   - `name`: App name, if not supplied it will be derived from the identifier. Can be pulled via remote metadata like Google Play Store, for example
   - `summary`: Short sentence describing this app. Can be pulled from remote metadata.
   - `description`: Longer description of the app, markdown allowed. Can be pulled from remote metadata. Can be derived from `summary`.
   - `repository`: Source repository. If on `github.com`, releases will be looked up via Github API
   - `release_repository`: If source repository is missing (closed source apps) or releases are found here instead
   - `homepage`: App website
-  - `images`: List of image paths. Only local paths supported.
-  - `icon`: Icon path. Only local path supported.
+  - `images`: List of image paths. Local paths or remote URLs supported. Must be relative to the config file directory
+  - `icon`: Icon path. Local paths or remote URLs supported. Must be relative to the config file directory
   - `changelog`: Local path to the changelog in the [Keep a Changelog](https://keepachangelog.com) format, release notes for the resolved version can be extracted from here, defaults to `CHANGELOG.md`
   - `tags`: String with tags related to the app, separated by a space
   - `license`: Project license in [SPDX](https://spdx.org/licenses/) identifier format
   - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `fdroid` (also checks Izzy), `github`, `gitlab`
   - `blossom_server`: The Blossom server where to upload assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to this Blossom server which need to be valid.
-  - `assets`: List of paths to assets **as regular expressions**. If paths contain a forward-slash they will trigger the local asset parser, if they don't, the Github/Gitlab parsers (as long as there is a repository with a `github.com` or `gitlab.com` host). If they are another HTTP URI, the Web parser. If omitted, the list defaults to a single `.*` which means all assets in Github/Gitlab release, if applicable.
+  - `assets`: List of paths to assets **as regular expressions**.
+    - If paths contain a forward-slash they will trigger the local asset parser. All asset paths are relative to the config path directory
+    - If they do not contain forward-slashes, the Github/Gitlab parsers will be used (as long as there is a repository with a `github.com` or `gitlab.com` host).
+    - If they are another HTTP URI, the Web parser.
+    - If omitted, the list defaults to a single `.*` which means all assets in Github/Gitlab release, if applicable.
   - `executables`: Strictly for CLI apps that are packaged as a compressed archive, a list of in-archive paths as regular expressions. If omitted, all supported executables (see supported platforms above) inside the archive will be linked and installed.
 
 Supported compressed archive formats: ZIP, and TAR, XZ, BZIP2 (gzipped or not).
 
 If you need assistance producing a `zapstore.yaml` config file, please reach out via nostr.
-
-All asset paths are relative to the config path.
 
 ### Real world examples
 

@@ -97,6 +97,7 @@ class Package {
     if (!systemPath.contains(kBaseDir) || !await dir.exists()) {
       print('\n${'Welcome to'.bold().white().onBlue()}\n$figure');
 
+      // Ensure ~/.zapstore directory exists (should be configurable in the future)
       if (!await dir.exists()) {
         final setUp = Confirm(
           prompt:
@@ -111,6 +112,7 @@ class Package {
         }
       }
 
+      // Ensure ~/.zapstore directory is in PATH
       if (!systemPath.contains(kBaseDir)) {
         print('\nMake sure ${kBaseDir.bold()} is in your PATH.\n'.red());
         print('''
@@ -119,9 +121,11 @@ This will make programs installed by zapstore available in your system.
 
 After that, open a new shell and re-run this program.
 ''');
-        exit(0);
       }
     }
+
+    // Initialize database
+    await initializeStorage();
 
     final db = <String, Package>{};
 
@@ -146,10 +150,13 @@ After that, open a new shell and re-run this program.
     final kZapstoreId = 'zapstore';
     final isUpgradable = db[kZapstoreId] == null ||
         canUpgrade(db[kZapstoreId]!.version, kVersion);
-    if (isUpgradable) {
+
+    final isDevBuild = path.basename(Platform.resolvedExecutable) == 'dart';
+    // If it's local dev build do not offer to install
+    if (!isDevBuild && isUpgradable) {
       final verb = db[kZapstoreId] == null ? 'Install' : 'Upgrade';
       final install = Confirm(
-        prompt: 'This program contains zapstore $kVersion. $verb?',
+        prompt: '$verb zapstore $kVersion?',
         defaultValue: true,
       ).interact();
 
@@ -210,4 +217,28 @@ Future<Map<String, String>> _listLinks(String dir) async {
     }
   }
   return links;
+}
+
+late final StorageNotifier storage;
+
+bool _isStorageInitialized = false;
+
+Future<void> initializeStorage() async {
+  if (_isStorageInitialized) {
+    return;
+  }
+  final baseDirExists = await Directory(kBaseDir).exists();
+  storage = container.read(storageNotifierProvider.notifier);
+
+  await storage.initialize(StorageConfiguration(
+    databasePath: path.join(kBaseDir, baseDirExists ? 'zapstore.db' : null),
+    relayGroups: {
+      'zapstore': defaultAppRelays,
+      'vertex': {'wss://relay.vertexlab.io'},
+      'social': {'wss://relay.primal.net'}
+    },
+    defaultRelayGroup: 'zapstore',
+  ));
+
+  _isStorageInitialized = true;
 }
