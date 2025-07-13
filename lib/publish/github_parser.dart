@@ -49,7 +49,8 @@ class GithubParser extends AssetParser {
         await http.get(Uri.parse(latestReleaseUrl), headers: headers).getJson();
 
     // If there's a message it's an error (or no matching assets were found)
-    final isFailure = releaseJson!['message'] != null ||
+    final isFailure = releaseJson!.isEmpty ||
+        releaseJson!['message'] != null ||
         !(releaseJson!['assets'] as Iterable).any((a) {
           return assetRegexps.any((r) {
             return r.hasMatch(_getNameFromAsset(a));
