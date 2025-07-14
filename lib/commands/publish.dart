@@ -304,15 +304,18 @@ Okay?''',
                 '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
             spinner.success(msg);
           } else {
-            final msg =
-                'Failure: ${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}';
             if (isDaemonMode) {
-              final isDuplicate = e.message?.contains('duplicate') ?? false;
+              final isDuplicate =
+                  e.message?.toLowerCase().contains('duplicate') ?? false;
               if (!isDuplicate) {
-                print(msg);
+                print(
+                  'Failure: ${e.message}: ${model.id} (kind $kind) from ${e.relayUrl}',
+                );
               }
             } else {
-              spinner.fail(msg);
+              spinner.fail(
+                'Failure: ${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}',
+              );
             }
           }
         }
