@@ -27,13 +27,6 @@ class BlossomClient {
     if (assetHashes.isEmpty) return {};
     final Set<PartialBlossomAuthorization> result = {};
 
-    // Filter out remote URLs
-    assetHashes = assetHashes
-        .where((hash) => hashPathMap[hash]?.isHttpUri ?? false)
-        .toList();
-
-    if (assetHashes.isEmpty) return {};
-
     final spinner = CliSpin(
       text: 'Checking existing assets in Blossom server...',
       spinner: CliSpinners.dots,

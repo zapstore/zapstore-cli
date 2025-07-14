@@ -462,9 +462,11 @@ packages:
   models:
     dependency: "direct main"
     description:
-      path: "../../purplebase/models"
-      relative: true
-    source: path
+      path: "."
+      ref: "919d0a6"
+      resolved-ref: "919d0a61873b65f92a981d7d3d6d612dbef6866a"
+      url: "https://github.com/purplebase/models"
+    source: git
     version: "0.3.0"
   nip07_signer:
     dependency: "direct main"
@@ -567,9 +569,11 @@ packages:
   purplebase:
     dependency: "direct main"
     description:
-      path: "../../purplebase/purplebase"
-      relative: true
-    source: path
+      path: "."
+      ref: d84677a
+      resolved-ref: d84677a49e6d2e87af71ed969941c7569b19938c
+      url: "https://github.com/purplebase/purplebase"
+    source: git
     version: "0.3.0"
   qr:
     dependency: transitive

@@ -37,6 +37,10 @@ Future<String> fetchFile(
   }
   var response = await client.send(req);
 
+  if (response.statusCode != 200) {
+    throw 'Error fetching file: HTTP status: ${response.statusCode}';
+  }
+
   var downloadedBytes = 0;
   final totalBytes = response.contentLength!;
 
