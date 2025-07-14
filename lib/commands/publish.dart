@@ -299,10 +299,12 @@ Okay?''',
         final relayEventStates = publishResponse.results[model.event.id]!;
 
         for (final e in relayEventStates) {
-          if (e.accepted && !isDaemonMode) {
-            final msg =
-                '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
-            spinner.success(msg);
+          if (e.accepted) {
+            if (!isDaemonMode) {
+              final msg =
+                  '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
+              spinner.success(msg);
+            }
           } else {
             if (isDaemonMode) {
               final isDuplicate =
