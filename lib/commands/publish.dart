@@ -58,8 +58,9 @@ class Publisher {
         .whereType<BlossomAuthorization>()
         .toList();
 
-    // (5) Upload to Blossom
+    // (5) Upload to Blossom and clean up
     await parser.blossomClient.upload(authorizations);
+    await _cleanup();
 
     // (6) Publish
     await _sendToRelays(
@@ -200,6 +201,12 @@ Okay?''',
           throw GracefullyAbortSignal();
         }
       }
+    }
+  }
+
+  Future<void> _cleanup() async {
+    for (final hash in hashPathMap.keys) {
+      await File(getFilePathInTempDirectory(hash)).delete();
     }
   }
 
