@@ -287,7 +287,8 @@ class AssetParser {
       partialRelease.appIdentifier = partialApp.identifier!;
       partialRelease.version = releaseVersion;
     }
-    partialRelease.identifier = '${partialApp.identifier!}@$releaseVersion';
+    releaseVersion ??= partialFileMetadatas.first.version;
+    partialRelease.identifier = '${partialApp.identifier!}@${releaseVersion!}';
 
     final changelogFile = File(
       path.join(

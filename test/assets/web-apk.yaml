@@ -1,8 +1,8 @@
+repository: https://github.com/AntennaPod/AntennaPod
 version:
-  - https://fountain.fm/apk
-  - location
-  - https://storage.googleapis.com/fountain-fm-builds/android/fountain-(.*).apk
+  - https://f-droid.org/packages/de.danoeh.antennapod/
+  - .package-version-header a[name]:nth-child(2)
+  - name
+  - .*
 assets:
-  - https://storage.googleapis.com/fountain-fm-builds/android/fountain-$version.apk
-remote_metadata:
-  - playstore
+  - https://f-droid.org/repo/de.danoeh.antennapod_$version.apk
