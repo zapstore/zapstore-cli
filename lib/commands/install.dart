@@ -45,6 +45,7 @@ Future<void> install(
           '#f': {hostPlatform},
         },
       ).toRequest(),
+      source: RemoteSource(),
     );
 
     if (apps.isEmpty) {
