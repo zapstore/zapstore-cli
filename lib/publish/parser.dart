@@ -262,7 +262,8 @@ class AssetParser {
           final bytes = base64Decode(iconBase64);
           final hash = sha256.convert(bytes).toString().toLowerCase();
           await File(getFilePathInTempDirectory(hash)).writeAsBytes(bytes);
-          hashPathMap[hash] = '(icon from APK)';
+          // Use a fake HTTP in order for it to get uploaded
+          hashPathMap[hash] = 'http://icon_from_apk/';
           partialApp.addIcon(hash);
         }
       }
