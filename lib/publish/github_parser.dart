@@ -29,7 +29,7 @@ class GithubParser extends AssetParser {
   late final String repositoryName;
 
   @override
-  Future<String?> resolveVersion() async {
+  Future<String?> resolveReleaseVersion() async {
     final metadataSpinner = CliSpin(
       text: 'Fetching release from Github...',
       spinner: CliSpinners.dots,
@@ -86,7 +86,17 @@ class GithubParser extends AssetParser {
     }
 
     final version = releaseJson!['tag_name']!.toString();
+
     metadataSpinner.success('Fetched release ${version.bold()} from Github');
+
+    if (!overwriteRelease) {
+      final publishedAt = DateTime.tryParse(releaseJson!['published_at']);
+      await checkUrl(
+        releaseJson!['html_url'],
+        version,
+        publishedAt: publishedAt,
+      );
+    }
 
     return version;
   }
@@ -124,11 +134,6 @@ class GithubParser extends AssetParser {
       for (final asset in matchedAssets) {
         final assetUrl = asset['browser_download_url'];
 
-        if (!overwriteRelease) {
-          final publishedAt = DateTime.tryParse(releaseJson?['published_at']);
-          await checkUrl(assetUrl, resolvedVersion!, publishedAt: publishedAt);
-        }
-
         final assetSpinner = CliSpin(
           text: 'Fetching asset $assetUrl...',
           spinner: CliSpinners.dots,
@@ -158,12 +163,16 @@ class GithubParser extends AssetParser {
 
     partialRelease.event.createdAt =
         DateTime.tryParse(releaseJson?['published_at']) ?? DateTime.now();
+
     partialRelease.url = releaseJson?['html_url'];
+    // Add an r (queryable) tag, regardless of NIP format
+    partialRelease.event.setTagValue('r', releaseJson?['html_url']);
 
-    // If no identifier set yet, apply repo name (may be overridden later)
+    // Done with release, call super
+    await super.applyFileMetadata();
+
+    // If no app identifier was set at all, apply repo name
     partialApp.identifier ??= repositoryName.split('/').lastOrNull;
-
-    return super.applyFileMetadata();
   }
 
   String _getNameFromAsset(Map m) {

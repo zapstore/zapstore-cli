@@ -111,7 +111,7 @@ class Publisher {
           return k.toString().contains('/');
         });
 
-    if (hasRemoteAssets) {
+    if (hasRemoteAssets && appMap['version'] is List) {
       parser = WebParser(appMap);
     } else if (hasLocalAssets) {
       parser = AssetParser(appMap);

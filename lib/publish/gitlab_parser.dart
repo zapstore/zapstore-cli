@@ -24,7 +24,7 @@ class GitlabParser extends AssetParser {
   late final String repositoryName;
 
   @override
-  Future<String?> resolveVersion() async {
+  Future<String?> resolveReleaseVersion() async {
     final metadataSpinner = CliSpin(
       text: 'Fetching release from Gitlab...',
       spinner: CliSpinners.dots,
@@ -45,7 +45,17 @@ class GitlabParser extends AssetParser {
     releaseJson = await http.get(Uri.parse(latestReleaseUrl)).getJson();
 
     final version = releaseJson!['tag_name']!.toString();
+
     metadataSpinner.success('Fetched release ${version.bold()} from Gitlab');
+
+    if (!overwriteRelease) {
+      final publishedAt = DateTime.tryParse(releaseJson!['released_at']);
+      await checkUrl(
+        releaseJson!['_links']['self'],
+        version,
+        publishedAt: publishedAt,
+      );
+    }
 
     return version;
   }
@@ -83,11 +93,6 @@ class GitlabParser extends AssetParser {
       for (final asset in matchedAssets) {
         final assetUrl = asset['direct_asset_url'] ?? asset['url'];
 
-        if (!overwriteRelease) {
-          final publishedAt = DateTime.tryParse(releaseJson?['released_at']);
-          await checkUrl(assetUrl, resolvedVersion!, publishedAt: publishedAt);
-        }
-
         final assetSpinner = CliSpin(
           text: 'Fetching asset $assetUrl...',
           spinner: CliSpinners.dots,
@@ -113,9 +118,14 @@ class GitlabParser extends AssetParser {
     partialRelease.event.createdAt =
         DateTime.tryParse(releaseJson?['released_at']) ?? DateTime.now();
 
-    // If no identifier set yet, apply repo name (may be overridden later)
-    partialApp.identifier ??= repositoryName.split('%2F').lastOrNull;
+    partialRelease.url = releaseJson?['_links']['self'];
+    // Add an r (queryable) tag, regardless of NIP format
+    partialRelease.event.setTagValue('r', releaseJson?['_links']['self']);
 
-    return super.applyFileMetadata();
+    // Done with release, call super
+    await super.applyFileMetadata();
+
+    // If no app identifier was set at all, apply repo name
+    partialApp.identifier ??= repositoryName.split('%2F').lastOrNull;
   }
 }

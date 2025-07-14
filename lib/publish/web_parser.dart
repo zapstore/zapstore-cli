@@ -1,4 +1,9 @@
+import 'dart:convert';
+
 import 'package:cli_spin/cli_spin.dart';
+import 'package:http/http.dart' as http;
+import 'package:json_path/json_path.dart';
+import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:zapstore_cli/utils/event_utils.dart';
@@ -9,20 +14,83 @@ class WebParser extends AssetParser {
   WebParser(super.appMap);
 
   @override
+  Future<String?> resolveReleaseVersion() async {
+    String? version;
+
+    if (appMap['version'] is List) {
+      final versionSpec = appMap['version'] as List;
+
+      final versionSpinner = CliSpin(
+        text: 'Resolving version from spec...',
+        spinner: CliSpinners.dots,
+        isSilent: isDaemonMode,
+      ).start();
+
+      final [endpoint, selector, attribute, ...rest] = versionSpec;
+      final request = http.Request('GET', Uri.parse(endpoint))
+        ..followRedirects = false;
+
+      final response = await http.Client().send(request);
+
+      RegExpMatch? match;
+      if (rest.isEmpty) {
+        // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
+        if (response.isRedirect) {
+          final raw = response.headers[selector]!;
+          match = RegExp(attribute).firstMatch(raw);
+        } else {
+          final body = await response.stream.bytesToString();
+          final jsonMatch = JsonPath(
+            selector,
+          ).read(jsonDecode(body)).firstOrNull?.value;
+          if (jsonMatch != null) {
+            match = RegExp(attribute).firstMatch(jsonMatch.toString());
+          }
+        }
+      } else {
+        // If versionSpec has 4 positions, it's an HTML endpoint
+        final body = await response.stream.bytesToString();
+        final elem = parseHtmlDocument(body).querySelector(selector.toString());
+        if (elem != null) {
+          final raw = attribute.isEmpty
+              ? elem.text!
+              : elem.attributes[attribute]!;
+          match = RegExp(rest.first).firstMatch(raw);
+        }
+      }
+
+      version = match != null
+          ? (match.groupCount > 0 ? match.group(1) : match.group(0))
+          : null;
+      if (version != null) {
+        versionSpinner.success('Resolved version: $version');
+      } else {
+        versionSpinner.fail('Could not resolve version');
+      }
+    }
+
+    if (!overwriteRelease) {
+      // If it does not have a $version do not bother checking
+      final r = _getFirstAssetWithVersion(version!);
+      if (r != null) {
+        await checkUrl(r, version);
+      }
+    }
+
+    return version;
+  }
+
+  @override
   Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
 
     // Web parser cannot continue without a version
-    if (resolvedVersion == null) {
-      throw 'Could not match version for ${appMap['version']}';
+    if (releaseVersion == null) {
+      throw 'Could not match version with spec: ${appMap['version']}';
     }
 
     for (final key in appMap['assets']) {
-      final assetUrl = key.toString().replaceAll('\$version', resolvedVersion!);
-
-      if (!overwriteRelease) {
-        await checkUrl(assetUrl, resolvedVersion!);
-      }
+      final assetUrl = key.toString().replaceAll('\$version', releaseVersion!);
 
       final assetSpinner = CliSpin(
         text: 'Fetching asset $assetUrl...',
@@ -40,5 +108,25 @@ class WebParser extends AssetParser {
       }
     }
     return assetHashes;
+  }
+
+  @override
+  Future<void> applyFileMetadata() {
+    // If the asset URL is not static (i.e. contains a $version)
+    // then we add it as an r (queryable) tag
+    partialRelease.event.setTagValue(
+      'r',
+      _getFirstAssetWithVersion(releaseVersion!),
+    );
+
+    return super.applyFileMetadata();
+  }
+
+  String? _getFirstAssetWithVersion(String version) {
+    final firstAssetUrl = (appMap['assets'] as List).first.toString();
+    if (firstAssetUrl.contains('\$version')) {
+      return firstAssetUrl.replaceAll('\$version', version);
+    }
+    return null;
   }
 }

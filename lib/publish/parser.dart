@@ -4,8 +4,6 @@ import 'package:args/command_runner.dart';
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
-import 'package:http/http.dart' as http;
-import 'package:json_path/json_path.dart';
 import 'package:meta/meta.dart';
 import 'package:models/models.dart';
 import 'package:zapstore_cli/main.dart';
@@ -21,7 +19,6 @@ import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:universal_html/parsing.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
 class AssetParser {
@@ -32,7 +29,7 @@ class AssetParser {
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialSoftwareAssets = <PartialSoftwareAsset>{};
 
-  late String? resolvedVersion;
+  late String? releaseVersion;
   late var assetHashes = <String>{};
   late final BlossomClient blossomClient;
   Set<String>? remoteMetadata;
@@ -52,8 +49,8 @@ class AssetParser {
   }
 
   Future<List<PartialModel>> run() async {
-    // Find a version
-    resolvedVersion = await resolveVersion();
+    // Find a release version
+    releaseVersion = await resolveReleaseVersion();
 
     // Resolve asset hashes (filters out unwanted platforms and mime types)
     assetHashes = await resolveAssetHashes();
@@ -111,73 +108,19 @@ class AssetParser {
     ];
   }
 
-  Future<String?> resolveVersion() async {
-    String? version;
-
-    // Usecase: configs may specify a version: 1.2.1
-    // and have assets $version replaced: jq-$version-macos
+  Future<String?> resolveReleaseVersion() async {
     if (appMap['version'] is String) {
-      version = appMap['version'];
-    } else if (appMap['version'] is List) {
-      final versionSpec = appMap['version'] as List;
-
-      final versionSpinner = CliSpin(
-        text: 'Resolving version from spec...',
-        spinner: CliSpinners.dots,
-        isSilent: isDaemonMode,
-      ).start();
-
-      final [endpoint, selector, attribute, ...rest] = versionSpec;
-      final request = http.Request('GET', Uri.parse(endpoint))
-        ..followRedirects = false;
-
-      final response = await http.Client().send(request);
-
-      RegExpMatch? match;
-      if (rest.isEmpty) {
-        // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
-        if (response.isRedirect) {
-          final raw = response.headers[selector]!;
-          match = RegExp(attribute).firstMatch(raw);
-        } else {
-          final body = await response.stream.bytesToString();
-          final jsonMatch = JsonPath(
-            selector,
-          ).read(jsonDecode(body)).firstOrNull?.value;
-          if (jsonMatch != null) {
-            match = RegExp(attribute).firstMatch(jsonMatch.toString());
-          }
-        }
-      } else {
-        // If versionSpec has 4 positions, it's an HTML endpoint
-        final body = await response.stream.bytesToString();
-        final elem = parseHtmlDocument(body).querySelector(selector.toString());
-        if (elem != null) {
-          final raw = attribute.isEmpty
-              ? elem.text!
-              : elem.attributes[attribute]!;
-          match = RegExp(rest.first).firstMatch(raw);
-        }
-      }
-
-      version = match != null
-          ? (match.groupCount > 0 ? match.group(1) : match.group(0))
-          : null;
-      if (version != null) {
-        versionSpinner.success('Resolved version: $version');
-      } else {
-        versionSpinner.fail('Could not resolve version');
-      }
+      return appMap['version'];
     }
-    return version;
+    return null;
   }
 
   Future<Set<String>> resolveAssetHashes() async {
     final assetHashes = <String>{};
     for (final definedAsset in appMap['assets']) {
       // Replace all asset paths with resolved version
-      final asset = resolvedVersion != null
-          ? definedAsset.toString().replaceAll('\$version', resolvedVersion!)
+      final asset = releaseVersion != null
+          ? definedAsset.toString().replaceAll('\$version', releaseVersion!)
           : definedAsset;
 
       final dir = Directory(
@@ -214,8 +157,6 @@ class AssetParser {
     for (final assetHash in assetHashes) {
       final partialFileMetadata = await extractMetadataFromFile(
         assetHash,
-        resolvedIdentifier: partialApp.identifier,
-        resolvedVersion: resolvedVersion,
         hasVersionInConfig: appMap['version'] is String,
         executablePatterns: appMap['executables'] != null
             ? {...appMap['executables']}
@@ -228,6 +169,18 @@ class AssetParser {
           '⚠️  Ignoring asset $assetPath with architecture not in $kZapstoreSupportedPlatforms',
         );
         continue;
+      }
+
+      // If no identifier was set, default to app identifier
+      partialFileMetadata.appIdentifier ??= partialApp.identifier;
+      if (partialFileMetadata.appIdentifier == null) {
+        throw 'Missing identifier. Did you add it to your config?';
+      }
+
+      // If no version was set, default to release version
+      partialFileMetadata.version ??= releaseVersion;
+      if (partialFileMetadata.version == null) {
+        throw 'Missing version. Did you add it to your config?';
       }
 
       // Place first the original URL, Blossom servers will be added
@@ -266,40 +219,41 @@ class AssetParser {
       return discard;
     });
 
-    // The source of truth now for identifier/version
-    // are the file metadatas, so ensure they are all
-    // equal and then assign to main app and release identifiers
-    final allIdentifiers = partialFileMetadatas
-        .map((m) => m.appIdentifier)
-        .nonNulls
-        .toSet();
-    if (allIdentifiers.isEmpty) {
-      throw 'Missing identifier. Did you add it to your config?';
-    }
-    final uniqueIdentifier = DeepCollectionEquality().equals(allIdentifiers, {
-      allIdentifiers.first,
-    });
-    if (!uniqueIdentifier) {
-      throw 'Identifier should be unique: $allIdentifiers';
-    }
+    // // The source of truth now for identifier
+    // // are the file metadatas, so ensure they are all
+    // // equal and then assign to main app and release identifiers
+    // final allIdentifiers = partialFileMetadatas
+    //     .map((m) => m.appIdentifier)
+    //     .nonNulls
+    //     .toSet();
+    // if (allIdentifiers.isEmpty) {
+    //   throw 'Missing identifier. Did you add it to your config?';
+    // }
+    // final uniqueIdentifier = DeepCollectionEquality().equals(allIdentifiers, {
+    //   allIdentifiers.first,
+    // });
+    // if (!uniqueIdentifier) {
+    //   throw 'Identifier should be unique: $allIdentifiers';
+    // }
 
-    final allVersions = partialFileMetadatas
-        .map((m) => m.version)
-        .nonNulls
-        .toSet();
-    if (allVersions.isEmpty) {
-      throw 'Missing version. Did you add it to your config?';
-    }
+    // final allVersions = partialFileMetadatas
+    //     .map((m) => m.version)
+    //     .nonNulls
+    //     .toSet();
+    // if (allVersions.isEmpty) {
+    //   throw 'Missing version. Did you add it to your config?';
+    // }
 
-    final uniqueVersions = DeepCollectionEquality().equals(allVersions, {
-      allVersions.first,
-    });
-    if (!uniqueVersions) {
-      throw 'Version should be unique: $allVersions';
-    }
+    // final uniqueVersions = DeepCollectionEquality().equals(allVersions, {
+    //   allVersions.first,
+    // });
+    // if (!uniqueVersions) {
+    //   throw 'Version should be unique: $allVersions';
+    // }
 
     // App
-    partialApp.identifier = allIdentifiers.first;
+    partialApp.identifier ??= partialFileMetadatas.first.appIdentifier;
+
     final nameInApk = partialFileMetadatas.first.transientData['appName'];
     partialApp.name ??= nameInApk;
     partialApp.url ??= appMap['homepage'];
@@ -354,9 +308,9 @@ class AssetParser {
     // Release
     if (isNewNipFormat) {
       partialRelease.appIdentifier = partialApp.identifier;
-      partialRelease.version = allVersions.first;
+      partialRelease.version = releaseVersion;
     }
-    partialRelease.identifier = '${partialApp.identifier}@${allVersions.first}';
+    partialRelease.identifier = '${partialApp.identifier}@$releaseVersion';
 
     final changelogFile = File(
       path.join(

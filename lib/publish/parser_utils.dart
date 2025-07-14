@@ -11,9 +11,7 @@ import 'package:zapstore_cli/utils/utils.dart';
 
 Future<PartialFileMetadata?> extractMetadataFromFile(
   String assetHash, {
-  String? resolvedIdentifier,
   bool hasVersionInConfig = false,
-  String? resolvedVersion,
   Set<String>? executablePatterns,
 }) async {
   final metadata = PartialFileMetadata();
@@ -71,12 +69,6 @@ Future<PartialFileMetadata?> extractMetadataFromFile(
         : null;
   } else {
     // CLI
-    if (resolvedVersion == null) {
-      throw 'Missing version. Did you add it to your config?';
-    }
-    metadata.version = resolvedVersion;
-    metadata.appIdentifier = resolvedIdentifier;
-
     metadata.platforms = {
       for (final type in [mimeType, ...?internalMimeTypes])
         switch (type) {
@@ -140,7 +132,7 @@ Future<String?> getSignatureHashFromApkSigner(String apkPath) async {
       }
     }
   } else {
-    throw 'Missing apksigner';
+    return null;
   }
 
   final result = await run(

@@ -64,35 +64,33 @@ Future<void> checkVersionOnRelays(
 
 // Early check just with assetUrl to prevent downloads & processing
 Future<void> checkUrl(
-  String assetUrl,
-  String version, {
+  String releaseUrl,
+  String releaseVersion, {
   DateTime? publishedAt,
 }) async {
-  final assets = await storage.query(
-    RequestFilter<FileMetadata>(search: assetUrl, limit: 1).toRequest(),
+  final releases = await storage.query(
+    RequestFilter<Release>(
+      tags: {
+        '#r': {releaseUrl},
+      },
+      limit: 1,
+    ).toRequest(),
     source: RemoteSource(),
   );
 
-  final matchingAssets = assets.where((r) {
-    return r.urls.any((u) => u == assetUrl);
-  });
-
-  if (matchingAssets.isNotEmpty) {
-    // Figure out if current publishing timestamp is more recent
-    if (publishedAt != null) {
-      final maxExistingPublishedAt = matchingAssets.fold(
-        0,
-        (acc, e) =>
-            acc > e.createdAt.toSeconds() ? acc : e.createdAt.toSeconds(),
-      );
-      if (maxExistingPublishedAt < publishedAt.toSeconds()) {
-        // Do not exit with warning, continue processing
-        // and set overwriteRelease to skip next check
-        overwriteRelease = true;
-        return;
-      }
+  if (releases.isNotEmpty) {
+    // Figure out if current publishing date is more recent
+    if (releases.first.createdAt.isBefore(publishedAt ?? DateTime.utc(0))) {
+      // Do not exit with warning, continue processing
+      // and set overwriteRelease to skip next check
+      overwriteRelease = true;
+      return;
     }
-    exitWithWarning(matchingAssets.first.version, version);
+
+    exitWithWarning(releases.first.version, releaseVersion);
+  } else {
+    // If not found, continue processing but trigger a next check
+    overwriteRelease = false;
   }
 }
 
