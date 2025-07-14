@@ -29,15 +29,7 @@ Future<String> fetchFile(
   final client = http.Client();
   final buffer = BytesBuilder();
 
-  var uri = Uri.parse(url);
-  // Workaround for github.com so often not resolving
-  if (uri.host == 'github.com') {
-    try {
-      await InternetAddress.lookup('github.com').timeout(Duration(seconds: 3));
-    } catch (_) {
-      uri = uri.replace(host: '140.82.121.4');
-    }
-  }
+  final uri = Uri.parse(url);
 
   final req = http.Request('GET', uri);
   if (headers != null) {
