@@ -127,7 +127,10 @@ class Publisher {
           _ => throw 'Unsupported repository; service: ${repositoryUri.host}',
         };
       } else {
-        throw UsageException('No sources provided', '');
+        throw UsageException(
+          'No sources provided. If you meant to add local assets, make sure they contain a slash (./asset.apk)',
+          '',
+        );
       }
     }
   }
