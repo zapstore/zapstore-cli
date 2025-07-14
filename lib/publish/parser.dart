@@ -189,6 +189,9 @@ class AssetParser {
         partialFileMetadata.event.addTagValue('url', hashPathMap[assetHash]);
       }
 
+      // Inherit createdAt from release
+      partialFileMetadata.event.createdAt = partialRelease.event.createdAt;
+
       partialFileMetadatas.add(partialFileMetadata);
     }
 
@@ -218,38 +221,6 @@ class AssetParser {
       }
       return discard;
     });
-
-    // // The source of truth now for identifier
-    // // are the file metadatas, so ensure they are all
-    // // equal and then assign to main app and release identifiers
-    // final allIdentifiers = partialFileMetadatas
-    //     .map((m) => m.appIdentifier)
-    //     .nonNulls
-    //     .toSet();
-    // if (allIdentifiers.isEmpty) {
-    //   throw 'Missing identifier. Did you add it to your config?';
-    // }
-    // final uniqueIdentifier = DeepCollectionEquality().equals(allIdentifiers, {
-    //   allIdentifiers.first,
-    // });
-    // if (!uniqueIdentifier) {
-    //   throw 'Identifier should be unique: $allIdentifiers';
-    // }
-
-    // final allVersions = partialFileMetadatas
-    //     .map((m) => m.version)
-    //     .nonNulls
-    //     .toSet();
-    // if (allVersions.isEmpty) {
-    //   throw 'Missing version. Did you add it to your config?';
-    // }
-
-    // final uniqueVersions = DeepCollectionEquality().equals(allVersions, {
-    //   allVersions.first,
-    // });
-    // if (!uniqueVersions) {
-    //   throw 'Version should be unique: $allVersions';
-    // }
 
     // App
     partialApp.identifier ??= partialFileMetadatas.first.appIdentifier;

@@ -68,6 +68,7 @@ Future<void> checkUrl(
   String releaseVersion, {
   DateTime? publishedAt,
 }) async {
+  // TODO: If any relay does not have the latest release, publish to it now
   final releases = await storage.query(
     RequestFilter<Release>(
       tags: {
