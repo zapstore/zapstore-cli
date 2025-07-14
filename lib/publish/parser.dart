@@ -126,7 +126,7 @@ class AssetParser {
       final dir = Directory(
         path.join(path.dirname(configPath), path.dirname(asset)),
       );
-      final r = RegExp('^${path.basename(asset)}\$');
+      final r = RegExp(path.basename(asset));
 
       final assetPaths = (await dir.list().toList())
           .where((e) => e is File && r.hasMatch(path.basename(e.path)))
@@ -147,7 +147,7 @@ class AssetParser {
 
   /// Applies metadata found in files (local or downloaded)
   @mustCallSuper
-  Future<void> applyFileMetadata() async {
+  Future<void> applyFileMetadata({String? defaultAppName}) async {
     final metadataSpinner = CliSpin(
       text: 'Extracting metadata from files...',
       spinner: CliSpinners.dots,
@@ -171,16 +171,17 @@ class AssetParser {
         continue;
       }
 
-      // If no identifier was set, default to app identifier
-      partialFileMetadata.appIdentifier ??= partialApp.identifier;
-      if (partialFileMetadata.appIdentifier == null) {
-        throw 'Missing identifier. Did you add it to your config?';
-      }
-
       // If no version was set, default to release version
       partialFileMetadata.version ??= releaseVersion;
       if (partialFileMetadata.version == null) {
         throw 'Missing version. Did you add it to your config?';
+      }
+
+      // If no identifier was set (CLI program), default to app identifier
+      partialFileMetadata.appIdentifier ??=
+          partialApp.identifier ?? defaultAppName;
+      if (partialFileMetadata.appIdentifier == null) {
+        throw 'Tried but could not extract an app identifier. Please add an `identifier` value in your config';
       }
 
       // Place first the original URL, Blossom servers will be added
@@ -223,7 +224,12 @@ class AssetParser {
     });
 
     // App
-    partialApp.identifier ??= partialFileMetadatas.first.appIdentifier;
+    // Identifier could still be null at this point
+    partialApp.identifier ??=
+        partialFileMetadatas.first.appIdentifier ?? appMap['identifier'];
+    if (partialApp.identifier == null) {
+      throw 'Tried but could not extract an app identifier. Please add an `identifier` value in your config';
+    }
 
     final nameInApk = partialFileMetadatas.first.transientData['appName'];
     partialApp.name ??= nameInApk;
@@ -278,10 +284,10 @@ class AssetParser {
 
     // Release
     if (isNewNipFormat) {
-      partialRelease.appIdentifier = partialApp.identifier;
+      partialRelease.appIdentifier = partialApp.identifier!;
       partialRelease.version = releaseVersion;
     }
-    partialRelease.identifier = '${partialApp.identifier}@$releaseVersion';
+    partialRelease.identifier = '${partialApp.identifier!}@$releaseVersion';
 
     final changelogFile = File(
       path.join(
@@ -338,11 +344,11 @@ class AssetParser {
       try {
         await fetcher.run(app: partialApp, spinner: extraMetadataSpinner);
         extraMetadataSpinner.success(
-          'Fetched remote metadata for ${partialApp.identifier} [${fetcher.name}]',
+          'Fetched remote metadata for ${partialApp.identifier!} [${fetcher.name}]',
         );
       } catch (e) {
         extraMetadataSpinner.fail(
-          'Failed to fetch remote metadata for ${partialApp.identifier}: $e [${fetcher.name}]',
+          'Failed to fetch remote metadata for ${partialApp.identifier!}: $e [${fetcher.name}]',
         );
       }
     }

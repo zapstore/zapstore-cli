@@ -112,7 +112,7 @@ class GitlabParser extends AssetParser {
   }
 
   @override
-  Future<void> applyFileMetadata() async {
+  Future<void> applyFileMetadata({String? defaultAppName}) async {
     partialRelease.releaseNotes ??= releaseJson?['description'];
 
     partialRelease.event.createdAt =
@@ -122,10 +122,8 @@ class GitlabParser extends AssetParser {
     // Add an r (queryable) tag, regardless of NIP format
     partialRelease.event.setTagValue('r', releaseJson?['_links']['self']);
 
-    // Done with release, call super
-    await super.applyFileMetadata();
-
-    // If no app identifier was set at all, apply repo name
-    partialApp.identifier ??= repositoryName.split('%2F').lastOrNull;
+    await super.applyFileMetadata(
+      defaultAppName: repositoryName.split('%2F').lastOrNull,
+    );
   }
 }
