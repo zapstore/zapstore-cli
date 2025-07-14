@@ -289,19 +289,18 @@ Okay?''',
         final relayEventStates = publishResponse.results[model.event.id]!;
 
         for (final e in relayEventStates) {
-          if (e.accepted) {
+          if (e.accepted && !isDaemonMode) {
             final msg =
                 '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
-            if (isDaemonMode) {
-              print(msg);
-            } else {
-              spinner.success(msg);
-            }
+            spinner.success(msg);
           } else {
             final msg =
                 'Failure: ${e.message?.bold().black().onRed()}: ${model.id} (kind $kind) from ${e.relayUrl}';
             if (isDaemonMode) {
-              print(msg);
+              final isDuplicate = e.message?.contains('duplicate') ?? false;
+              if (!isDuplicate) {
+                print(msg);
+              }
             } else {
               spinner.fail(msg);
             }
