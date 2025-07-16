@@ -168,6 +168,9 @@ class GithubParser extends AssetParser {
     // Add an r (queryable) tag, regardless of NIP format
     partialRelease.event.setTagValue('r', releaseJson?['html_url']);
 
+    // Github does not provide an actual commit
+    partialRelease.commitId = releaseJson?['tag_name'];
+
     await super.applyFileMetadata(
       defaultAppName: repositoryName.split('/').lastOrNull,
     );

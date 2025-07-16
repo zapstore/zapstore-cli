@@ -118,9 +118,11 @@ class GitlabParser extends AssetParser {
     partialRelease.event.createdAt =
         DateTime.tryParse(releaseJson?['released_at']) ?? DateTime.now();
 
-    partialRelease.url = releaseJson?['_links']['self'];
+    partialRelease.url = releaseJson?['_links']?['self'];
     // Add an r (queryable) tag, regardless of NIP format
-    partialRelease.event.setTagValue('r', releaseJson?['_links']['self']);
+    partialRelease.event.setTagValue('r', partialRelease.url);
+
+    partialRelease.commitId = releaseJson?['commit']?['id'];
 
     await super.applyFileMetadata(
       defaultAppName: repositoryName.split('%2F').lastOrNull,
