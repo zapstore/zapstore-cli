@@ -23,7 +23,7 @@ class WebParser extends AssetParser {
       final versionSpinner = CliSpin(
         text: 'Resolving version from spec...',
         spinner: CliSpinners.dots,
-        isSilent: isDaemonMode,
+        isSilent: isIndexerMode,
       ).start();
 
       final [endpoint, selector, attribute, ...rest] = versionSpec;
@@ -95,7 +95,7 @@ class WebParser extends AssetParser {
       final assetSpinner = CliSpin(
         text: 'Fetching asset $assetUrl...',
         spinner: CliSpinners.dots,
-        isSilent: isDaemonMode,
+        isSilent: isIndexerMode,
       ).start();
 
       final assetHash = await fetchFile(assetUrl, spinner: assetSpinner);

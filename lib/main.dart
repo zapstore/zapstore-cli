@@ -191,10 +191,12 @@ class RemoveCommand extends Command {
 late final String configPath;
 late bool overwriteApp;
 late bool overwriteRelease;
-late final bool isDaemonMode;
+late final bool isIndexerMode;
 late final bool honor;
 
 bool get isNewNipFormat => env['NEW_FORMAT'] != null;
+// If old format and requested not to update app, should get latest version and update its release link
+bool get shouldUpdateOldApp => !isNewNipFormat && !overwriteApp;
 
 class PublishCommand extends Command {
   PublishCommand() {
@@ -215,10 +217,9 @@ class PublishCommand extends Command {
       defaultsTo: false,
     );
     argParser.addFlag(
-      'daemon-mode',
-      abbr: 'd',
+      'indexer-mode',
       help:
-          'Run publish in daemon mode (non-interactively and without spinners)',
+          'Run publish in indexer mode (non-interactively and without spinners)',
     );
     argParser.addFlag(
       'honor',
@@ -246,7 +247,7 @@ class PublishCommand extends Command {
     overwriteApp = argResults!.flag('overwrite-app');
     overwriteRelease = argResults!.flag('overwrite-release');
 
-    isDaemonMode = argResults!.flag('daemon-mode');
+    isIndexerMode = argResults!.flag('indexer-mode');
 
     honor = argResults!.flag('honor');
 

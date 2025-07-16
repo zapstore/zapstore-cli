@@ -33,7 +33,7 @@ class GithubParser extends AssetParser {
     final metadataSpinner = CliSpin(
       text: 'Fetching release from Github...',
       spinner: CliSpinners.dots,
-      isSilent: isDaemonMode,
+      isSilent: isIndexerMode,
     ).start();
 
     assetRegexps =
@@ -76,7 +76,7 @@ class GithubParser extends AssetParser {
 
       if (releaseJson == null || (releaseJson!['assets'] as Iterable).isEmpty) {
         final message = 'No assets in latest release for $repositoryName';
-        if (isDaemonMode) {
+        if (isIndexerMode) {
           print(message);
         } else {
           metadataSpinner.fail(message);
@@ -137,7 +137,7 @@ class GithubParser extends AssetParser {
         final assetSpinner = CliSpin(
           text: 'Fetching asset $assetUrl...',
           spinner: CliSpinners.dots,
-          isSilent: isDaemonMode,
+          isSilent: isIndexerMode,
         ).start();
 
         final fileHash = await fetchFile(

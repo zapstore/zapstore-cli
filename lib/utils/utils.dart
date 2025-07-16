@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dart_emoji/dart_emoji.dart';
+import 'package:intl/intl.dart';
 import 'package:process_run/process_run.dart';
 import 'package:path/path.dart' as path;
 import 'package:http/http.dart' as http;
@@ -49,6 +50,10 @@ extension StringExtension on String {
       return emojiParser.hasName(m[1]!) ? emojiParser.get(m[1]!).code : m[0]!;
     });
   }
+}
+
+extension DateExt on DateTime {
+  String get timestamp => DateFormat('yyyy-MM-dd hh:mm').format(DateTime.now());
 }
 
 void requireSignWith() {

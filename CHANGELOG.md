@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-07-16
+
+### Changed
+
+- Fix issue with overwriteApp logic (edit app to point to latest release)
+- Fix millisecond precision bug on `checkVersionOnRelays`
+- Rename daemon mode to indexer mode, improve output for logging
+
 ## [0.2.1] - 2025-07-14
 
 ### Added

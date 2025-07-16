@@ -30,7 +30,7 @@ class BlossomClient {
     final spinner = CliSpin(
       text: 'Checking existing assets in Blossom server...',
       spinner: CliSpinners.dots,
-      isSilent: isDaemonMode,
+      isSilent: isIndexerMode,
     ).start();
 
     int i = 0;
@@ -80,7 +80,7 @@ class BlossomClient {
       final uploadSpinner = CliSpin(
         text: 'Uploading $assetName ($assetHash)...',
         spinner: CliSpinners.dots,
-        isSilent: isDaemonMode,
+        isSilent: isIndexerMode,
       ).start();
 
       final headResponse = await http.head(Uri.parse(assetUploadUrl));

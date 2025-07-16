@@ -8,12 +8,16 @@ import 'package:zapstore_cli/models/package.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 import 'package:zapstore_cli/utils/version_utils.dart';
 
-String formatProfile(Profile? profile, {bool url = true}) {
-  if (profile == null) {
-    return '(Could not load user)';
-  }
-  final name = profile.name ?? '';
-  return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'}${url ? ' - https://npub.world/${profile.npub}' : ''}';
+Future<App?> getAppFromRelay(String identifier) async {
+  final apps = await storage.query(
+    RequestFilter<App>(
+      tags: {
+        '#d': {identifier},
+      },
+    ).toRequest(),
+    source: RemoteSource(),
+  );
+  return apps.firstOrNull;
 }
 
 Future<void> checkVersionOnRelays(
@@ -51,7 +55,11 @@ Future<void> checkVersionOnRelays(
         (acc, e) => acc > (e.versionCode ?? 0) ? acc : (e.versionCode ?? 0),
       );
       if (maxVersionCode >= versionCode) {
-        exitWithVersionCodeWarning(maxVersionCode, versionCode);
+        exitWithVersionCodeWarning(
+          releases.first.appIdentifier,
+          maxVersionCode,
+          versionCode,
+        );
       }
       return;
     }
@@ -59,7 +67,11 @@ Future<void> checkVersionOnRelays(
 
   if (canUpgrade(releases.first.version, version)) return;
 
-  exitWithWarning(releases.first.version, version);
+  exitWithWarning(
+    releases.first.appIdentifier,
+    releases.first.version,
+    version,
+  );
 }
 
 // Early check just with assetUrl to prevent downloads & processing
@@ -79,35 +91,61 @@ Future<void> checkUrl(
     source: RemoteSource(),
   );
 
+  // Remove millisecond precision that nostr does not have,
+  // and default to zero
+  publishedAt = publishedAt?.copyWith(millisecond: 0) ?? DateTime.utc(0);
+
   if (releases.isNotEmpty) {
     // Figure out if current publishing date is more recent
-    if (releases.first.createdAt.isBefore(publishedAt ?? DateTime.utc(0))) {
+    if (releases.first.createdAt.isBefore(publishedAt)) {
       // Do not exit with warning, continue processing
       // and set overwriteRelease to skip next check
       overwriteRelease = true;
       return;
     }
 
-    exitWithWarning(releases.first.version, releaseVersion);
+    exitWithWarning(
+      releases.first.appIdentifier,
+      releases.first.version,
+      releaseVersion,
+    );
   } else {
     // If not found, continue processing but trigger a next check
     overwriteRelease = false;
   }
 }
 
-void exitWithWarning(String v1, String v2) {
-  if (!isDaemonMode) {
+String formatProfile(Profile? profile, {bool url = true}) {
+  if (profile == null) {
+    return '(Could not load user)';
+  }
+  final name = profile.name ?? '';
+  return '${name.toString().bold()}${(profile.nip05 == null) ? '' : ' (${profile.nip05})'}${url ? ' - https://npub.world/${profile.npub}' : ''}';
+}
+
+void exitWithWarning(String identifier, String v1, String v2) {
+  if (!isIndexerMode) {
     final msg =
-        '⚠️  Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
+        '⚠️  ${identifier.bold()}: Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
     stderr.writeln(msg);
+  } else {
+    print(
+      '${DateTime.now().timestamp}: $identifier: release $v2 already in relay',
+    );
   }
   throw GracefullyAbortSignal();
 }
 
-void exitWithVersionCodeWarning(int v1, int v2) {
-  stderr.writeln(
-    '⚠️  Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.',
-  );
+void exitWithVersionCodeWarning(String identifier, int v1, int v2) {
+  if (!isIndexerMode) {
+    final msg =
+        '⚠️  ${identifier.bold()}: Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.';
+    stderr.writeln(msg);
+  } else {
+    print(
+      '${DateTime.now().timestamp}: $identifier: release $v2 (version code) already in relay',
+    );
+  }
   throw GracefullyAbortSignal();
 }
 

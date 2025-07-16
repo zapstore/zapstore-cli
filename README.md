@@ -281,7 +281,7 @@ Usage: zapstore publish [arguments]
     --[no-]overwrite-app        Fetches remote metadata and overwrites latest app on relays
                                 (defaults to on)
     --[no-]overwrite-release    Overwrites latest release on relays
--d, --[no-]daemon-mode          Run publish in daemon mode (non-interactively and without spinners)
+    --[no-]indexer-mode         Run publish in indexer mode (non-interactively and without spinners)
     --[no-]honor                Indicate you will honor tags when external signing
 ```
 

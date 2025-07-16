@@ -52,12 +52,12 @@ dependency_overrides:
     # path: ../../purplebase/models
     git:
       url: https://github.com/purplebase/models
-      ref: b80ab95
+      ref: b70b9c6
   purplebase:
     # path: ../../purplebase/purplebase
     git:
       url: https://github.com/purplebase/purplebase
-      ref: 93b973c
+      ref: 4de8fe7
   nip07_signer:
     # path: ../../purplebase/nip07_signer
     git:

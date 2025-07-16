@@ -64,7 +64,9 @@ class Publisher {
 
     // (6) Publish
     await _sendToRelays(
-      overwriteApp ? app : null,
+      // Only if user requested --no-overwrite-app with new format, do not pass the app
+      // (the old format always requires linking to the latest release)
+      overwriteApp || shouldUpdateOldApp ? app : null,
       release,
       fileMetadatas,
       softwareAssets,
@@ -146,7 +148,7 @@ class Publisher {
       final partialBlossomAuthorizations = partialModels
           .whereType<PartialBlossomAuthorization>();
       final proceed =
-          isDaemonMode ||
+          isIndexerMode ||
           honor ||
           Confirm(
             prompt:
@@ -181,7 +183,7 @@ Okay?''',
   }
 
   Future<void> _previewRelease() async {
-    if (!isDaemonMode) {
+    if (!isIndexerMode) {
       final preview = Confirm(
         prompt: 'Preview the release in a web browser?',
         defaultValue: true,
@@ -190,7 +192,7 @@ Okay?''',
       if (preview) {
         final serverIsolate = await HtmlPreview.startServer(
           partialModels,
-          overwriteApp: overwriteApp,
+          overwriteApp: overwriteApp || shouldUpdateOldApp,
         );
 
         final ok = Confirm(
@@ -221,7 +223,7 @@ Okay?''',
   ) async {
     var publishEvents = true;
 
-    if (!isDaemonMode) {
+    if (!isIndexerMode) {
       final relayUrls = storage.config.getRelays();
 
       final viewEvents = Select(
@@ -291,7 +293,7 @@ Okay?''',
         final spinner = CliSpin(
           text: 'Publishing kind $kind...',
           spinner: CliSpinners.dots,
-          isSilent: isDaemonMode,
+          isSilent: isIndexerMode,
         ).start();
         await storage.save({model});
 
@@ -300,13 +302,13 @@ Okay?''',
 
         for (final e in relayEventStates) {
           if (e.accepted) {
-            if (!isDaemonMode) {
+            if (!isIndexerMode) {
               final msg =
                   '${'Published'.bold()}: ${model.id.toString()} (kind $kind) to ${e.relayUrl}';
               spinner.success(msg);
             }
           } else {
-            if (isDaemonMode) {
+            if (isIndexerMode) {
               final isDuplicate =
                   e.message?.toLowerCase().contains('duplicate') ?? false;
               if (!isDuplicate) {
@@ -322,6 +324,12 @@ Okay?''',
           }
         }
       }
+    }
+
+    if (isIndexerMode) {
+      print(
+        '${DateTime.now().timestamp}: ${signedRelease.appIdentifier}: published to relays',
+      );
     }
   }
 }

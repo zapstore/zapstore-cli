@@ -24,7 +24,7 @@ import 'package:zapstore_cli/utils/version_utils.dart';
 class AssetParser {
   final Map appMap;
 
-  final partialApp = PartialApp();
+  var partialApp = PartialApp();
   final partialRelease = PartialRelease(newFormat: isNewNipFormat);
   final partialFileMetadatas = <PartialFileMetadata>{};
   final partialSoftwareAssets = <PartialSoftwareAsset>{};
@@ -62,12 +62,19 @@ class AssetParser {
     await applyRemoteMetadata();
 
     // Generate Blossom authorizations only if needed
-    final assets = [...assetHashes, ...partialApp.icons, ...partialApp.images];
+    // (not app-related assets when shouldUpdateOldApp)
+    final assets = [
+      ...assetHashes,
+      if (overwriteApp && !shouldUpdateOldApp) ...partialApp.icons,
+      if (overwriteApp && !shouldUpdateOldApp) ...partialApp.images,
+    ];
     final partialBlossomAuthorizations = await blossomClient
         .generateAuthorizations(assets);
 
-    // Adjust Blossom servers for all assets
-    updateBlossomUrls();
+    if (overwriteApp && !shouldUpdateOldApp) {
+      // Adjust Blossom servers for all assets
+      updateBlossomUrls();
+    }
 
     if (!overwriteRelease) {
       await checkVersionOnRelays(
@@ -151,7 +158,7 @@ class AssetParser {
     final metadataSpinner = CliSpin(
       text: 'Extracting metadata from files...',
       spinner: CliSpinners.dots,
-      isSilent: isDaemonMode,
+      isSilent: isIndexerMode,
     ).start();
 
     for (final assetHash in assetHashes) {
@@ -215,7 +222,7 @@ class AssetParser {
           m.mimeType == kAndroidMimeType &&
           hasMetadataWithArm64v8aOnly &&
           m.platforms.length > 1;
-      if (discard && !isDaemonMode) {
+      if (discard && !isIndexerMode) {
         stderr.writeln(
           '⚠️ Discarding asset: ${hashPathMap[m.hash]} with multiple architectures',
         );
@@ -223,31 +230,38 @@ class AssetParser {
       return discard;
     });
 
-    // App
-    // Identifier could still be null at this point
-    partialApp.identifier ??=
+    // Last chance to resolve identifier
+    final appIdentifier =
         partialFileMetadatas.first.appIdentifier ?? appMap['identifier'];
-    if (partialApp.identifier == null) {
+    if (appIdentifier == null) {
       throw 'Tried but could not extract an app identifier. Please add an `identifier` value in your config';
     }
 
-    final nameInApk = partialFileMetadatas.first.transientData['appName'];
-    partialApp.name ??= nameInApk;
-    partialApp.url ??= appMap['homepage'];
-    if (partialApp.tags.isEmpty) {
-      partialApp.tags =
-          (appMap['tags'] as String?)?.trim().split(' ').toSet() ?? {};
-    }
+    // App
+    final appFromRelay = await getAppFromRelay(appIdentifier);
 
-    partialApp
-      ..description = appMap['description'] ?? appMap['summary']
-      ..summary = appMap['summary']
-      ..repository = appMap['repository']
-      ..license = appMap['license'];
+    // If should update old app *and* it's an update (not first time publishing)
+    if (shouldUpdateOldApp && appFromRelay != null) {
+      partialApp = appFromRelay.toPartial();
+    } else if (overwriteApp || shouldUpdateOldApp) {
+      // This if-branch is skipped only when user passed --no-overwrite-app
+      // and in the new format
 
-    if (overwriteApp) {
-      // If overwriteApp is false, don't even bother working on icon/images
-      // (Rest of properties may be necessary for partial release, etc)
+      partialApp.identifier = appIdentifier;
+      final nameInApk = partialFileMetadatas.first.transientData['appName'];
+      partialApp.name ??= nameInApk;
+      partialApp.url ??= appMap['homepage'];
+      if (partialApp.tags.isEmpty) {
+        partialApp.tags =
+            (appMap['tags'] as String?)?.trim().split(' ').toSet() ?? {};
+      }
+
+      partialApp
+        ..description = appMap['description'] ?? appMap['summary']
+        ..summary = appMap['summary']
+        ..repository = appMap['repository']
+        ..license = appMap['license'];
+
       if (appMap['icon'] != null) {
         final iconHash = await _resolveImageHash(appMap['icon']);
         partialApp.addIcon(iconHash);
@@ -272,16 +286,16 @@ class AssetParser {
         final imageHash = await _resolveImageHash(imagePath);
         partialApp.addImage(imageHash);
       }
+
+      // App's platforms are the sum of file metadatas' platforms
+      partialApp.platforms = partialFileMetadatas
+          .map((fm) => fm.platforms)
+          .flattened
+          .toSet();
+
+      // Always use the release timestamp
+      partialApp.event.createdAt = partialRelease.event.createdAt;
     }
-
-    // App's platforms are the sum of file metadatas' platforms
-    partialApp.platforms = partialFileMetadatas
-        .map((fm) => fm.platforms)
-        .flattened
-        .toSet();
-
-    // Always use the release timestamp
-    partialApp.event.createdAt = partialRelease.event.createdAt;
 
     // Release
     if (isNewNipFormat) {
@@ -340,7 +354,7 @@ class AssetParser {
       extraMetadataSpinner = CliSpin(
         text: 'Fetching remote metadata...',
         spinner: CliSpinners.dots,
-        isSilent: isDaemonMode,
+        isSilent: isIndexerMode,
       ).start();
 
       try {

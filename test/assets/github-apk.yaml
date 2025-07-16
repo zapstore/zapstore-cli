@@ -1,5 +1,5 @@
-repository: https://github.com/FoedusProgramme/Gramophone
+repository: https://github.com/ZeusLN/zeus
 assets:
-  - .*.apk
-# remote_metadata:
-#   - fdroid
+  - .*.apk$
+remote_metadata:
+  - playstore

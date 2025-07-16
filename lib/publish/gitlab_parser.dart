@@ -28,7 +28,7 @@ class GitlabParser extends AssetParser {
     final metadataSpinner = CliSpin(
       text: 'Fetching release from Gitlab...',
       spinner: CliSpinners.dots,
-      isSilent: isDaemonMode,
+      isSilent: isIndexerMode,
     ).start();
 
     assetRegexps =
@@ -96,7 +96,7 @@ class GitlabParser extends AssetParser {
         final assetSpinner = CliSpin(
           text: 'Fetching asset $assetUrl...',
           spinner: CliSpinners.dots,
-          isSilent: isDaemonMode,
+          isSilent: isIndexerMode,
         ).start();
 
         final fileHash = await fetchFile(assetUrl, spinner: assetSpinner);

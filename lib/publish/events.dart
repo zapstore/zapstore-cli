@@ -28,7 +28,7 @@ Future<List<Model<dynamic>>> signModels({
   final spinner = CliSpin(
     text: 'Signing with ${signer.runtimeType}: $kindsAmount...',
     spinner: CliSpinners.dots,
-    isSilent: isDaemonMode,
+    isSilent: isIndexerMode,
   ).start();
 
   try {
@@ -122,7 +122,7 @@ Signer getSignerFromString(String signWith) {
 Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   if (signer is NIP07Signer) {
     final ok =
-        isDaemonMode ||
+        isIndexerMode ||
         Confirm(
           prompt:
               'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
