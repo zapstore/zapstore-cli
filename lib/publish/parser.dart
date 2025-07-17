@@ -243,6 +243,8 @@ class AssetParser {
     // If should update old app *and* it's an update (not first time publishing)
     if (shouldUpdateOldApp && appFromRelay != null) {
       partialApp = appFromRelay.toPartial();
+      // Remove previous release pointer
+      partialApp.event.removeTag('a');
     } else if (overwriteApp || shouldUpdateOldApp) {
       // This if-branch is skipped only when user passed --no-overwrite-app
       // and in the new format
