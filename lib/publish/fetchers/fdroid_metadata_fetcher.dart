@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:cli_spin/cli_spin.dart';
 import 'package:html2md/html2md.dart' as markdown;
 import 'package:http/http.dart' as http;

@@ -128,10 +128,6 @@ void exitWithWarning(String identifier, String v1, String v2) {
     final msg =
         '⚠️  ${identifier.bold()}: Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
     stderr.writeln(msg);
-  } else {
-    print(
-      '${DateTime.now().timestamp}: $identifier: release $v2 already in relay',
-    );
   }
   throw GracefullyAbortSignal();
 }
@@ -141,10 +137,6 @@ void exitWithVersionCodeWarning(String identifier, int v1, int v2) {
     final msg =
         '⚠️  ${identifier.bold()}: Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.';
     stderr.writeln(msg);
-  } else {
-    print(
-      '${DateTime.now().timestamp}: $identifier: release $v2 (version code) already in relay',
-    );
   }
   throw GracefullyAbortSignal();
 }
