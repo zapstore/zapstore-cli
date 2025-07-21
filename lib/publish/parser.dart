@@ -65,13 +65,13 @@ class AssetParser {
     // (not app-related assets when shouldUpdateOldApp)
     final assets = [
       ...assetHashes,
-      if (overwriteApp && !shouldUpdateOldApp) ...partialApp.icons,
-      if (overwriteApp && !shouldUpdateOldApp) ...partialApp.images,
+      if (overwriteApp && !shouldUpdateCurrentAppEvent) ...partialApp.icons,
+      if (overwriteApp && !shouldUpdateCurrentAppEvent) ...partialApp.images,
     ];
     final partialBlossomAuthorizations = await blossomClient
         .generateAuthorizations(assets);
 
-    if (overwriteApp && !shouldUpdateOldApp) {
+    if (overwriteApp && !shouldUpdateCurrentAppEvent) {
       // Adjust Blossom servers for all assets
       updateBlossomUrls();
     }
@@ -241,11 +241,13 @@ class AssetParser {
     final appFromRelay = await getAppFromRelay(appIdentifier);
 
     // If should update old app *and* it's an update (not first time publishing)
-    if (shouldUpdateOldApp && appFromRelay != null) {
+    if (shouldUpdateCurrentAppEvent && appFromRelay != null) {
       partialApp = appFromRelay.toPartial();
       // Remove previous release pointer
       partialApp.event.removeTag('a');
-    } else if (overwriteApp || shouldUpdateOldApp) {
+      // Always use the release timestamp
+      partialApp.event.createdAt = partialRelease.event.createdAt;
+    } else if (overwriteApp || shouldUpdateCurrentAppEvent) {
       // This if-branch is skipped only when user passed --no-overwrite-app
       // and in the new format
 
@@ -295,8 +297,9 @@ class AssetParser {
           .flattened
           .toSet();
 
-      // Always use the release timestamp
-      partialApp.event.createdAt = partialRelease.event.createdAt;
+      partialApp.event.createdAt = isNewNipFormat
+          ? DateTime.now()
+          : partialRelease.event.createdAt;
     }
 
     // Release
@@ -304,6 +307,7 @@ class AssetParser {
       partialRelease.appIdentifier = partialApp.identifier!;
       partialRelease.version = releaseVersion;
     }
+
     releaseVersion ??= partialFileMetadatas.first.version;
     partialRelease.identifier = '${partialApp.identifier!}@${releaseVersion!}';
 

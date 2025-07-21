@@ -196,7 +196,7 @@ late final bool honor;
 
 bool get isNewNipFormat => env['NEW_FORMAT'] != null;
 // If old format and requested not to update app, should get latest version and update its release link
-bool get shouldUpdateOldApp => !isNewNipFormat && !overwriteApp;
+bool get shouldUpdateCurrentAppEvent => !isNewNipFormat && !overwriteApp;
 
 class PublishCommand extends Command {
   PublishCommand() {

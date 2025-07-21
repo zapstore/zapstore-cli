@@ -66,7 +66,7 @@ class Publisher {
     await _sendToRelays(
       // Only if user requested --no-overwrite-app with new format, do not pass the app
       // (the old format always requires linking to the latest release)
-      overwriteApp || shouldUpdateOldApp ? app : null,
+      overwriteApp || shouldUpdateCurrentAppEvent ? app : null,
       release,
       fileMetadatas,
       softwareAssets,
@@ -192,7 +192,7 @@ Okay?''',
       if (preview) {
         final serverIsolate = await HtmlPreview.startServer(
           partialModels,
-          overwriteApp: overwriteApp || shouldUpdateOldApp,
+          overwriteApp: overwriteApp || shouldUpdateCurrentAppEvent,
         );
 
         final ok = Confirm(
