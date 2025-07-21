@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -119,6 +120,7 @@ extension IntExt on int {
 
 extension StringExt on String {
   bool get isHttpUri => Uri.tryParse(this)?.scheme.startsWith('http') ?? false;
+  String fromLatin1Encoding() => utf8.decode(latin1.encode(this));
 }
 
 /* -----------------------------------------------------------

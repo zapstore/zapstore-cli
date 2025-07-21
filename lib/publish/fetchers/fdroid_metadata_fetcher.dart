@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cli_spin/cli_spin.dart';
 import 'package:html2md/html2md.dart' as markdown;
 import 'package:http/http.dart' as http;
@@ -37,17 +39,23 @@ class FDroidMetadataFetcher extends MetadataFetcher {
     final spinnerText = spinner?.text;
     final document = parseHtmlDocument(response.body);
 
-    app.name ??= document.querySelector('.package-name')!.innerText.trim();
+    app.name ??= document
+        .querySelector('.package-name')!
+        .innerText
+        .trim()
+        .fromLatin1Encoding();
     app.summary ??= document
         .querySelector('.package-summary')!
         .innerText
-        .trim();
+        .trim()
+        .fromLatin1Encoding();
 
     if (app.description == null) {
       final appDescription = document
           .querySelector('.package-description')!
           .innerHtml!
-          .trim();
+          .trim()
+          .fromLatin1Encoding();
       app.description = markdown.convert(appDescription);
     }
 
