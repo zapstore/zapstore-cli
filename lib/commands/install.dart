@@ -186,14 +186,14 @@ Future<void> install(
           }
         }
 
-        await signer.initialize();
+        await signer.signIn();
         final pubkey = signer.pubkey;
         final partialRequest = PartialVerifyReputationRequest(
           source: pubkey,
           target: signerPubkey,
         );
         final signedRequest = await partialRequest.signWith(signer);
-        await signer.dispose();
+        await signer.signOut();
 
         final response = await signedRequest.run('vertex');
 

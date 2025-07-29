@@ -129,16 +129,16 @@ Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
           defaultValue: true,
         ).interact();
     if (ok) {
-      await signer.initialize();
+      await signer.signIn();
     } else {
       print('kthxbye');
       throw GracefullyAbortSignal();
     }
   } else {
-    await signer.initialize();
+    await signer.signIn();
   }
   await callback(signer);
-  await signer.dispose();
+  await signer.signOut();
 }
 
 // Signers
@@ -152,9 +152,9 @@ class NpubFakeSigner extends Signer {
     : _pubkey = pubkey.decodeShareable();
 
   @override
-  Future<void> initialize({bool active = true}) async {
+  Future<void> signIn({setAsActive = true, registerSigner = true}) async {
     internalSetPubkey(_pubkey);
-    super.initialize(active: active);
+    super.signIn(setAsActive: setAsActive, registerSigner: false);
   }
 
   @override
@@ -192,11 +192,11 @@ class NakNIP46Signer extends Signer {
   NakNIP46Signer(super.ref, {required this.connectionString});
 
   @override
-  Future<void> initialize({bool active = true}) async {
+  Future<void> signIn({setAsActive = true, registerSigner = true}) async {
     final note = await PartialNote('note to find out pubkey').signWith(this);
     final pubkey = note.event.pubkey;
     internalSetPubkey(pubkey);
-    super.initialize(active: active);
+    super.signIn(setAsActive: setAsActive);
   }
 
   @override

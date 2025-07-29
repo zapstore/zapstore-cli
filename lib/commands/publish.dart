@@ -141,7 +141,7 @@ class Publisher {
     if (signer is! NpubFakeSigner) {
       return;
     }
-    await signer.initialize();
+    await signer.signIn();
 
     // Inter-linking is only applicable to old NIP format
     if (!isNewNipFormat) {
@@ -328,7 +328,7 @@ Okay?''',
 
     if (isIndexerMode) {
       print(
-        '${DateTime.now().timestamp}: ${signedRelease.appIdentifier}: published to relays',
+        '${DateTime.now().timestamp}: ${signedRelease.appIdentifier}: published ${signedRelease.version} to relays',
       );
     }
   }

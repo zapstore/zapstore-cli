@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:tint/tint.dart';
+import 'package:zapstore_cli/publish/github_parser.dart';
 import 'package:zapstore_cli/publish/parser.dart';
 import 'package:zapstore_cli/main.dart';
 import 'package:http/http.dart' as http;
@@ -67,22 +68,23 @@ class GitlabParser extends AssetParser {
         <String, dynamic>{...releaseJson!['assets']}['links'] as Iterable;
 
     final someAssetHasArm64v8a = assets.any(
-      (a) => a['name'].contains('arm64-v8a'),
+      (a) => kIsArm64Regex.hasMatch(a['name'].toString()),
     );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
-        if (a['url'].toString().endsWith('.apk') && someAssetHasArm64v8a) {
+        if (someAssetHasArm64v8a) {
           // On Android, Zapstore only supports arm64-v8a
           // If the developer uses "arm64-v8a" in any filename then assume
           // they publish split ABIs, so we discard non-arm64-v8a ones.
           // This is done to minimize the amount of universal builds
           // we don't want (as in the UI they would show up as variants,
           // but also to prevent downloading useless APKs).
-          return a['name'].contains('arm64-v8a') && r.hasMatch(a['name']);
+          return kIsArm64Regex.hasMatch(a['name'].toString()) &&
+              r.hasMatch(a['name']);
         }
         return r.hasMatch(a['name']);
-      });
+      }).toSet();
 
       if (matchedAssets.isEmpty) {
         final message = 'No asset matching $r';

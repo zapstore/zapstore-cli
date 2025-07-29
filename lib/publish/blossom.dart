@@ -113,9 +113,9 @@ class BlossomClient {
           uploadSpinner.success('Uploaded $assetName to ${responseMap['url']}');
         } else {
           switch (response.statusCode) {
-            case HttpStatus.unauthorized:
+            case HttpStatus.unauthorized || HttpStatus.forbidden:
               uploadSpinner.fail(
-                'You are unauthorized to upload $assetName to $server',
+                'You are unauthorized to upload $assetName to $server. Server operator may require pubkey whitelisting.',
               );
               throw GracefullyAbortSignal();
             case HttpStatus.unsupportedMediaType:

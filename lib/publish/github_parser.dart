@@ -11,6 +11,8 @@ import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
+final kIsArm64Regex = RegExp(r'.*arm64-v8a.*apk$');
+
 class GithubParser extends AssetParser {
   GithubParser(super.appMap) {
     remoteMetadata ??= {'github'};
@@ -107,23 +109,25 @@ class GithubParser extends AssetParser {
     final assets = [...releaseJson!['assets']];
 
     final someAssetHasArm64v8a = assets.any(
-      (a) => _getNameFromAsset(a).contains('arm64-v8a'),
+      (a) => kIsArm64Regex.hasMatch(_getNameFromAsset(a)),
     );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
         final name = _getNameFromAsset(a);
-        if (a['content_type'] == kAndroidMimeType && someAssetHasArm64v8a) {
+        if (someAssetHasArm64v8a) {
           // On Android, Zapstore only supports arm64-v8a
           // If the developer uses "arm64-v8a" in any filename then assume
           // they publish split ABIs, so we discard non-arm64-v8a ones.
           // This is done to minimize the amount of universal builds
           // we don't want (as in the UI they would show up as variants,
           // but also to prevent downloading useless APKs).
-          return name.contains('arm64-v8a') && r.hasMatch(name);
+          return a['content_type'] == kAndroidMimeType &&
+              kIsArm64Regex.hasMatch(name) &&
+              r.hasMatch(name);
         }
         return r.hasMatch(name);
-      });
+      }).toSet();
 
       if (matchedAssets.isEmpty) {
         final message = 'No asset matching $r';

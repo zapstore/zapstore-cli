@@ -1,6 +1,6 @@
 name: zapstore_cli
 description: The permissionless social package manager
-version: 0.2.2 # (!) Also update kVersion AND zapstore.yaml (!)
+version: 0.2.3 # (!) Also update kVersion AND zapstore.yaml (!)
 repository: https://github.com/zapstore/zapstore-cli
 
 environment:
@@ -20,8 +20,8 @@ dependencies:
   meta: ^1.16.0
   mime: ^2.0.0
   path: ^1.9.0
-  models: ^0.1.2
-  purplebase: ^0.1.1
+  models: ^0.3.3
+  purplebase: ^0.3.3
   process_run: ^1.0.0+1
   riverpod: ^2.5.1
   tint: ^2.0.1
@@ -52,12 +52,12 @@ dependency_overrides:
     # path: ../../purplebase/models
     git:
       url: https://github.com/purplebase/models
-      ref: b70b9c6
+      ref: main
   purplebase:
     # path: ../../purplebase/purplebase
     git:
       url: https://github.com/purplebase/purplebase
-      ref: 4de8fe7
+      ref: master
   nip07_signer:
     # path: ../../purplebase/nip07_signer
     git:
