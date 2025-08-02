@@ -83,7 +83,7 @@ class GithubParser extends AssetParser {
         } else {
           metadataSpinner.fail(message);
         }
-        throw GracefullyAbortSignal();
+        exit(0);
       }
     }
 
@@ -132,7 +132,7 @@ class GithubParser extends AssetParser {
       if (matchedAssets.isEmpty) {
         final message = 'No asset matching $r';
         stderr.writeln(message);
-        throw GracefullyAbortSignal();
+        exit(0);
       }
 
       for (final asset in matchedAssets) {

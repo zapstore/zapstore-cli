@@ -25,7 +25,7 @@ Future<void> install(
 
   if (update && db[value] == null) {
     print('App $value not installed, nothing to update');
-    throw GracefullyAbortSignal();
+    exit(0);
   }
 
   App app;
@@ -50,7 +50,7 @@ Future<void> install(
 
     if (apps.isEmpty) {
       spinner.fail('No packages found for $value');
-      throw GracefullyAbortSignal();
+      exit(0);
     }
 
     app = apps.first;
@@ -73,7 +73,7 @@ Future<void> install(
 
   if (releases.isEmpty) {
     spinner.fail('No releases found');
-    throw GracefullyAbortSignal();
+    exit(0);
   }
 
   final fileMetadatas = await storage.query(
@@ -87,7 +87,7 @@ Future<void> install(
 
   if (fileMetadatas.isEmpty) {
     spinner.fail('No file metadatas found');
-    throw GracefullyAbortSignal();
+    exit(0);
   }
 
   final metadata = fileMetadatas[0];
@@ -118,7 +118,7 @@ Future<void> install(
       spinner.success(
         'Package ${app.identifier} is already up to date (version ${installedPackage.version.bold()})',
       );
-      throw GracefullyAbortSignal();
+      exit(0);
     }
 
     isAuthorTrusted = installedPackage.pubkey == metadata.event.pubkey;

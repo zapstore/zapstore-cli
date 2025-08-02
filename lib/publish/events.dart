@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cli_spin/cli_spin.dart';
 import 'package:collection/collection.dart';
@@ -9,7 +10,6 @@ import 'package:nip07_signer/main.dart';
 import 'package:process_run/process_run.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:zapstore_cli/main.dart';
-import 'package:zapstore_cli/utils/utils.dart';
 
 Future<List<Model<dynamic>>> signModels({
   required Signer signer,
@@ -132,7 +132,7 @@ Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
       await signer.signIn();
     } else {
       print('kthxbye');
-      throw GracefullyAbortSignal();
+      exit(0);
     }
   } else {
     await signer.signIn();
@@ -157,12 +157,29 @@ class NpubFakeSigner extends Signer {
     super.signIn(setAsActive: setAsActive, registerSigner: false);
   }
 
+  E signSync<E extends Model<dynamic>>(
+    PartialModel<Model<dynamic>> partialModel, {
+    required String pubkey,
+  }) {
+    final constructor =
+        Model.getConstructorForKind(partialModel.event.kind)!
+            as ModelConstructor<E>;
+
+    return constructor.call({
+      'id': Utils.getEventId(partialModel.event, pubkey),
+      'pubkey': pubkey,
+      ...partialModel.toMap(),
+    }, ref);
+  }
+
   @override
   Future<List<E>> sign<E extends Model<dynamic>>(
-    List<PartialModel<dynamic>> partialModels, {
-    String? withPubkey,
-  }) async {
-    throw UnimplementedError();
+    List<PartialModel<Model<dynamic>>> partialModels,
+  ) async {
+    return partialModels
+        .map((partialModel) => signSync<E>(partialModel, pubkey: _pubkey!))
+        .cast<E>()
+        .toList();
   }
 
   @override

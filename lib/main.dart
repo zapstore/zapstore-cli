@@ -57,9 +57,6 @@ void main(List<String> args) async {
 
   try {
     await runner.run(args);
-  } on GracefullyAbortSignal {
-    // silently exit with no error
-    exit(0);
   } catch (e, stack) {
     final first = e.toString().split('\n').first;
     final rest = e.toString().split('\n').sublist(1).join('\n');

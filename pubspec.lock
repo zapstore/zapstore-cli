@@ -5,18 +5,18 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: e55636ed79578b9abca5fecf9437947798f5ef7456308b5cb85720b793eac92f
+      sha256: f7bac1065b51df46b2291296e1c1b3616a47aeb735aea46a8ca3dcb7bb700ee7
       url: "https://pub.dev"
     source: hosted
-    version: "82.0.0"
+    version: "86.0.0"
   analyzer:
     dependency: transitive
     description:
       name: analyzer
-      sha256: "904ae5bb474d32c38fb9482e2d925d5454cda04ddd0e55d2e6826bc72f6ba8c0"
+      sha256: "4001e2de7c9d125af9504b4c4f64ebba507c9cb9c712caf02ac1d4c37824f58c"
       url: "https://pub.dev"
     source: hosted
-    version: "7.4.5"
+    version: "8.0.0"
   ansi_regex:
     dependency: transitive
     description:
@@ -94,10 +94,10 @@ packages:
     dependency: transitive
     description:
       name: characters
-      sha256: f71061c654a3380576a52b451dd5532377954cf9dbd272a78fc8479606670803
+      sha256: faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.0"
+    version: "1.4.1"
   charcode:
     dependency: transitive
     description:
@@ -106,14 +106,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
-  checked_yaml:
-    dependency: transitive
-    description:
-      name: checked_yaml
-      sha256: feb6bed21949061731a7a75fc5d2aa727cf160b91af9a3e464c5e3a32e28b5ff
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.3"
   cli_config:
     dependency: transitive
     description:
@@ -158,10 +150,10 @@ packages:
     dependency: transitive
     description:
       name: coverage
-      sha256: "4b8701e48a58f7712492c9b1f7ba0bb9d525644dd66d023b62e1fc8cdb560c8a"
+      sha256: "5da775aa218eaf2151c721b16c01c7676fbfdd99cebba2bf64e8b807a28ff94d"
       url: "https://pub.dev"
     source: hosted
-    version: "1.14.0"
+    version: "1.15.0"
   crypto:
     dependency: "direct main"
     description:
@@ -379,14 +371,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
-  json_annotation:
-    dependency: transitive
-    description:
-      name: json_annotation
-      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.9.0"
   json_path:
     dependency: "direct main"
     description:
@@ -407,10 +391,10 @@ packages:
     dependency: transitive
     description:
       name: logger
-      sha256: be4b23575aac7ebf01f225a241eb7f6b5641eeaf43c6a8613510fc2f8cf187d1
+      sha256: "55d6c23a6c15db14920e037fe7e0dc32e7cdaf3b64b4b25df2d541b5b6b81c0c"
       url: "https://pub.dev"
     source: hosted
-    version: "2.5.0"
+    version: "2.6.1"
   logging:
     dependency: transitive
     description:
@@ -464,7 +448,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: e6d639c820030f0d559b0ba4a3eb6d597fef52d4
+      resolved-ref: dd9d8043977308e95ea1cf1ae106bc090306307e
       url: "https://github.com/purplebase/models"
     source: git
     version: "0.3.3"
@@ -538,10 +522,10 @@ packages:
     dependency: transitive
     description:
       name: posix
-      sha256: f0d7856b6ca1887cfa6d1d394056a296ae33489db914e365e2044fdada449e62
+      sha256: "6323a5b0fa688b6a010df4905a56b00181479e6d10534cecfecede2aa55add61"
       url: "https://pub.dev"
     source: hosted
-    version: "6.0.2"
+    version: "6.0.3"
   process_run:
     dependency: "direct main"
     description:
@@ -558,20 +542,12 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  pubspec_parse:
-    dependency: transitive
-    description:
-      name: pubspec_parse
-      sha256: "0560ba233314abbed0a48a2956f7f022cce7c3e1e73df540277da7544cad4082"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.5.0"
   purplebase:
     dependency: "direct main"
     description:
       path: "."
       ref: master
-      resolved-ref: "7817845e1ffe779abfde3965446bf2b4cc8a9847"
+      resolved-ref: dab3602c49c06ab885aa0b47c5dc06438d05cdf3
       url: "https://github.com/purplebase/purplebase"
     source: git
     version: "0.3.3"
@@ -667,10 +643,10 @@ packages:
     dependency: transitive
     description:
       name: sqlite3
-      sha256: c0503c69b44d5714e6abbf4c1f51a3c3cc42b75ce785f44404765e4635481d38
+      sha256: dd806fff004a0aeb01e208b858dbc649bc72104670d425a81a6dd17698535f6e
       url: "https://pub.dev"
     source: hosted
-    version: "2.7.6"
+    version: "2.8.0"
   stack_trace:
     dependency: transitive
     description:
@@ -715,10 +691,10 @@ packages:
     dependency: transitive
     description:
       name: synchronized
-      sha256: "0669c70faae6270521ee4f05bffd2919892d42d1276e6c495be80174b6bc0ef6"
+      sha256: c254ade258ec8282947a0acbbc90b9575b4f19673533ee46f2f6e9b3aeefd7c0
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.1"
+    version: "3.4.0"
   term_glyph:
     dependency: transitive
     description:
@@ -731,26 +707,26 @@ packages:
     dependency: "direct dev"
     description:
       name: test
-      sha256: "65e29d831719be0591f7b3b1a32a3cda258ec98c58c7b25f7b84241bc31215bb"
+      sha256: "75906bf273541b676716d1ca7627a17e4c4070a3a16272b7a3dc7da3b9f3f6b7"
       url: "https://pub.dev"
     source: hosted
-    version: "1.26.2"
+    version: "1.26.3"
   test_api:
     dependency: transitive
     description:
       name: test_api
-      sha256: "522f00f556e73044315fa4585ec3270f1808a4b186c936e612cab0b565ff1e00"
+      sha256: ab2726c1a94d3176a45960b6234466ec367179b87dd74f1611adb1f3b5fb9d55
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.6"
+    version: "0.7.7"
   test_core:
     dependency: transitive
     description:
       name: test_core
-      sha256: "80bf5a02b60af04b09e14f6fe68b921aad119493e26e490deaca5993fef1b05a"
+      sha256: "0cc24b5ff94b38d2ae73e1eb43cc302b77964fbf67abad1e296025b78deb53d0"
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.11"
+    version: "0.6.12"
   tint:
     dependency: "direct main"
     description:
@@ -787,18 +763,18 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "6f82e9ee8e7339f5d8b699317f6f3afc17c80a68ebef1bc0d6f52a678c14b1e6"
+      sha256: "45caa6c5917fa127b5dbcfbd1fa60b14e583afdc08bfc96dda38886ca252eb60"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.1"
+    version: "15.0.2"
   watcher:
     dependency: transitive
     description:
       name: watcher
-      sha256: "69da27e49efa56a15f8afe8f4438c4ec02eff0a117df1b22ea4aad194fe1c104"
+      sha256: "0b7fd4a0bbc4b92641dbf20adfd7e3fd1398fe17102d94b674234563e110088a"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "1.1.2"
   web:
     dependency: transitive
     description:
@@ -843,10 +819,10 @@ packages:
     dependency: transitive
     description:
       name: win32
-      sha256: "329edf97fdd893e0f1e3b9e88d6a0e627128cc17cc316a8d67fda8f1451178ba"
+      sha256: "66814138c3562338d05613a6e368ed8cfb237ad6d64a9e9334be3f309acfca03"
       url: "https://pub.dev"
     source: hosted
-    version: "5.13.0"
+    version: "5.14.0"
   xml:
     dependency: transitive
     description:

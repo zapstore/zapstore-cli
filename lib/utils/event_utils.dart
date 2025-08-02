@@ -129,7 +129,7 @@ void exitWithWarning(String identifier, String v1, String v2) {
         '⚠️  ${identifier.bold()}: Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
     stderr.writeln(msg);
   }
-  throw GracefullyAbortSignal();
+  exit(0);
 }
 
 void exitWithVersionCodeWarning(String identifier, int v1, int v2) {
@@ -138,7 +138,7 @@ void exitWithVersionCodeWarning(String identifier, int v1, int v2) {
         '⚠️  ${identifier.bold()}: Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.';
     stderr.writeln(msg);
   }
-  throw GracefullyAbortSignal();
+  exit(0);
 }
 
 void printJsonEncodeColored(Object obj) {

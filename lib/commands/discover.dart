@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cli_spin/cli_spin.dart';
 import 'package:interact_cli/interact_cli.dart';
 import 'package:models/models.dart';
@@ -24,7 +26,7 @@ Future<void> discover() async {
 
   if (apps.isEmpty) {
     spinner.fail('No packages found');
-    throw GracefullyAbortSignal();
+    exit(0);
   }
 
   spinner.success('Found some cool stuff\n');

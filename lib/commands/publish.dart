@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -166,20 +167,18 @@ Okay?''',
           ).interact();
 
       if (!proceed) {
-        throw GracefullyAbortSignal();
+        exit(0);
       }
-
-      linkAppAndRelease(
-        partialApp: partialModels.whereType<PartialApp>().first,
-        partialRelease: partialModels.whereType<PartialRelease>().first,
-        signingPubkey: signer.pubkey,
-      );
     }
 
-    for (final model in partialModels) {
-      print(model);
+    final signedModels = await signModels(
+      signer: signer,
+      partialModels: partialModels,
+    );
+    for (final model in signedModels) {
+      print(jsonEncode(model.toMap()));
     }
-    throw GracefullyAbortSignal();
+    exit(0);
   }
 
   Future<void> _previewRelease() async {
@@ -203,7 +202,7 @@ Okay?''',
         serverIsolate.kill(priority: Isolate.immediate);
 
         if (!ok) {
-          throw GracefullyAbortSignal();
+          exit(0);
         }
       }
     }
@@ -277,7 +276,7 @@ Okay?''',
           defaultValue: true,
         ).interact();
       } else if (viewEvents == 2) {
-        throw GracefullyAbortSignal();
+        exit(0);
       }
     }
 

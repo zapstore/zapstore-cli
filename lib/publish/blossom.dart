@@ -117,12 +117,12 @@ class BlossomClient {
               uploadSpinner.fail(
                 'You are unauthorized to upload $assetName to $server. Server operator may require pubkey whitelisting.',
               );
-              throw GracefullyAbortSignal();
+              exit(0);
             case HttpStatus.unsupportedMediaType:
               uploadSpinner.fail(
                 'Media type (${authorization.mimeType}) for $assetName is unsupported by $server',
               );
-              throw GracefullyAbortSignal();
+              exit(0);
             default:
               throw 'Error uploading $assetName to $server: status code ${response.statusCode}, hash: $assetHash';
           }

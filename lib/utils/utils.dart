@@ -65,8 +65,6 @@ void requireSignWith() {
   }
 }
 
-class GracefullyAbortSignal extends Error {}
-
 const kAndroidMimeType = 'application/vnd.android.package-archive';
 const kArchiveMimeTypes = [
   'application/zip',
