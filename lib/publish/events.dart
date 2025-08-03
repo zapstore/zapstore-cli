@@ -177,7 +177,7 @@ class NpubFakeSigner extends Signer {
     List<PartialModel<Model<dynamic>>> partialModels,
   ) async {
     return partialModels
-        .map((partialModel) => signSync<E>(partialModel, pubkey: _pubkey!))
+        .map((partialModel) => signSync<E>(partialModel, pubkey: _pubkey))
         .cast<E>()
         .toList();
   }

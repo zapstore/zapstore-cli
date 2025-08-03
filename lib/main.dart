@@ -13,12 +13,11 @@ import 'package:zapstore_cli/commands/list.dart';
 import 'package:zapstore_cli/commands/publish.dart';
 import 'package:zapstore_cli/commands/remove.dart';
 import 'package:zapstore_cli/commands/zap.dart';
-import 'package:zapstore_cli/utils/utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:purplebase/purplebase.dart';
 
 // (!) Also update pubspec.yaml AND zapstore.yaml (!)
-const kVersion = '0.2.3';
+const kVersion = '0.2.4';
 
 final DotEnv env = DotEnv(includePlatformEnvironment: true, quiet: true)
   ..load();
