@@ -50,16 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More robust metadata fetcher
 - Github parser pre-release support
 
-## [0.2.0]
+## [0.2.0] - 2025-06-17
 
 - Bugfix: Github parser adding path instead of hash
 - Improvement: Allow Blossom uploads for all parsers
 
-## [0.2.0-rc4]
+## [0.2.0-rc4] - 2025-06-15
 
 - Bugfix: Auto-update failure based on Platform.script reported path
 
-## [0.2.0-rc3]
+## [0.2.0-rc3] - 2025-06-11
 
 - Feature: Implement Gitlab parser (#15)
 - Feature: Implement F-Droid/Izzy metadata fetcher (#9)
@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bugfix: Events printed to stdout missing links
 - Bugfix: Broken daemon mode
 
-## [0.2.0-rc2]
+## [0.2.0-rc2] - 2025-05-21
 
 - Improvement: Sending events to stdout
 - Bugfix: WoT failure upon install
@@ -81,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improvement: Add signer in install
 - Feature: Zap a package: `zapstore zap`
 
-## [0.2.0-rc1]
+## [0.2.0-rc1] - 2025-05-20
 
 - Feature: New `AssetParser` base class for streamlined local and web asset handling
 - Improvement: Implement metadata fetchers for various sources (GitHub, Play Store, etc)
