@@ -43,15 +43,17 @@ Future<String> fetchFile(
   }
 
   var downloadedBytes = 0;
-  final totalBytes = response.contentLength!;
+  final totalBytes = response.contentLength;
 
   sub = response.stream.listen(
     (chunk) {
       final data = Uint8List.fromList(chunk);
       buffer.add(data);
       downloadedBytes += data.length;
-      spinner?.text =
-          '$initialText ${downloadedBytes.toMB()} (${(downloadedBytes / totalBytes * 100).floor()}%)';
+      spinner?.text = '$initialText ${downloadedBytes.toMB()}';
+      if (totalBytes != null) {
+        spinner?.text += ' (${(downloadedBytes / totalBytes * 100).floor()}%)';
+      }
     },
     onError: (e) {
       throw e;
