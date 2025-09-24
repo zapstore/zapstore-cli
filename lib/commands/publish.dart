@@ -75,22 +75,30 @@ class Publisher {
   }
 
   Future<void> _validateAndFindParser() async {
-    final configYaml = File(configPath);
     late YamlMap yamlAppMap;
-
-    if (!await configYaml.exists()) {
+    String? stdinYaml;
+    if (!stdin.hasTerminal) {
+      stdinYaml = await stdin.transform(utf8.decoder).join();
+    }
+    final useStdin = stdinYaml != null && stdinYaml.trim().isNotEmpty;
+    final file = File(configPath);
+    final rawYaml = useStdin
+        ? stdinYaml
+        : (await file.exists() ? await file.readAsString() : null);
+    if (rawYaml == null) {
       throw UsageException(
         'Config not found at $configPath',
         'Please create a zapstore.yaml config file in this directory or pass it using `-c`.',
       );
     }
-
     try {
-      yamlAppMap = loadYaml(await configYaml.readAsString()) as YamlMap;
+      yamlAppMap = loadYaml(rawYaml) as YamlMap;
     } catch (e) {
       throw UsageException(
         e.toString(),
-        'Provide a valid zapstore.yaml config file.',
+        useStdin
+            ? 'Provide valid YAML via stdin.'
+            : 'Provide a valid zapstore.yaml config file.',
       );
     }
 
