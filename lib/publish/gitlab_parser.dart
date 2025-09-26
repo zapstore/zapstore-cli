@@ -66,24 +66,23 @@ class GitlabParser extends AssetParser {
     final assetHashes = <String>{};
     final assets =
         <String, dynamic>{...releaseJson!['assets']}['links'] as Iterable;
-
-    final someAssetHasArm64v8a = assets.any(
-      (a) => kIsArm64Regex.hasMatch(a['name'].toString()),
+    final someAssetHasArm64 = assets.any(
+      (a) => kIsArm64Regex.hasMatch(_getNameFromAsset(a)),
     );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
-        if (someAssetHasArm64v8a) {
+        if (someAssetHasArm64) {
           // On Android, Zapstore only supports arm64-v8a
           // If the developer uses "arm64-v8a" in any filename then assume
           // they publish split ABIs, so we discard non-arm64-v8a ones.
           // This is done to minimize the amount of universal builds
           // we don't want (as in the UI they would show up as variants,
           // but also to prevent downloading useless APKs).
-          return kIsArm64Regex.hasMatch(a['name'].toString()) &&
-              r.hasMatch(a['name']);
+          return kIsArm64Regex.hasMatch(_getNameFromAsset(a)) &&
+              r.hasMatch(_getNameFromAsset(a));
         }
-        return r.hasMatch(a['name']);
+        return r.hasMatch(_getNameFromAsset(a));
       }).toSet();
 
       if (matchedAssets.isEmpty) {
@@ -129,5 +128,9 @@ class GitlabParser extends AssetParser {
     await super.applyFileMetadata(
       defaultAppName: repositoryName.split('%2F').lastOrNull,
     );
+  }
+
+  String _getNameFromAsset(Map m) {
+    return m['url'].toString().split('/').last;
   }
 }

@@ -11,7 +11,7 @@ import 'package:zapstore_cli/utils/file_utils.dart';
 import 'package:zapstore_cli/utils/mime_type_utils.dart';
 import 'package:zapstore_cli/utils/utils.dart';
 
-final kIsArm64Regex = RegExp(r'.*arm64-v8a.*apk$');
+final kIsArm64Regex = RegExp(r'.*arm64.*apk$');
 
 class GithubParser extends AssetParser {
   GithubParser(super.appMap) {
@@ -108,14 +108,14 @@ class GithubParser extends AssetParser {
     final assetHashes = <String>{};
     final assets = [...releaseJson!['assets']];
 
-    final someAssetHasArm64v8a = assets.any(
+    final someAssetHasArm64 = assets.any(
       (a) => kIsArm64Regex.hasMatch(_getNameFromAsset(a)),
     );
 
     for (final r in assetRegexps) {
       final matchedAssets = assets.where((a) {
         final name = _getNameFromAsset(a);
-        if (someAssetHasArm64v8a) {
+        if (someAssetHasArm64) {
           // On Android, Zapstore only supports arm64-v8a
           // If the developer uses "arm64-v8a" in any filename then assume
           // they publish split ABIs, so we discard non-arm64-v8a ones.
@@ -181,12 +181,7 @@ class GithubParser extends AssetParser {
   }
 
   String _getNameFromAsset(Map m) {
-    if (m.containsKey('label') &&
-        m['label'] != null &&
-        m['label'].toString().isNotEmpty) {
-      return m['label'].toString();
-    }
-    return m['name']!.toString();
+    return m['name'] ?? m['label'];
   }
 
   Map<String, dynamic>? _findRelease(Iterable releases) {
