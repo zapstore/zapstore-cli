@@ -27,14 +27,14 @@ class WebParser extends AssetParser {
       ).start();
 
       final [endpoint, selector, attribute, ...rest] = versionSpec;
-      final request = http.Request('GET', Uri.parse(endpoint))
-        ..followRedirects = false;
-
-      final response = await http.Client().send(request);
 
       RegExpMatch? match;
       if (rest.isEmpty) {
         // If versionSpec has 3 positions, it's a: JSON endpoint (HTTP 2xx) or headers (HTTP 3xx)
+        // Do not follow redirect
+        final request = http.Request('GET', Uri.parse(endpoint))
+          ..followRedirects = false;
+        final response = await http.Client().send(request);
         if (response.isRedirect) {
           final raw = response.headers[selector]!;
           match = RegExp(attribute).firstMatch(raw);
@@ -49,6 +49,10 @@ class WebParser extends AssetParser {
         }
       } else {
         // If versionSpec has 4 positions, it's an HTML endpoint
+        // Do follow redirect
+        final request = http.Request('GET', Uri.parse(endpoint))
+          ..followRedirects = true;
+        final response = await http.Client().send(request);
         final body = await response.stream.bytesToString();
         final elem = parseHtmlDocument(body).querySelector(selector.toString());
         if (elem != null) {
