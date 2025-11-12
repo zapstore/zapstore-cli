@@ -95,78 +95,93 @@ Run `zapstore --help` for more information.
 
 Run `zapstore publish` in a folder with a `zapstore.yaml` config file. Alternatively supply its location via the `-c` argument.
 
-Example of a minimal config. The `assets` list is required.
+### Quickstart: ship your first Android release
+
+1. **Build your APK**  
+   `./gradlew assembleRelease` or `flutter build apk --release`.
+2. **Create `zapstore.yaml`** in the same directory:
+
+   ```yaml
+   name: Sample
+   repository: https://github.com/sample/android
+   assets:
+     - build/app/outputs/flutter-apk/.*arm64-v8a\.apk
+   icon: assets/images/icon.png
+   summary: Sample summary shown in Zapstore
+   ```
+
+3. **Export a signer**  
+   `export SIGN_WITH=nsec1xxxx` (or `NIP07`, `bunker://...`, etc.).
+4. **Publish**  
+   `zapstore publish --config zapstore.yaml --overwrite-app --overwrite-release`.
+5. **Verify in Zapstore Android**  
+   Confirm metadata, screenshots, and install/update flows before announcing the release.
+
+### CI/CD example (GitHub Actions)
 
 ```yaml
-assets:
-  - output/.*.apk
+name: Publish to Zapstore
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+      - run: flutter build apk --release --split-per-abi
+      - run: dart pub get
+      - name: Download zapstore-cli
+        run: curl -sL https://zapstore.dev/download/linux-x86_64 -o zapstore && chmod +x zapstore
+      - name: Publish release
+        env:
+          SIGN_WITH: ${{ secrets.ZAPSTORE_SIGNER }}
+        run: ./zapstore publish --config zapstore.yaml --indexer-mode --overwrite-release
 ```
 
-Convention over configuration is the way. The main `AssetParser` aims to require as little information as possible to work. It will extract as much information as possible from supplied assets, particularly from Android APKs.
+Tips:
+- Use `--indexer-mode` in CI to disable interactive prompts.
+- Prefer `--no-overwrite-app` when only release assets change.
+- Store `SIGN_WITH` in encrypted secrets; never echo it to logs.
 
-Most properties can be overridden in the configuration, and additional information can be pulled from remote metadata sources such as Github and Google Play Store.
+### `zapstore.yaml` reference
 
-The asset parser has two additional subclasses: `GithubParser` and `WebParser`. In the remainder of this documentation we will focus on local (default) and Github parsing.
+| Field | Required | Applies to | Description |
+| ----- | -------- | ---------- | ----------- |
+| `name` | Optional | All | Display name in Zapstore. Derived from identifier or metadata when omitted. |
+| `identifier` | Optional (Android) / Recommended (CLI) | All | Populates the `d` tag. Auto-extracted from APK manifest or repo slug. |
+| `version` | CLI-only | CLI | Semantic version string. Android versions are read from APKs. |
+| `summary` | Optional | All | Short tagline for cards. Defaults to `description` or remote metadata. |
+| `description` | Optional | All | Markdown detail section. |
+| `repository` | Optional but recommended | All | Source repo URL. Required for GitHub/GitLab asset scraping. |
+| `release_repository` | Optional | All | Secondary repo for releases (useful for closed-source builds). |
+| `homepage` | Optional | All | Marketing/landing page URL. |
+| `images` | Optional | All | Relative paths or absolute URLs to screenshots. |
+| `icon` | Optional | All | Relative path or absolute URL to the icon shown in listings. |
+| `changelog` | Optional | All | Local path to release notes (defaults to `CHANGELOG.md`). |
+| `tags` | Optional | All | Space-delimited keywords aiding discovery. |
+| `license` | Optional | All | SPDX identifier rendered in the detail view. |
+| `remote_metadata` | Optional | All | List of sources (`playstore`, `fdroid`, `github`, `gitlab`) used to fill missing fields. |
+| `blossom_server` | Optional | All | Blossom upload endpoint (default `https://cdn.zapstore.dev`). |
+| `assets` | **Required** | All | Regex list of binaries to ship. Local paths must include `/`. |
+| `executables` | Optional | CLI archives | Regex list of in-archive executables exposed when installing CLI apps. |
 
-**If `assets` contain a forward-slash they are considered to be local, otherwise they are looked up on Github, provided there is a defined `repository`.**
+Parser behavior:
+- If an `assets` entry contains `/`, the **local parser** is used and paths are resolved relative to the config directory.
+- Entries without `/` are treated as remote assets pulled from GitHub/GitLab releases (requires `repository`).
+- HTTP(S) entries trigger the **Web parser**.
+- Omitting `assets` defaults to a single `.*`, meaning “attach every asset from the remote release.”
 
-Below is a full config example with all supported properties:
+Convention over configuration remains the goal. The main `AssetParser` extracts as much as possible—especially for Android APKs—so you only override fields the parser cannot infer.
 
-```yaml
-identifier: com.sample.app
-version: 1.0.0
-name: Sample
-summary: Sample summary
-description: Just a sample APK
-repository: https://github.com/sample/android
-release_repository: https://github.com/sample/android-releases
-homepage: https://zapstore.dev
-images:
-  - test/assets/i1.jpg
-  - test/assets/i2.jpg
-icon: test/assets/icon.png
-changelog: CHANGELOG.md
-tags: freedom-tech sample android
-license: MIT
-remote_metadata:
-  - playstore
-  - github
-blossom_server: https://cdn.zapstore.dev
-assets: # for local (relative to config file path!)
-  - test/assets/.*.apk
-# or
-assets: # for github
-  - \d+\.\d+\.\d+-arm64-v8a.apk
-executables:
-  - ^sample-.*
-```
+Supported archive formats: ZIP and TAR (optionally gz/bz2/xz compressed). Use `executables` to restrict which files inside an archive become install targets.
 
-Notes on properties:
-  - `identifier`: Main identifier that will become the `d` tag in the app event. Mostly useful for CLI apps, in Android identifier will be extracted from the APK. Can be derived from the last bit of `repository` if on Github, or from `name`.
-  - `version`: Version being published, not allowed on Android as version will be extracted from the APK. Useful for CLI apps published from a local source
-  - `name`: App name, if not supplied it will be derived from the identifier. Can be pulled via remote metadata like Google Play Store, for example
-  - `summary`: Short sentence describing this app. Can be pulled from remote metadata.
-  - `description`: Longer description of the app, markdown allowed. Can be pulled from remote metadata. Can be derived from `summary`.
-  - `repository`: Source repository. If on `github.com`, releases will be looked up via Github API
-  - `release_repository`: If source repository is missing (closed source apps) or releases are found here instead
-  - `homepage`: App website
-  - `images`: List of image paths. Local paths or remote URLs supported. Must be relative to the config file directory
-  - `icon`: Icon path. Local paths or remote URLs supported. Must be relative to the config file directory
-  - `changelog`: Local path to the changelog in the [Keep a Changelog](https://keepachangelog.com) format, release notes for the resolved version can be extracted from here, defaults to `CHANGELOG.md`
-  - `tags`: String with tags related to the app, separated by a space
-  - `license`: Project license in [SPDX](https://spdx.org/licenses/) identifier format
-  - `remote_metadata`: List of remote metadata sources, currently supported: `playstore`, `fdroid` (also checks Izzy), `github`, `gitlab`
-  - `blossom_server`: The Blossom server where to upload assets. Includes `icon` and `images`, whether local or pulled via `remote_metadata`. If any upload fails the program will exit as events contain URLs to this Blossom server which need to be valid.
-  - `assets`: List of paths to assets **as regular expressions**.
-    - If paths contain a forward-slash they will trigger the local asset parser. All asset paths are relative to the config path directory
-    - If they do not contain forward-slashes, the Github/Gitlab parsers will be used (as long as there is a repository with a `github.com` or `gitlab.com` host).
-    - If they are another HTTP URI, the Web parser.
-    - If omitted, the list defaults to a single `.*` which means all assets in Github/Gitlab release, if applicable.
-  - `executables`: Strictly for CLI apps that are packaged as a compressed archive, a list of in-archive paths as regular expressions. If omitted, all supported executables (see supported platforms above) inside the archive will be linked and installed.
-
-Supported compressed archive formats: ZIP, and TAR, XZ, BZIP2 (gzipped or not).
-
-If you need assistance producing a `zapstore.yaml` config file, please reach out via nostr.
+If you need assistance producing a `zapstore.yaml`, reach out via nostr.
 
 ### Real world examples
 
