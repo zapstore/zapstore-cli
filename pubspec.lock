@@ -457,7 +457,7 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: "0b74cd9387519afc85551dac3d8e73258271d4f0"
+      resolved-ref: e4fcb83be31585c99f8caa7f31ab66b91a552fa2
       url: "https://github.com/purplebase/nip07_signer"
     source: git
     version: "0.2.0"

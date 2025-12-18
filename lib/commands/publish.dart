@@ -41,7 +41,7 @@ class Publisher {
     // (4) Sign events (or send to stdout for external signing)
     signer = getSignerFromString(env['SIGN_WITH']!);
 
-    _handleEventsToStdout();
+    await _handleEventsToStdout();
 
     late final List<Model<dynamic>> signedModels;
     await withSigner(signer, (signer) async {
@@ -147,6 +147,7 @@ class Publisher {
   }
 
   Future<void> _handleEventsToStdout() async {
+    // Only handle stdout output for npub signers (external signing workflow)
     if (signer is! NpubFakeSigner) {
       return;
     }
@@ -157,6 +158,7 @@ class Publisher {
       final partialBlossomAuthorizations = partialModels
           .whereType<PartialBlossomAuthorization>();
       final proceed =
+          !canInteract ||
           isIndexerMode ||
           honor ||
           Confirm(
@@ -184,13 +186,14 @@ Okay?''',
       partialModels: partialModels,
     );
     for (final model in signedModels) {
-      print(jsonEncode(model.toMap()));
+      stdout.writeln(jsonEncode(model.toMap()));
     }
+    await stdout.flush();
     exit(0);
   }
 
   Future<void> _previewRelease() async {
-    if (!isIndexerMode) {
+    if (canInteract && !isIndexerMode) {
       final preview = Confirm(
         prompt: 'Preview the release in a web browser?',
         defaultValue: true,
@@ -230,7 +233,7 @@ Okay?''',
   ) async {
     var publishEvents = true;
 
-    if (!isIndexerMode) {
+    if (canInteract && !isIndexerMode) {
       final relayUrls = storage.config.getRelays();
 
       final viewEvents = Select(

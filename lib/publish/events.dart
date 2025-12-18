@@ -122,6 +122,7 @@ Signer getSignerFromString(String signWith) {
 Future<void> withSigner(Signer signer, Future Function(Signer) callback) async {
   if (signer is NIP07Signer) {
     final ok =
+        !canInteract ||
         isIndexerMode ||
         Confirm(
           prompt:
@@ -222,7 +223,7 @@ class NakNIP46Signer extends Signer {
     String? withPubkey,
   }) async {
     final result = await run(
-      'nak event --sec $connectionString',
+      'nak event --sec \'$connectionString\'',
       runInShell: true,
       verbose: false,
       stdin: Stream.value(

@@ -175,11 +175,13 @@ Future<void> install(
         }
 
         if (signer is NIP07Signer) {
-          final ok = Confirm(
-            prompt:
-                'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
-            defaultValue: true,
-          ).interact();
+          final ok =
+              !stdin.hasTerminal ||
+              Confirm(
+                prompt:
+                    'This will launch a server at localhost:17007 and open a browser window for signing with a NIP-07 extension. Okay?',
+                defaultValue: true,
+              ).interact();
           if (!ok) {
             wotSpinner.fail('Skipping check');
             return false;

@@ -189,6 +189,7 @@ late bool overwriteApp;
 late bool overwriteRelease;
 late final bool isIndexerMode;
 late final bool honor;
+late final bool canInteract;
 
 bool get isNewNipFormat => env['NEW_FORMAT'] != null;
 // If old format and requested not to update app, should get latest version and update its release link
@@ -244,6 +245,8 @@ class PublishCommand extends Command {
     overwriteRelease = argResults!.flag('overwrite-release');
 
     isIndexerMode = argResults!.flag('indexer-mode');
+    // Check if stdin is available for interactive prompts before it may be consumed
+    canInteract = stdin.hasTerminal;
 
     honor = argResults!.flag('honor');
 

@@ -124,20 +124,18 @@ String formatProfile(Profile? profile, {bool url = true}) {
 }
 
 void exitWithWarning(String identifier, String v1, String v2) {
-  if (!isIndexerMode) {
-    final msg =
-        '⚠️  ${identifier.bold()}: Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
-    stderr.writeln(msg);
-  }
+  final msg = isIndexerMode
+      ? '$identifier: Release version $v1 is on relays and you want to publish $v2. Use --overwrite-release to skip this check.'
+      : '⚠️  ${identifier.bold()}: Release version ${v1.bold()} is on relays and you want to publish ${v2.bold()}. Use --overwrite-release to skip this check.';
+  stderr.writeln(msg);
   exit(0);
 }
 
 void exitWithVersionCodeWarning(String identifier, int v1, int v2) {
-  if (!isIndexerMode) {
-    final msg =
-        '⚠️  ${identifier.bold()}: Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.';
-    stderr.writeln(msg);
-  }
+  final msg = isIndexerMode
+      ? '$identifier: Android version code $v1 is on relays and you want to publish $v2. Use --overwrite-release to skip this check.'
+      : '⚠️  ${identifier.bold()}: Android version code ${v1.toString().bold()} is on relays and you want to publish ${v2.toString().bold()}. Use --overwrite-release to skip this check.';
+  stderr.writeln(msg);
   exit(0);
 }
 
