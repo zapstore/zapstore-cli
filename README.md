@@ -271,8 +271,6 @@ The ability of pasting an nsec found in previous versions was removed. If you do
 
 The program does not save any `SIGN_WITH` value or send it anywhere.
 
-Signed events are only published to `relay.zapstore.dev` for now (this will change in the near future). Your pubkey must be whitelisted by Zapstore in order for your events to be accepted. Get in touch!
-
 #### Sending unsigned events to stdout
 
 Events can be produced and printed to stdout unsigned, so it's possible to pipe to `nak` or other signers:
