@@ -169,8 +169,6 @@ class GithubParser extends AssetParser {
         DateTime.tryParse(releaseJson?['published_at']) ?? DateTime.now();
 
     partialRelease.url = releaseJson?['html_url'];
-    // Add an r (queryable) tag, regardless of NIP format
-    partialRelease.event.setTagValue('r', releaseJson?['html_url']);
 
     // Github does not provide an actual commit
     partialRelease.commitId = releaseJson?['tag_name'];

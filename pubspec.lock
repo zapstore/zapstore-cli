@@ -446,11 +446,9 @@ packages:
   models:
     dependency: "direct main"
     description:
-      path: "."
-      ref: main
-      resolved-ref: dd9d8043977308e95ea1cf1ae106bc090306307e
-      url: "https://github.com/purplebase/models"
-    source: git
+      path: "../../purplebase/models"
+      relative: true
+    source: path
     version: "0.3.3"
   nip07_signer:
     dependency: "direct main"
@@ -461,15 +459,6 @@ packages:
       url: "https://github.com/purplebase/nip07_signer"
     source: git
     version: "0.2.0"
-  nip44:
-    dependency: transitive
-    description:
-      path: dart
-      ref: "3b40d453c772ad10b57b81762d5b56e80aa1facb"
-      resolved-ref: "3b40d453c772ad10b57b81762d5b56e80aa1facb"
-      url: "https://github.com/paulmillr/nip44.git"
-    source: git
-    version: "1.0.0"
   node_preamble:
     dependency: transitive
     description:
@@ -545,11 +534,9 @@ packages:
   purplebase:
     dependency: "direct main"
     description:
-      path: "."
-      ref: master
-      resolved-ref: dab3602c49c06ab885aa0b47c5dc06438d05cdf3
-      url: "https://github.com/purplebase/purplebase"
-    source: git
+      path: "../../purplebase/purplebase"
+      relative: true
+    source: path
     version: "0.3.3"
   qr:
     dependency: transitive
@@ -787,10 +774,10 @@ packages:
     dependency: transitive
     description:
       name: web_socket
-      sha256: "34d64019aa8e36bf9842ac014bb5d2f5586ca73df5e4d9bf5c936975cae6982c"
+      sha256: "3c12d96c0c9a4eec095246debcea7b86c0324f22df69893d538fcc6f1b8cce83"
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.1"
+    version: "0.1.6"
   web_socket_channel:
     dependency: transitive
     description:
@@ -799,14 +786,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
-  web_socket_client:
-    dependency: transitive
-    description:
-      name: web_socket_client
-      sha256: "394789177aa3bc1b7b071622a1dbf52a4631d7ce23c555c39bb2523e92316b07"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.1"
   webkit_inspection_protocol:
     dependency: transitive
     description:

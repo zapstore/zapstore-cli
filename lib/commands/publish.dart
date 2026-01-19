@@ -234,7 +234,7 @@ Okay?''',
     var publishEvents = true;
 
     if (canInteract && !isIndexerMode) {
-      final relayUrls = storage.config.getRelays();
+      final relayUrls = await storage.resolveRelays('default');
 
       final viewEvents = Select(
         prompt: 'Ready to publish! How do you want to proceed?',

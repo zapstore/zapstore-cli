@@ -1,5 +1,3 @@
-repository: https://github.com/ZeusLN/zeus
+repository: https://github.com/nostrband/nostr-universe
 assets:
-  - .*.apk$
-remote_metadata:
-  - playstore
+  - spring-nostr-browser-v\d+\.\d+(\.\d+)?(\.\d+)?.apk$

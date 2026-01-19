@@ -20,14 +20,14 @@ Future<void> zap() async {
     RequestFilter<App>(
       tags: {'#d': db.values.map((p) => p.identifier).toSet()},
     ).toRequest(),
-    source: RemoteSource(group: 'zapstore'),
+    source: RemoteSource(relays: 'zapstore'),
   );
 
   final profiles = await storage.query(
     RequestFilter<Profile>(
       authors: apps.map((a) => a.event.pubkey).toSet(),
     ).toRequest(),
-    source: RemoteSource(group: 'vertex'),
+    source: RemoteSource(relays: 'vertex'),
   );
 
   final appIds = [
@@ -62,9 +62,7 @@ Future<void> zap() async {
   partialZapRequest.event.addTagValue('e', app.event.id);
   partialZapRequest.event.addTagValue('p', app.event.pubkey);
   partialZapRequest.amount = amountInSats * 1000;
-  partialZapRequest.relays = storage.config.getRelays(
-    source: RemoteSource(group: 'social'),
-  );
+  partialZapRequest.relays = await storage.resolveRelays('social');
   partialZapRequest.comment = comment;
 
   final zapRequest = await partialZapRequest.signWith(signer);
@@ -97,7 +95,7 @@ Future<void> zap() async {
         },
         limit: 1,
       ).toRequest(),
-      source: LocalAndRemoteSource(group: 'social'),
+      source: LocalAndRemoteSource(relays: 'social'),
     );
     if (zaps.isNotEmpty) {
       if (zaps.first.zapRequest.value == zapRequest) {

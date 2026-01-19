@@ -242,12 +242,11 @@ Future<void> initializeStorage({bool inMemory = false}) async {
 
   final config = StorageConfiguration(
     databasePath: inMemory ? null : path.join(kBaseDir, 'zapstore.db'),
-    relayGroups: {
-      'zapstore': defaultAppRelays,
+    defaultRelays: {
+      'default': defaultAppRelays,
       'vertex': {'wss://relay.vertexlab.io'},
-      'social': {'wss://relay.primal.net'},
+      'social': {'wss://relay.primal.net', 'wss://relay.damus.io'},
     },
-    defaultRelayGroup: 'zapstore',
   );
 
   await storage.initialize(config);

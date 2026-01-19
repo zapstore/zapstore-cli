@@ -116,12 +116,7 @@ class WebParser extends AssetParser {
 
   @override
   Future<void> applyFileMetadata({String? defaultAppName}) {
-    // If the asset URL is not static (i.e. contains a $version)
-    // then we add it as an r (queryable) tag
-    partialRelease.event.setTagValue(
-      'r',
-      _getFirstAssetWithVersion(releaseVersion!),
-    );
+    partialRelease.url = appMap['version']?[0];
 
     return super.applyFileMetadata();
   }

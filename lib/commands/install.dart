@@ -96,7 +96,7 @@ Future<void> install(
 
   final profiles = await storage.query(
     RequestFilter<Profile>(authors: {signerPubkey}).toRequest(),
-    source: RemoteSource(group: 'vertex'),
+    source: RemoteSource(relays: 'vertex'),
   );
   final signerProfile = profiles.firstOrNull;
 
@@ -210,7 +210,7 @@ Future<void> install(
 
         final relevantProfiles = await storage.query(
           RequestFilter<Profile>(authors: pubkeys).toRequest(),
-          source: RemoteSource(group: 'vertex'),
+          source: RemoteSource(relays: 'vertex'),
         );
 
         wotSpinner.success();

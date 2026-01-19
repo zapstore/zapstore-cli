@@ -95,12 +95,12 @@ class AssetParser {
           ..repository = m.repository
           ..platforms = m.platforms
           ..executables = m.executables
-          ..minOSVersion = m.minSdkVersion
-          ..targetOSVersion = m.targetSdkVersion
+          ..minPlatformVersion = m.minSdkVersion
+          ..targetPlatformVersion = m.targetSdkVersion
           ..appIdentifier = m.appIdentifier
           ..version = m.version
           ..versionCode = m.versionCode
-          ..apkSignatureHash = m.apkSignatureHash
+          ..apkCertificateHashes = {m.apkSignatureHash!}
           ..filename = m.transientData['filename'];
         partialSoftwareAssets.add(partialSoftwareAsset);
       }
