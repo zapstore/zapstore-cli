@@ -1,6 +1,0 @@
-name: Fountain
-version: ['https://fountain.fm/apk', 'location', 'https://storage.googleapis.com/fountain-fm-builds/android/fountain-(.*).apk']
-assets:
-  - https://storage.googleapis.com/fountain-fm-builds/android/fountain-$version.apk
-remote_metadata:
-  - playstore

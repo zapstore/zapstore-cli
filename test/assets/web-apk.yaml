@@ -1,8 +1,0 @@
-repository: https://github.com/AntennaPod/AntennaPod
-version:
-  - https://f-droid.org/packages/de.danoeh.antennapod/
-  - .package-version-header a[name]:nth-child(2)
-  - name
-  - .*
-assets:
-  - https://f-droid.org/repo/de.danoeh.antennapod_$version.apk

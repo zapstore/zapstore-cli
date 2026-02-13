@@ -1,11 +1,31 @@
-.dart_tool/
-.DS_Store
+# Binaries
+zapstore
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+/build/
+/dist/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE
 .vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Environment
 .env
-
-# FVM Version Cache
-.fvm/
-
-test/assets/apks
-test/assets/*.dylib
-bin/*

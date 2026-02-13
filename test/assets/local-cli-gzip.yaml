@@ -1,7 +1,0 @@
-
-identifier: fzf
-version: 0.62.0
-assets:
-  - ./fzf.*
-executables:
-  - fzf
